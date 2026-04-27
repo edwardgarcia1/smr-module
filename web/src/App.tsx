@@ -20,6 +20,7 @@ import { LinearProgress, Box } from "@mui/material";
 	const Users = lazy(() => import("./pages/Users"));
 	const InventoryItems = lazy(() => import("./pages/InventoryItems"));
 	const Suppliers = lazy(() => import("./pages/Suppliers"));
+	const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 	const Settings = lazy(() => import("./pages/Settings"));
 	const Profile = lazy(() => import("./pages/Profile"));
 
@@ -29,6 +30,7 @@ const TAB_MAP: Record<string, string> = {
 	"/users": "Users",
 	"/inventory-items": "Inventory Items",
 	"/suppliers": "Suppliers",
+	"/purchase-orders": "Purchase Orders",
 	"/settings": "Settings",
 	"/profile": "Profile",
 };
@@ -151,6 +153,14 @@ const AppRoutes: React.FC = () => {
 					element={
 						<AppSuspense>
 							<Suppliers />
+						</AppSuspense>
+					}
+				/>
+				<Route
+					path="/purchase-orders"
+					element={
+						<AppSuspense>
+							<PurchaseOrders />
 						</AppSuspense>
 					}
 				/>
