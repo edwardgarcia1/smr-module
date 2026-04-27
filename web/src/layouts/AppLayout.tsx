@@ -34,7 +34,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentTab = '', isLoad
   const effectiveWidth = collapsed ? collapsedWidth : drawerWidth;
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)' }}>
+    <Box sx={{ display: 'flex', height: '100vh', padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)', bgcolor: 'var(--bg)' }}>
       <AppHeader 
         onMenuClick={handleDrawerToggle} 
         drawerWidth={effectiveWidth} 
@@ -50,7 +50,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, currentTab = '', isLoad
       />
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { md: `calc(100% - ${effectiveWidth}px)` }, overflowX: 'hidden', minWidth: 0 }}
+        sx={{ flexGrow: 1, p: 3, width: { md: `calc(100% - ${effectiveWidth}px)` }, overflowX: 'hidden', minWidth: 0, bgcolor: 'var(--bg)' }}
       >
         <Box sx={{ height: 64 }} />
         {children}
