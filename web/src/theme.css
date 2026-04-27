@@ -10,6 +10,13 @@
 	--social-bg: rgba(244, 243, 236, 0.5);
 	--shadow:
 		rgba(0, 0, 0, 0.1) 0 5px 10px -3px, rgba(0, 0, 0, 0.05) 0 2px 3px -1px;
+
+	/* Sidebar variables - light theme */
+	--sidebar-bg: #1e3a5f;
+	--sidebar-text: #ffffff;
+	--sidebar-icon: #ffffff;
+	--sidebar-selected-bg: #2c5282;
+	--sidebar-selected-text: #ffffff;
 }
 
 /* Light mode scrollbar */
@@ -43,6 +50,13 @@ html.dark-mode {
 	--social-bg: rgba(47, 48, 58, 0.5);
 	--shadow:
 		rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+	/* Sidebar variables - dark theme (unchanged appearance) */
+	--sidebar-bg: #16171d; /* same as --bg */
+	--sidebar-text: #9ca3af; /* same as --text */
+	--sidebar-icon: #9ca3af; /* same as --text */
+	--sidebar-selected-bg: #2e303a; /* same as --border */
+	--sidebar-selected-text: #f3f4f6; /* same as --text-h */
 }
 
 /* Dark mode scrollbar */
