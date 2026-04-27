@@ -5,6 +5,7 @@ import {
 	Typography,
 	IconButton,
 	Skeleton,
+	Box,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 
@@ -23,6 +24,13 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 	onCollapseClick,
 	isLoading = false,
 }) => {
+	const currentDate = new Date().toLocaleDateString("en-PH", {
+		weekday: "long",
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+	});
+
 	return (
 		<AppBar
 			position="fixed"
@@ -67,6 +75,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 						{currentTab || "Fullstack Starter"}
 					</Typography>
 				)}
+				<Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
+					<Typography
+						variant="body1"
+						sx={{
+							fontSize: 13,
+							color: "var(--text)",
+							opacity: 0.5,
+							fontWeight: 400,
+						}}
+					>
+						{currentDate}
+					</Typography>
+				</Box>
 			</Toolbar>
 		</AppBar>
 	);
