@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Fullstack Starter</title>
+		<style>
+			/* 1. Default styles (Light Mode) */
+			body {
+				margin: 0;
+				background-color: #ffffff;
+				color: #000000;
+				transition: background-color 0s;
+			}
+
+			/* 2. Dark Mode styles (Applied via class) */
+			html.dark-mode body {
+				background-color: #121212;
+				color: #ffffff;
+				transition: background-color 0s;
+			}
+		</style>
+
+		<!-- 3. Script to check localStorage immediately -->
+		<script>
+			(function () {
+				try {
+					// Get the data from localStorage
+					const storedData = localStorage.getItem("userSettings");
+
+					if (storedData) {
+						const settings = JSON.parse(storedData);
+
+						// If darkMode is true, add 'dark-mode' class to <html>
+						if (settings.darkMode) {
+							document.documentElement.classList.add("dark-mode");
+						}
+					}
+				} catch (e) {
+					console.error("Error reading settings from localStorage", e);
+				}
+			})();
+		</script>
+	</head>
+	<body>
+		<div id="root"></div>
+		<script type="module" src="/src/main.tsx"></script>
+	</body>
+</html>
