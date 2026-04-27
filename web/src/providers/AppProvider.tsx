@@ -55,7 +55,9 @@ const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 	});
 
 	useEffect(() => {
-		if (!darkMode) {
+		if (darkMode) {
+			document.documentElement.classList.add("dark-mode");
+		} else {
 			document.documentElement.classList.remove("dark-mode");
 		}
 	}, [darkMode]);
