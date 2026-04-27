@@ -42,14 +42,61 @@ const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 		return window.matchMedia("(prefers-color-scheme: dark)").matches;
 	});
 
+	// Define theme colors based on CSS variables
+	// Light theme colors
+	const lightPrimary = "#aa3bff"; // accent
+	const lightBg = "#ffffff";
+	const lightText = "#08060d";
+
+	// Dark theme colors
+	const darkPrimary = "#c084fc"; // accent
+	const darkBg = "#16171d"; // dark background
+	const darkText = "#f3f4f6"; // bright text
+
 	const theme = createTheme({
 		palette: {
 			mode: darkMode ? "dark" : "light",
 			primary: {
-				main: "#1976d2",
+				main: darkMode ? darkPrimary : lightPrimary,
+				contrastText: darkMode ? darkBg : lightBg,
 			},
 			secondary: {
-				main: "#dc004e",
+				main: darkMode ? "#c084fc" : "#aa3bff", // accent variant
+			},
+			background: {
+				default: darkMode ? darkBg : lightBg,
+				paper: darkMode ? "#1f2028" : "#f4f3ec", // code-bg
+			},
+			text: {
+				primary: darkMode ? darkText : lightText,
+				secondary: darkMode ? "#9ca3af" : "#6b6375",
+			},
+		},
+		typography: {
+			fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+		},
+		components: {
+			MuiPaper: {
+				styleOverrides: {
+					root: {
+						backgroundColor: darkMode ? "#1f2028" : "#f4f3ec",
+					},
+				},
+			},
+			MuiButton: {
+				styleOverrides: {
+					root: {
+						borderRadius: "8px",
+						textTransform: "none",
+					},
+				},
+			},
+			MuiCard: {
+				styleOverrides: {
+					root: {
+						borderRadius: "12px",
+					},
+				},
 			},
 		},
 	});
