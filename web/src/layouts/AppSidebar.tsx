@@ -126,11 +126,15 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					gap: 1,
 				}}
 			>
-				<Typography variant="h6" component="div">
+				<Typography
+					variant="h6"
+					component="div"
+					sx={{ color: "var(--sidebar-text)" }}
+				>
 					{collapsed ? abbreviation : appName}
 				</Typography>
 			</Box>
-			<Divider />
+			<Divider sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }} />
 			<List sx={{ flexGrow: 1 }}>
 				<ListItemButton
 					selected={isActive("/")}
@@ -140,15 +144,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						my: collapsed ? 1 : 0,
 						borderRadius: 1,
 						mx: collapsed ? 0 : 1,
+						color: "var(--sidebar-text)",
 						"&.Mui-selected": {
-							bgcolor: "action.selected",
+							bgcolor: "var(--sidebar-selected-bg)",
+							color: "var(--sidebar-selected-text)",
 							"&:hover": {
-								bgcolor: "action.selectedHover",
+								bgcolor: "var(--sidebar-selected-bg)",
 							},
 						},
 					}}
 				>
-					<ListItemIcon sx={{ minWidth: 36 }}>
+					<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 						<DashboardIcon sx={{ fontSize: 18 }} />
 					</ListItemIcon>
 					{!collapsed && (
@@ -164,15 +170,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<AssignmentIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -192,15 +200,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<InventoryIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -217,15 +227,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<LocalShippingIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -242,15 +254,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -267,15 +281,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<AttachMoneyIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -292,15 +308,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<PeopleIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -317,15 +335,17 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							my: collapsed ? 1 : 0,
 							borderRadius: 1,
 							mx: collapsed ? 0 : 1,
+							color: "var(--sidebar-text)",
 							"&.Mui-selected": {
-								bgcolor: "action.selected",
+								bgcolor: "var(--sidebar-selected-bg)",
+								color: "var(--sidebar-selected-text)",
 								"&:hover": {
-									bgcolor: "action.selectedHover",
+									bgcolor: "var(--sidebar-selected-bg)",
 								},
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<SettingsIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -334,27 +354,28 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					</ListItemButton>
 				</Can>
 			</List>
-			<Divider />
+			<Divider sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }} />
 			<Accordion
 				sx={{
 					boxShadow: "none",
 					"&:before": { display: "none" },
 					"&.Mui-expanded": { margin: 0 },
+					bgcolor: "var(--sidebar-bg)",
 				}}
 			>
 				<AccordionSummary
-					expandIcon={<ExpandMoreIcon />}
+					expandIcon={<ExpandMoreIcon sx={{ color: "var(--sidebar-icon)" }} />}
 					sx={{
-						px: 2,
-						minHeight: 44,
-						"&.Mui-expanded": { minHeight: 44 },
+						minHeight: 40,
+						"&.Mui-expanded": { minHeight: 50 },
 						display: "flex",
 						alignItems: "center",
-						my: collapsed ? 1 : 0,
+						color: "var(--sidebar-text)",
+						bgcolor: "var(--sidebar-bg)",
 					}}
 				>
 					{!collapsed && (
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<AccountCircleIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 					)}
@@ -362,15 +383,22 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						<Box sx={{ overflow: "hidden" }}>
 							<Typography
 								variant="body2"
-								sx={{ fontWeight: "bold", fontSize: 12 }}
+								sx={{
+									fontWeight: "bold",
+									fontSize: 12,
+									color: "var(--sidebar-text)",
+								}}
 							>
 								{user?.name || user?.username || "User"}
 							</Typography>
 							{user?.username && (
 								<Typography
 									variant="caption"
-									color="text.secondary"
-									sx={{ fontSize: 10 }}
+									sx={{
+										fontSize: 10,
+										color: "var(--sidebar-text)",
+										opacity: 0.7,
+									}}
 								>
 									@{user.username}
 								</Typography>
@@ -378,12 +406,16 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</Box>
 					)}
 				</AccordionSummary>
-				<AccordionDetails sx={{ p: 0 }}>
+				<AccordionDetails sx={{ p: 0, bgcolor: "var(--sidebar-bg)" }}>
 					<ListItemButton
 						onClick={() => handleNav("/profile")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							minHeight: "40px",
+							color: "var(--sidebar-text)",
+						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<AccountCircleIcon sx={{ fontSize: 16 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -392,9 +424,14 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					</ListItemButton>
 					<ListItemButton
 						onClick={handleLogoutClick}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							minHeight: "40px",
+							color: "var(--sidebar-text)",
+							alignItems: "center",
+						}}
 					>
-						<ListItemIcon sx={{ minWidth: 36 }}>
+						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<LogoutIcon sx={{ fontSize: 16 }} />
 						</ListItemIcon>
 						{!collapsed && (
@@ -439,7 +476,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				}}
 				sx={{
 					display: { xs: "block", md: "none" },
-					"& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
+					"& .MuiDrawer-paper": {
+						boxSizing: "border-box",
+						width: drawerWidth,
+						bgcolor: "var(--sidebar-bg)",
+						color: "var(--sidebar-text)",
+					},
 				}}
 				onTouchStart={handleTouchStart}
 				onTouchEnd={handleTouchEnd}
@@ -453,6 +495,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					"& .MuiDrawer-paper": {
 						boxSizing: "border-box",
 						width: effectiveWidth,
+						bgcolor: "var(--sidebar-bg)",
+						color: "var(--sidebar-text)",
 					},
 				}}
 				open
