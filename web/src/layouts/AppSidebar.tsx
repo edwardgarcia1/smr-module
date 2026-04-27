@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
 	Drawer,
 	List,
@@ -54,11 +54,14 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 		.join("")
 		.slice(0, 2);
 	const navigate = useNavigate();
+	const location = useLocation();
 	const ability = useAbility();
 	const user = useAuthStore((state) => state.user);
 	const logout = useAuthStore((state) => state.logout);
 	const collapsedWidth = 56;
 	const effectiveWidth = collapsed ? collapsedWidth : drawerWidth;
+
+	const isActive = (path: string) => location.pathname === path;
 
 	// Swipe handling state
 	const touchStartX = useRef(0);
@@ -130,8 +133,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 			<Divider />
 			<List sx={{ flexGrow: 1 }}>
 				<ListItemButton
+					selected={isActive("/")}
 					onClick={() => handleNav("/")}
-					sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					sx={{
+						py: 0.75,
+						my: collapsed ? 1 : 0,
+						borderRadius: 1,
+						mx: collapsed ? 0 : 1,
+						"&.Mui-selected": {
+							bgcolor: "action.selected",
+							"&:hover": {
+								bgcolor: "action.selectedHover",
+							},
+						},
+					}}
 				>
 					<ListItemIcon sx={{ minWidth: 36 }}>
 						<DashboardIcon sx={{ fontSize: 18 }} />
@@ -142,8 +157,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</ListItemButton>
 				<Can I="read" a="purchasing-requirements" ability={ability}>
 					<ListItemButton
+						selected={isActive("/purchasing-requirements")}
 						onClick={() => handleNav("/purchasing-requirements")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<AssignmentIcon sx={{ fontSize: 18 }} />
@@ -158,8 +185,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="inventory-items" ability={ability}>
 					<ListItemButton
+						selected={isActive("/inventory-items")}
 						onClick={() => handleNav("/inventory-items")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<InventoryIcon sx={{ fontSize: 18 }} />
@@ -171,8 +210,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="suppliers" ability={ability}>
 					<ListItemButton
+						selected={isActive("/suppliers")}
 						onClick={() => handleNav("/suppliers")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<LocalShippingIcon sx={{ fontSize: 18 }} />
@@ -184,8 +235,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
 					<ListItemButton
+						selected={isActive("/purchase-orders")}
 						onClick={() => handleNav("/purchase-orders")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
@@ -197,8 +260,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="prices" ability={ability}>
 					<ListItemButton
+						selected={isActive("/prices")}
 						onClick={() => handleNav("/prices")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<AttachMoneyIcon sx={{ fontSize: 18 }} />
@@ -210,8 +285,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="users" ability={ability}>
 					<ListItemButton
+						selected={isActive("/users")}
 						onClick={() => handleNav("/users")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<PeopleIcon sx={{ fontSize: 18 }} />
@@ -223,8 +310,20 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 				<Can I="read" a="settings" ability={ability}>
 					<ListItemButton
+						selected={isActive("/settings")}
 						onClick={() => handleNav("/settings")}
-						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+						sx={{
+							py: 0.75,
+							my: collapsed ? 1 : 0,
+							borderRadius: 1,
+							mx: collapsed ? 0 : 1,
+							"&.Mui-selected": {
+								bgcolor: "action.selected",
+								"&:hover": {
+									bgcolor: "action.selectedHover",
+								},
+							},
+						}}
 					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<SettingsIcon sx={{ fontSize: 18 }} />
@@ -260,7 +359,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</ListItemIcon>
 					)}
 					{!collapsed && (
-						<Box>
+						<Box sx={{ overflow: "hidden" }}>
 							<Typography
 								variant="body2"
 								sx={{ fontWeight: "bold", fontSize: 12 }}
