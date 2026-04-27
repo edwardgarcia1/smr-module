@@ -37,10 +37,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 			sx={{
 				width: { md: `calc(100% - ${drawerWidth}px)` },
 				ml: { md: `${drawerWidth}px` },
-				borderBottom: "1px solid var(--border)",
 				backgroundColor: "var(--bg)",
 				color: "var(--text)",
-				boxShadow: "var(--shadow)",
+				boxShadow: "0",
 			}}
 		>
 			<Toolbar>
@@ -71,7 +70,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 						sx={{ bgcolor: "grey.300", opacity: 0.5 }}
 					/>
 				) : (
-					<Typography noWrap component="div" sx={{ flexGrow: 1 }}>
+					<Typography
+						noWrap
+						component="div"
+						sx={{ flexGrow: 1, color: "var(--text)", fontWeight: 400 }}
+					>
 						{currentTab || "Fullstack Starter"}
 					</Typography>
 				)}
