@@ -127,67 +127,111 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					{collapsed ? abbreviation : appName}
 				</Typography>
 			</Box>
+			<Divider />
 			<List sx={{ flexGrow: 1 }}>
-				<ListItemButton onClick={() => handleNav("/")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+				<ListItemButton
+					onClick={() => handleNav("/")}
+					sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+				>
 					<ListItemIcon sx={{ minWidth: 36 }}>
 						<DashboardIcon sx={{ fontSize: 18 }} />
 					</ListItemIcon>
-					{!collapsed && <ListItemText primary="Dashboard" sx={{ fontSize: 13 }} />}
+					{!collapsed && (
+						<ListItemText primary="Dashboard" sx={{ fontSize: 13 }} />
+					)}
 				</ListItemButton>
 				<Can I="read" a="purchasing-requirements" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/purchasing-requirements")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/purchasing-requirements")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<AssignmentIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Purchasing Requirements" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText
+								primary="Purchasing Requirements"
+								sx={{ fontSize: 13 }}
+							/>
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="inventory-items" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/inventory-items")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/inventory-items")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<InventoryIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Inventory Items" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Inventory Items" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="suppliers" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/suppliers")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/suppliers")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<LocalShippingIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Suppliers" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Suppliers" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/purchase-orders")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/purchase-orders")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Purchase Orders" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Purchase Orders" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="prices" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/prices")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/prices")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<AttachMoneyIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Prices" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Prices" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="users" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/users")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/users")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<PeopleIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Users" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Users" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="settings" ability={ability}>
-					<ListItemButton onClick={() => handleNav("/settings")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
+					<ListItemButton
+						onClick={() => handleNav("/settings")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
 						<ListItemIcon sx={{ minWidth: 36 }}>
 							<SettingsIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && <ListItemText primary="Settings" sx={{ fontSize: 13 }} />}
+						{!collapsed && (
+							<ListItemText primary="Settings" sx={{ fontSize: 13 }} />
+						)}
 					</ListItemButton>
 				</Can>
 			</List>
@@ -217,11 +261,18 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					)}
 					{!collapsed && (
 						<Box>
-							<Typography variant="body2" sx={{ fontWeight: "bold", fontSize: 12 }}>
+							<Typography
+								variant="body2"
+								sx={{ fontWeight: "bold", fontSize: 12 }}
+							>
 								{user?.name || user?.username || "User"}
 							</Typography>
 							{user?.username && (
-								<Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+								<Typography
+									variant="caption"
+									color="text.secondary"
+									sx={{ fontSize: 10 }}
+								>
 									@{user.username}
 								</Typography>
 							)}
@@ -229,18 +280,28 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					)}
 				</AccordionSummary>
 				<AccordionDetails sx={{ p: 0 }}>
-				<ListItemButton onClick={() => handleNav("/profile")} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
-					<ListItemIcon sx={{ minWidth: 36 }}>
-						<AccountCircleIcon sx={{ fontSize: 16 }} />
-					</ListItemIcon>
-					{!collapsed && <ListItemText primary="Profile" sx={{ fontSize: 12 }} />}
-				</ListItemButton>
-				<ListItemButton onClick={handleLogoutClick} sx={{ py: 0.75, my: collapsed ? 1 : 0 }}>
-					<ListItemIcon sx={{ minWidth: 36 }}>
-						<LogoutIcon sx={{ fontSize: 16 }} />
-					</ListItemIcon>
-					{!collapsed && <ListItemText primary="Logout" sx={{ fontSize: 12 }} />}
-				</ListItemButton>
+					<ListItemButton
+						onClick={() => handleNav("/profile")}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
+						<ListItemIcon sx={{ minWidth: 36 }}>
+							<AccountCircleIcon sx={{ fontSize: 16 }} />
+						</ListItemIcon>
+						{!collapsed && (
+							<ListItemText primary="Profile" sx={{ fontSize: 12 }} />
+						)}
+					</ListItemButton>
+					<ListItemButton
+						onClick={handleLogoutClick}
+						sx={{ py: 0.75, my: collapsed ? 1 : 0 }}
+					>
+						<ListItemIcon sx={{ minWidth: 36 }}>
+							<LogoutIcon sx={{ fontSize: 16 }} />
+						</ListItemIcon>
+						{!collapsed && (
+							<ListItemText primary="Logout" sx={{ fontSize: 12 }} />
+						)}
+					</ListItemButton>
 				</AccordionDetails>
 			</Accordion>
 		</Box>
