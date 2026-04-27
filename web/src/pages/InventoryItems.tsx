@@ -14,7 +14,10 @@ import {
 	TableSortLabel,
 	Skeleton,
 	Alert,
+	TextField,
+	InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 
 interface InventoryItem {
 	id: number;
@@ -147,6 +150,7 @@ const InventoryItems: React.FC = () => {
 	const [order, setOrder] = useState<Order>("asc");
 	const [orderBy, setOrderBy] = useState<OrderBy>("id");
 	const [selected, setSelected] = useState<readonly number[]>([]);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleRequestSort = (property: OrderBy) => {
 		const isAsc = orderBy === property && order === "asc";
@@ -199,8 +203,26 @@ const InventoryItems: React.FC = () => {
 	const emptyRows =
 		page > 0 ? Math.max(0, (1 + page) * rowsPerPage - items.length) : 0;
 
+	const filteredItems = useMemo(() => {
+		if (!searchQuery.trim()) return items;
+
+		const query = searchQuery.toLowerCase().trim();
+
+		return items.filter((item) => {
+			return (
+				item.id.toString().includes(query) ||
+				item.description.toLowerCase().includes(query) ||
+				item.code.toLowerCase().includes(query) ||
+				item.supplier.toLowerCase().includes(query) ||
+				item.currentLevel.toString().includes(query) ||
+				item.inputUoM.toLowerCase().includes(query) ||
+				item.priceClass.toLowerCase().includes(query)
+			);
+		});
+	}, [items, searchQuery]);
+
 	const sortedItems = useMemo(() => {
-		return [...items].sort((a, b) => {
+		return [...filteredItems].sort((a, b) => {
 			const aValue = a[orderBy];
 			const bValue = b[orderBy];
 
@@ -216,7 +238,7 @@ const InventoryItems: React.FC = () => {
 			}
 			return 0;
 		});
-	}, [items, order, orderBy]);
+	}, [filteredItems, order, orderBy]);
 
 	const paginatedItems = sortedItems.slice(
 		page * rowsPerPage,
@@ -254,6 +276,33 @@ const InventoryItems: React.FC = () => {
 				</Alert>
 			) : (
 				<Paper sx={{ width: "100%", mb: 2 }}>
+					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+						<TextField
+							fullWidth
+							variant="outlined"
+							placeholder="Search inventory items..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							slotProps={{
+								input: {
+									startAdornment: (
+										<InputAdornment position="start">
+											<SearchIcon />
+										</InputAdornment>
+									),
+								},
+							}}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+									height: 44,
+								},
+								"& .MuiInputBase-input": {
+									paddingY: 0,
+								},
+							}}
+						/>
+					</Box>
 					<TableContainer sx={{ maxHeight: 440 }}>
 						<Table stickyHeader aria-labelledby="tableTitle">
 							<TableHead>

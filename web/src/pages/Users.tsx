@@ -14,7 +14,10 @@ import {
 	Checkbox,
 	TableSortLabel,
 	Skeleton,
+	TextField,
+	InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import { api } from "../services/api";
 
 interface User {
@@ -36,6 +39,7 @@ const Users: React.FC = () => {
 	const [order, setOrder] = useState<Order>("asc");
 	const [orderBy, setOrderBy] = useState<OrderBy>("id");
 	const [selected, setSelected] = useState<readonly number[]>([]);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	useEffect(() => {
 		const fetchUsers = async () => {
@@ -106,8 +110,23 @@ const Users: React.FC = () => {
 	const emptyRows =
 		page > 0 ? Math.max(0, (1 + page) * rowsPerPage - users.length) : 0;
 
+	const filteredUsers = useMemo(() => {
+		if (!searchQuery.trim()) return users;
+
+		const query = searchQuery.toLowerCase().trim();
+
+		return users.filter((user) => {
+			return (
+				user.id.toString().includes(query) ||
+				user.username.toLowerCase().includes(query) ||
+				user.name.toLowerCase().includes(query) ||
+				user.role.toLowerCase().includes(query)
+			);
+		});
+	}, [users, searchQuery]);
+
 	const sortedUsers = useMemo(() => {
-		return [...users].sort((a, b) => {
+		return [...filteredUsers].sort((a, b) => {
 			const aValue = a[orderBy];
 			const bValue = b[orderBy];
 
@@ -123,7 +142,7 @@ const Users: React.FC = () => {
 			}
 			return 0;
 		});
-	}, [users, order, orderBy]);
+	}, [filteredUsers, order, orderBy]);
 
 	const paginatedUsers = sortedUsers.slice(
 		page * rowsPerPage,
@@ -157,6 +176,33 @@ const Users: React.FC = () => {
 				</Alert>
 			) : (
 				<Paper sx={{ width: "100%", mb: 2 }}>
+					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+						<TextField
+							fullWidth
+							variant="outlined"
+							placeholder="Search users..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							slotProps={{
+								input: {
+									startAdornment: (
+										<InputAdornment position="start">
+											<SearchIcon />
+										</InputAdornment>
+									),
+								},
+							}}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+									height: 44,
+								},
+								"& .MuiInputBase-input": {
+									paddingY: 0,
+								},
+							}}
+						/>
+					</Box>
 					<TableContainer sx={{ maxHeight: 440 }}>
 						<Table stickyHeader aria-labelledby="tableTitle">
 							<TableHead>
