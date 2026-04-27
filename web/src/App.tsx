@@ -14,17 +14,21 @@ import Loading from "./pages/Loading";
 import { LinearProgress, Box } from "@mui/material";
 
 // 1. Lazy Load Pages for better performance (Code Splitting)
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const Home = lazy(() => import("./pages/Home"));
-const Users = lazy(() => import("./pages/Users"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Profile = lazy(() => import("./pages/Profile"));
+	const Login = lazy(() => import("./pages/Login"));
+	const Register = lazy(() => import("./pages/Register"));
+	const Home = lazy(() => import("./pages/Home"));
+	const Users = lazy(() => import("./pages/Users"));
+	const InventoryItems = lazy(() => import("./pages/InventoryItems"));
+	const Suppliers = lazy(() => import("./pages/Suppliers"));
+	const Settings = lazy(() => import("./pages/Settings"));
+	const Profile = lazy(() => import("./pages/Profile"));
 
 // 2. Mapping pathnames to tabs keeps logic data-driven and cleaner
 const TAB_MAP: Record<string, string> = {
 	"/": "Dashboard",
 	"/users": "Users",
+	"/inventory-items": "Inventory Items",
+	"/suppliers": "Suppliers",
 	"/settings": "Settings",
 	"/profile": "Profile",
 };
@@ -126,22 +130,38 @@ const AppRoutes: React.FC = () => {
 							</AppSuspense>
 						}
 					/>
-					<Route
-						path="/users"
-						element={
-							<AppSuspense>
-								<Users />
-							</AppSuspense>
-						}
-					/>
-					<Route
-						path="/settings"
-						element={
-							<AppSuspense>
-								<Settings />
-							</AppSuspense>
-						}
-					/>
+				<Route
+					path="/users"
+					element={
+						<AppSuspense>
+							<Users />
+						</AppSuspense>
+					}
+				/>
+				<Route
+					path="/inventory-items"
+					element={
+						<AppSuspense>
+							<InventoryItems />
+						</AppSuspense>
+					}
+				/>
+				<Route
+					path="/suppliers"
+					element={
+						<AppSuspense>
+							<Suppliers />
+						</AppSuspense>
+					}
+				/>
+				<Route
+					path="/settings"
+					element={
+						<AppSuspense>
+							<Settings />
+						</AppSuspense>
+					}
+				/>
 					<Route
 						path="/profile"
 						element={
