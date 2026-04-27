@@ -18,13 +18,17 @@ interface AppHeaderProps {
 
 const AppHeader: React.FC<AppHeaderProps> = ({ onMenuClick, drawerWidth, currentTab, onCollapseClick, isLoading = false }) => {
   return (
-    <AppBar
-      position="fixed"
-      sx={{
-        width: { md: `calc(100% - ${drawerWidth}px)` },
-        ml: { md: `${drawerWidth}px` },
-      }}
-    >
+      <AppBar
+        position="fixed"
+        sx={{
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          ml: { md: `${drawerWidth}px` },
+          borderBottom: '1px solid var(--border)',
+          backgroundColor: 'var(--bg)',
+          color: 'var(--text)',
+          boxShadow: 'var(--shadow)',
+        }}
+      >
       <Toolbar>
         {/* Mobile menu button (hidden on md+) */}
         <IconButton
