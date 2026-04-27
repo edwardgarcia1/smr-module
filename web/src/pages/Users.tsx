@@ -212,6 +212,7 @@ const Users: React.FC = () => {
 											key={headCell.id}
 											padding={headCell.disablePadding ? "none" : "normal"}
 											sortDirection={orderBy === headCell.id ? order : false}
+											sx={{ bgcolor: "var(--sidebar-bg)", color: "var(--sidebar-text)" }}
 										>
 											{headCell.id === "select" ? (
 												loading ? (
@@ -223,7 +224,6 @@ const Users: React.FC = () => {
 													/>
 												) : (
 													<Checkbox
-														color="primary"
 														indeterminate={
 															selected.length > 0 &&
 															selected.length < users.length
@@ -234,6 +234,12 @@ const Users: React.FC = () => {
 														}
 														onChange={handleSelectAllClick}
 														aria-label="select all users"
+														sx={{
+															color: "var(--sidebar-text)",
+															"&.Mui-checked": { color: "var(--sidebar-text)" },
+															"&.MuiCheckbox-indeterminate": { color: "var(--sidebar-text)" },
+															"&.MuiCheckbox-root": { color: "var(--sidebar-text)" },
+														}}
 													/>
 												)
 											) : (
@@ -241,6 +247,11 @@ const Users: React.FC = () => {
 													active={orderBy === headCell.id}
 													direction={orderBy === headCell.id ? order : "asc"}
 													onClick={() => handleRequestSort(headCell.id)}
+													sx={{
+														"&.MuiTableSortLabel-active": { color: "var(--sidebar-text) !important" },
+														"& .MuiTableSortLabel-icon": { color: "var(--sidebar-text) !important" },
+														color: "var(--sidebar-text)",
+													}}
 												>
 													{headCell.label}
 												</TableSortLabel>
