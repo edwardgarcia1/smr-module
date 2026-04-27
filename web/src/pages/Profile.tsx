@@ -104,7 +104,11 @@ const Profile: React.FC = () => {
 							"U"}
 					</Avatar>
 					<Box>
-						<Typography variant="h4" component="h1" sx={{ fontWeight: "bold" }}>
+						<Typography
+							variant="h4"
+							component="h1"
+							sx={{ fontWeight: "bold", color: "#FFFFFF" }}
+						>
 							{loading ? (
 								<Skeleton width={200} />
 							) : (
