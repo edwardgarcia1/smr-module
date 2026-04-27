@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import {
+	Box,
 	Table,
 	TableBody,
 	TableCell,
@@ -12,11 +13,14 @@ import {
 	Checkbox,
 	TableSortLabel,
 	Chip,
+	TextField,
+	InputAdornment,
 } from "@mui/material";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import CancelIcon from "@mui/icons-material/Cancel";
+import SearchIcon from "@mui/icons-material/Search";
 
 interface PurchaseOrder {
 	id: number;
@@ -146,6 +150,7 @@ const PurchaseOrders: React.FC = () => {
 	const [order, setOrder] = useState<Order>("asc");
 	const [orderBy, setOrderBy] = useState<OrderBy>("id");
 	const [selected, setSelected] = useState<readonly number[]>([]);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleRequestSort = (property: OrderBy) => {
 		const isAsc = orderBy === property && order === "asc";
@@ -193,8 +198,31 @@ const PurchaseOrders: React.FC = () => {
 
 	const isSelected = (id: number) => selected.indexOf(id) !== -1;
 
+	const filteredOrders = useMemo(() => {
+		if (!searchQuery.trim()) return orders;
+
+		const query = searchQuery.toLowerCase().trim();
+
+		return orders.filter((order) => {
+			const formattedPeriodFrom = formatDate(order.periodFrom).toLowerCase();
+			const formattedPeriodTo = formatDate(order.periodTo).toLowerCase();
+			const formattedCreated = formatDate(order.created).toLowerCase();
+
+			return (
+				order.id.toString().includes(query) ||
+				order.seriesNbr.toLowerCase().includes(query) ||
+				order.poRefNbr.toLowerCase().includes(query) ||
+				order.supplier.toLowerCase().includes(query) ||
+				order.status.toLowerCase().includes(query) ||
+				formattedPeriodFrom.includes(query) ||
+				formattedPeriodTo.includes(query) ||
+				formattedCreated.includes(query)
+			);
+		});
+	}, [orders, searchQuery]);
+
 	const sortedOrders = useMemo(() => {
-		return [...orders].sort((a, b) => {
+		return [...filteredOrders].sort((a, b) => {
 			const aValue = a[orderBy];
 			const bValue = b[orderBy];
 
@@ -209,7 +237,7 @@ const PurchaseOrders: React.FC = () => {
 
 			return order === "asc" ? comparison : -comparison;
 		});
-	}, [orders, order, orderBy]);
+	}, [filteredOrders, order, orderBy]);
 
 	const paginatedOrders = sortedOrders.slice(
 		page * rowsPerPage,
@@ -237,6 +265,33 @@ const PurchaseOrders: React.FC = () => {
 				</Alert>
 			) : (
 				<Paper sx={{ width: "100%", mb: 2 }}>
+					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
+						<TextField
+							fullWidth
+							variant="outlined"
+							placeholder="Search purchase orders..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							slotProps={{
+								input: {
+									startAdornment: (
+										<InputAdornment position="start">
+											<SearchIcon />
+										</InputAdornment>
+									),
+								},
+							}}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+									height: 44,
+								},
+								"& .MuiInputBase-input": {
+									paddingY: 0,
+								},
+							}}
+						/>
+					</Box>
 					<TableContainer sx={{ maxHeight: 440 }}>
 						<Table stickyHeader aria-labelledby="tableTitle">
 							<TableHead>
