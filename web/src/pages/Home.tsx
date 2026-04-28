@@ -28,6 +28,7 @@ const Home: React.FC = () => {
       subtitle: "Items requiring urgent reorder",
       icon: <ShoppingCartIcon />,
       color: "error.main",
+      path: "/purchasing-requirements?filter=urgent",
     },
     {
       id: 2,
@@ -36,6 +37,7 @@ const Home: React.FC = () => {
       subtitle: "Items approaching reorder point",
       icon: <Inventory2Icon />,
       color: "warning.main",
+      path: "/purchasing-requirements?filter=secondary",
     },
     {
       id: 3,
@@ -44,6 +46,7 @@ const Home: React.FC = () => {
       subtitle: "Items to keep under watch",
       icon: <VisibilityIcon />,
       color: "info.main",
+      path: "/purchasing-requirements?filter=monitor",
     },
     {
       id: 4,
@@ -52,6 +55,7 @@ const Home: React.FC = () => {
       subtitle: "Active inventory items",
       icon: <WarehouseIcon />,
       color: "success.main",
+      path: "/inventory-items",
     },
   ];
 
@@ -133,64 +137,70 @@ const Home: React.FC = () => {
           mb: 3,
 				}}
 			>
-				{dashboardCards.map((card) => (
-					<Card
-						key={card.id}
-						sx={{
-							height: "100%",
-							display: "flex",
-							flexDirection: "column",
-							borderRadius: 3,
-							"&:hover": {
-								boxShadow: 6,
-								transform: "translateY(-2px)",
-								transition: "all 0.2s ease-in-out",
-							},
-						}}
-					>
-						<CardHeader
-							avatar={
-								<Avatar
-									sx={{
-										bgcolor: card.color,
-										width: 48,
-										height: 48,
-										fontSize: "1.5rem",
-										borderRadius: 2,
-									}}
-								>
-									{card.icon}
-								</Avatar>
-							}
-							title={
-								<Typography
-									variant="h6"
-									component="div"
-									sx={{ fontSize: "1rem" }}
-								>
-									{card.title}
-								</Typography>
-							}
-							sx={{ pb: 0 }}
-						/>
-						<CardContent sx={{ pt: 1, flexGrow: 1 }}>
-							<Box sx={{ mt: 1 }}>
-								<Typography
-									variant="h4"
-									sx={{ fontWeight: "bold", color: card.color, mb: 0.5 }}
-								>
-									{card.value}
-								</Typography>
-								<Typography
-									variant="body2"
-									color="text.secondary"
-								>
-									{card.subtitle}
-								</Typography>
-							</Box>
-						</CardContent>
-					</Card>
-				))}
+      {dashboardCards.map((card) => (
+        <Link
+          key={card.id}
+          to={card.path}
+          style={{ textDecoration: "none" }}
+        >
+          <Card
+            sx={{
+              height: "100%",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 3,
+              cursor: "pointer",
+              "&:hover": {
+                boxShadow: 6,
+                transform: "translateY(-2px)",
+                transition: "all 0.2s ease-in-out",
+              },
+            }}
+          >
+            <CardHeader
+              avatar={
+                <Avatar
+                  sx={{
+                    bgcolor: card.color,
+                    width: 48,
+                    height: 48,
+                    fontSize: "1.5rem",
+                    borderRadius: 2,
+                  }}
+                >
+                  {card.icon}
+                </Avatar>
+              }
+              title={
+                <Typography
+                  variant="h6"
+                  component="div"
+                  sx={{ fontSize: "1rem" }}
+                >
+                  {card.title}
+                </Typography>
+              }
+              sx={{ pb: 0 }}
+            />
+            <CardContent sx={{ pt: 1, flexGrow: 1 }}>
+              <Box sx={{ mt: 1 }}>
+                <Typography
+                  variant="h4"
+                  sx={{ fontWeight: "bold", color: card.color, mb: 0.5 }}
+                >
+                  {card.value}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                >
+                  {card.subtitle}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
 			</Box>
 
       {/* Bottom Section Row: 70% + 30% split */}
