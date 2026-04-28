@@ -10,7 +10,9 @@ import {
 	Alert,
 	Link,
 } from "@mui/material";
+import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
 import { useNavigate } from "react-router-dom";
+const appName = import.meta.env.VITE_APP_NAME;
 
 const Register: React.FC = () => {
 	const [username, setUsername] = useState("");
@@ -75,7 +77,15 @@ const Register: React.FC = () => {
 	};
 
 	return (
-		<Box sx={{ display: "flex", minHeight: "100vh" }}>
+		<Box
+			sx={{
+				display: "flex",
+				minHeight: "100vh",
+				background: "var(--bg)",
+				padding:
+					"env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)",
+			}}
+		>
 			<Container
 				component="main"
 				maxWidth="xs"
@@ -96,10 +106,18 @@ const Register: React.FC = () => {
 						display: "flex",
 						flexDirection: "column",
 						alignItems: "center",
+						borderRadius: 3,
 					}}
 				>
-					<Typography component="h1" variant="h5">
-						Sign Up
+					<AppRegistrationIcon
+						sx={{ fontSize: 48, color: "var(--accent)", mb: 2 }}
+					/>
+					<Typography
+						component="h1"
+						variant="h5"
+						sx={{ color: "var(--text-h)" }}
+					>
+						Sign up to {appName}
 					</Typography>
 					<Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
 						{error && (
@@ -123,6 +141,14 @@ const Register: React.FC = () => {
 							autoFocus
 							value={name}
 							onChange={(e) => setName(e.target.value)}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+								},
+								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+									borderColor: "var(--accent)",
+								},
+							}}
 						/>
 						<TextField
 							margin="normal"
@@ -134,6 +160,14 @@ const Register: React.FC = () => {
 							autoComplete="username"
 							value={username}
 							onChange={(e) => setUsername(e.target.value)}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+								},
+								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+									borderColor: "var(--accent)",
+								},
+							}}
 						/>
 						<TextField
 							margin="normal"
@@ -146,18 +180,35 @@ const Register: React.FC = () => {
 							autoComplete="new-password"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+								},
+								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+									borderColor: "var(--accent)",
+								},
+							}}
 						/>
 						<Button
 							type="submit"
 							fullWidth
 							variant="contained"
-							sx={{ mt: 3, mb: 2 }}
+							sx={{
+								mt: 3,
+								mb: 2,
+								borderRadius: 2,
+								backgroundColor: "var(--accent)",
+								"&:hover": {
+									backgroundColor: "var(--accent)",
+									opacity: 0.9,
+								},
+							}}
 							disabled={loading}
 						>
 							{loading ? "Creating Account…" : "Sign Up"}
 						</Button>
-						<Box sx={{ textAlign: "center" }}>
-							<Link href="/login" variant="body2">
+						<Box sx={{ textAlign: "center", mt: 2 }}>
+							<Link href="/login" variant="body2" sx={{ color: "var(--text)" }}>
 								{"Already have an account? Sign In"}
 							</Link>
 						</Box>

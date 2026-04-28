@@ -10,8 +10,10 @@ import {
 	Alert,
 	Link,
 } from "@mui/material";
+import LoginIcon from "@mui/icons-material/Login";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
+const appName = import.meta.env.VITE_APP_NAME;
 
 const Login: React.FC = () => {
 	const [username, setUsername] = useState("");
@@ -59,6 +61,7 @@ const Login: React.FC = () => {
 			sx={{
 				display: "flex",
 				minHeight: "100vh",
+				background: "var(--bg)",
 				padding:
 					"env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)",
 			}}
@@ -83,10 +86,16 @@ const Login: React.FC = () => {
 						display: "flex",
 						flexDirection: "column",
 						alignItems: "center",
+						borderRadius: 3,
 					}}
 				>
-					<Typography component="h1" variant="h5">
-						Sign In
+					<LoginIcon sx={{ fontSize: 48, color: "var(--accent)", mb: 2 }} />
+					<Typography
+						component="h1"
+						variant="h5"
+						sx={{ color: "var(--text-h)" }}
+					>
+						Sign in to {appName}
 					</Typography>
 					<Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
 						{error && (
@@ -105,6 +114,14 @@ const Login: React.FC = () => {
 							autoFocus
 							value={username}
 							onChange={(e) => setUsername(e.target.value)}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+								},
+								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+									borderColor: "var(--accent)",
+								},
+							}}
 						/>
 						<TextField
 							margin="normal"
@@ -117,18 +134,39 @@ const Login: React.FC = () => {
 							autoComplete="current-password"
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
+							sx={{
+								"& .MuiOutlinedInput-root": {
+									borderRadius: 2,
+								},
+								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
+									borderColor: "var(--accent)",
+								},
+							}}
 						/>
 						<Button
 							type="submit"
 							fullWidth
 							variant="contained"
-							sx={{ mt: 3, mb: 2 }}
+							sx={{
+								mt: 3,
+								mb: 2,
+								borderRadius: 2,
+								backgroundColor: "var(--accent)",
+								"&:hover": {
+									backgroundColor: "var(--accent)",
+									opacity: 0.9,
+								},
+							}}
 							disabled={loading}
 						>
 							{loading ? "Signing In…" : "Sign In"}
 						</Button>
-						<Box sx={{ textAlign: "center" }}>
-							<Link href="/register" variant="body2">
+						<Box sx={{ textAlign: "center", mt: 2 }}>
+							<Link
+								href="/register"
+								variant="body2"
+								sx={{ color: "var(--text)" }}
+							>
 								{"Don't have an account? Sign Up"}
 							</Link>
 						</Box>
