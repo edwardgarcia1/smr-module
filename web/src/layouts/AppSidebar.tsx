@@ -29,7 +29,7 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import MoneyIcon from "@mui/icons-material/Money";
 import { Can } from "@casl/react";
 import { useAbility } from "../config/AbilityProvider";
 import { useAuthStore } from "../store/useAuthStore";
@@ -62,6 +62,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 	const effectiveWidth = collapsed ? collapsedWidth : drawerWidth;
 
 	const isActive = (path: string) => location.pathname === path;
+
+	const getSidebarItemSx = (collapsed: boolean) => ({
+		py: 0.75,
+		my: collapsed ? 1 : 0,
+		borderRadius: 1,
+		mx: collapsed ? 0 : 1,
+		color: "var(--sidebar-text)",
+		"&.Mui-selected": {
+			bgcolor: "var(--sidebar-selected-bg)",
+			color: "var(--sidebar-selected-text)",
+			"&:hover": {
+				bgcolor: "var(--sidebar-selected-bg)",
+			},
+		},
+	});
 
 	// Swipe handling state
 	const touchStartX = useRef(0);
@@ -139,20 +154,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				<ListItemButton
 					selected={isActive("/")}
 					onClick={() => handleNav("/")}
-					sx={{
-						py: 0.75,
-						my: collapsed ? 1 : 0,
-						borderRadius: 1,
-						mx: collapsed ? 0 : 1,
-						color: "var(--sidebar-text)",
-						"&.Mui-selected": {
-							bgcolor: "var(--sidebar-selected-bg)",
-							color: "var(--sidebar-selected-text)",
-							"&:hover": {
-								bgcolor: "var(--sidebar-selected-bg)",
-							},
-						},
-					}}
+					sx={getSidebarItemSx(collapsed)}
 				>
 					<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 						<DashboardIcon sx={{ fontSize: 18 }} />
@@ -165,20 +167,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/purchasing-requirements")}
 						onClick={() => handleNav("/purchasing-requirements")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<AssignmentIcon sx={{ fontSize: 18 }} />
@@ -195,20 +184,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/inventory-items")}
 						onClick={() => handleNav("/inventory-items")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<InventoryIcon sx={{ fontSize: 18 }} />
@@ -222,20 +198,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/suppliers")}
 						onClick={() => handleNav("/suppliers")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<LocalShippingIcon sx={{ fontSize: 18 }} />
@@ -249,20 +212,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/purchase-orders")}
 						onClick={() => handleNav("/purchase-orders")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
@@ -276,23 +226,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/prices")}
 						onClick={() => handleNav("/prices")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
-							<AttachMoneyIcon sx={{ fontSize: 18 }} />
+							<MoneyIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
 						{!collapsed && (
 							<ListItemText primary="Prices" sx={{ fontSize: 13 }} />
@@ -303,20 +240,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/users")}
 						onClick={() => handleNav("/users")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<PeopleIcon sx={{ fontSize: 18 }} />
@@ -330,20 +254,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					<ListItemButton
 						selected={isActive("/settings")}
 						onClick={() => handleNav("/settings")}
-						sx={{
-							py: 0.75,
-							my: collapsed ? 1 : 0,
-							borderRadius: 1,
-							mx: collapsed ? 0 : 1,
-							color: "var(--sidebar-text)",
-							"&.Mui-selected": {
-								bgcolor: "var(--sidebar-selected-bg)",
-								color: "var(--sidebar-selected-text)",
-								"&:hover": {
-									bgcolor: "var(--sidebar-selected-bg)",
-								},
-							},
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
 						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
 							<SettingsIcon sx={{ fontSize: 18 }} />
