@@ -64,10 +64,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 	const isActive = (path: string) => location.pathname === path;
 
 	const getSidebarItemSx = (collapsed: boolean) => ({
-		py: 0.75,
-		my: collapsed ? 1 : 0,
+		py: collapsed ? 1.5 : 0.75,
 		borderRadius: 1,
 		mx: collapsed ? 0 : 1,
+		display: "flex",
+		justifyContent: "center", // horizontal
+		alignItems: "center",
 		color: "var(--sidebar-text)",
 		"&.Mui-selected": {
 			bgcolor: "var(--sidebar-selected-bg)",
@@ -136,8 +138,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 			<Box
 				sx={{
 					p: 2,
-					display: "flex",
-					alignItems: "center",
 					gap: 1,
 				}}
 			>
@@ -156,12 +156,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					onClick={() => handleNav("/")}
 					sx={getSidebarItemSx(collapsed)}
 				>
-					<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+					<ListItemIcon
+						sx={{
+							color: "var(--sidebar-icon)",
+							minWidth: collapsed ? "auto" : 36,
+						}}
+					>
 						<DashboardIcon sx={{ fontSize: 18 }} />
 					</ListItemIcon>
-					{!collapsed && (
-						<ListItemText primary="Dashboard" sx={{ fontSize: 13 }} />
-					)}
+					<ListItemText
+						primary="Dashboard"
+						sx={{
+							fontSize: 13,
+							display: collapsed ? "none" : "block",
+						}}
+					/>
 				</ListItemButton>
 				<Can I="read" a="purchasing-requirements" ability={ability}>
 					<ListItemButton
@@ -169,15 +178,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/purchasing-requirements")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<AssignmentIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText
-								primary="Purchasing Requirements"
-								sx={{ fontSize: 13 }}
-							/>
-						)}
+						<ListItemText
+							primary="Purchasing Requirements"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="inventory-items" ability={ability}>
@@ -186,12 +201,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/inventory-items")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<InventoryIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Inventory Items" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Inventory Items"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="suppliers" ability={ability}>
@@ -200,12 +224,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/suppliers")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<LocalShippingIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Suppliers" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Suppliers"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
@@ -214,12 +247,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/purchase-orders")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Purchase Orders" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Purchase Orders"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="prices" ability={ability}>
@@ -228,12 +270,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/prices")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<MoneyIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Prices" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Prices"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="users" ability={ability}>
@@ -242,12 +293,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/users")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<PeopleIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Users" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Users"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 				<Can I="read" a="settings" ability={ability}>
@@ -256,12 +316,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						onClick={() => handleNav("/settings")}
 						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
 							<SettingsIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Settings" sx={{ fontSize: 13 }} />
-						)}
+						<ListItemText
+							primary="Settings"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</Can>
 			</List>
@@ -279,75 +348,89 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					sx={{
 						minHeight: 40,
 						"&.Mui-expanded": { minHeight: 50 },
-						display: "flex",
-						alignItems: "center",
 						color: "var(--sidebar-text)",
 						bgcolor: "var(--sidebar-bg)",
 					}}
 				>
-					{!collapsed && (
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
-							<AccountCircleIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-					)}
-					{!collapsed && (
-						<Box sx={{ overflow: "hidden" }}>
+					<ListItemIcon
+						sx={{
+							color: "var(--sidebar-icon)",
+							minWidth: collapsed ? "auto" : 36,
+							display: collapsed ? "none" : "block",
+						}}
+					>
+						<AccountCircleIcon
+							sx={{
+								fontSize: 18,
+							}}
+						/>
+					</ListItemIcon>
+					<Box
+						sx={{ overflow: "hidden", display: collapsed ? "none" : "block" }}
+					>
+						<Typography
+							variant="body2"
+							sx={{
+								fontWeight: "bold",
+								fontSize: 12,
+								color: "var(--sidebar-text)",
+							}}
+						>
+							{user?.name || user?.username || "User"}
+						</Typography>
+						{user?.username && (
 							<Typography
-								variant="body2"
+								variant="caption"
 								sx={{
-									fontWeight: "bold",
-									fontSize: 12,
+									fontSize: 10,
 									color: "var(--sidebar-text)",
 								}}
 							>
-								{user?.name || user?.username || "User"}
+								@{user.username}
 							</Typography>
-							{user?.username && (
-								<Typography
-									variant="caption"
-									sx={{
-										fontSize: 10,
-										color: "var(--sidebar-text)",
-										opacity: 0.7,
-									}}
-								>
-									@{user.username}
-								</Typography>
-							)}
-						</Box>
-					)}
+						)}
+					</Box>
 				</AccordionSummary>
 				<AccordionDetails sx={{ p: 0, bgcolor: "var(--sidebar-bg)" }}>
 					<ListItemButton
 						onClick={() => handleNav("/profile")}
-						sx={{
-							py: 0.75,
-							minHeight: "40px",
-							color: "var(--sidebar-text)",
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
-							<AccountCircleIcon sx={{ fontSize: 16 }} />
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<AccountCircleIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Profile" sx={{ fontSize: 12 }} />
-						)}
+						<ListItemText
+							primary="Profile"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 					<ListItemButton
 						onClick={handleLogoutClick}
-						sx={{
-							py: 0.75,
-							minHeight: "40px",
-							color: "var(--sidebar-text)",
-							alignItems: "center",
-						}}
+						sx={getSidebarItemSx(collapsed)}
 					>
-						<ListItemIcon sx={{ minWidth: 36, color: "var(--sidebar-icon)" }}>
-							<LogoutIcon sx={{ fontSize: 16 }} />
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<LogoutIcon sx={{ fontSize: 18 }} />
 						</ListItemIcon>
-						{!collapsed && (
-							<ListItemText primary="Logout" sx={{ fontSize: 12 }} />
-						)}
+						<ListItemText
+							primary="Logout"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
 					</ListItemButton>
 				</AccordionDetails>
 			</Accordion>
