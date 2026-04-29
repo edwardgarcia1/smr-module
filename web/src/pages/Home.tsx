@@ -267,13 +267,26 @@ const Home: React.FC = () => {
 												sx={{
 													bgcolor: getStatusColor(status.type),
 													color: "white",
-													px: 1,
-													py: 0.5,
-													borderRadius: 2,
+													display: "flex",
+													alignItems: "center",
+													justifyContent: "center",
+													width: { xs: 28, sm: "auto" },
+													height: { xs: 28, sm: "auto" },
+													minWidth: { xs: 28, sm: "auto" },
+													borderRadius: { xs: "50%", sm: 2 },
 													fontSize: "0.75rem",
+													fontWeight: { xs: "bold", sm: "normal" },
+													px: { xs: 0, sm: 1 },
+													py: { xs: 0, sm: 0.5 },
 												}}
 											>
-												{status.count} {status.type}
+												{status.count}
+												<Box
+													component="span"
+													sx={{ display: { xs: "none", sm: "inline" }, ml: 0.5 }}
+												>
+													{status.type}
+												</Box>
 											</Box>
 										))}
 									</Box>
