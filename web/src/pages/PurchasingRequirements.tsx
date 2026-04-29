@@ -1,413 +1,1210 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
 	Box,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
 	Paper,
-	Chip,
-	TablePagination,
-	Checkbox,
-	TableSortLabel,
-	Skeleton,
-	Alert,
+	Typography,
 	TextField,
-	InputAdornment,
+	Button,
+	Grid,
+	FormControl,
+	Radio,
+	RadioGroup,
+	FormControlLabel,
+	FormLabel,
+	Autocomplete,
+	IconButton,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogContentText,
+	DialogActions,
+	List,
+	ListItem,
+	ListItemText,
+	ListItemSecondaryAction,
+	Alert,
+	Tooltip,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
+import { useThemeMode } from "../providers/AppProvider";
+import { DataGrid } from "@mui/x-data-grid";
+import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
+import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import type { Dayjs } from "dayjs";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SettingsIcon from "@mui/icons-material/Settings";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 
-interface PurchasingRequirement {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Frequency = "weekly" | "monthly";
+
+interface Principal {
 	id: number;
-	supplier: string;
-	itemCount: number;
-	status: string;
-	priority: string;
-	createdAt: string;
+	name: string;
+	category: "immediate" | "secondary" | "monitoring";
 }
 
-const placeholderData: PurchasingRequirement[] = [
+interface StorageLocation {
+	id: number;
+	name: string;
+}
+
+interface ProductRow {
+	id: number;
+	principalId: number;
+	storageIds: number[];
+	priceClass: string;
+	code: string;
+	description: string;
+	currentLevel: number;
+	inputUoM: string;
+	qtyOnHand: number;
+	unreleasedSO: number;
+	incomingPO: number;
+	monthlyDemand: Record<string, number>;
+	highestMonthlyDemand: number;
+	monthlyFactor: number;
+	suggestedOrder: number;
+	customOrder: number | null;
+}
+
+// ─── Placeholder Data ────────────────────────────────────────────────────────
+
+const defaultStorageLocations: StorageLocation[] = [
+	{ id: 1, name: "Main Warehouse" },
+	{ id: 2, name: "Cold Storage" },
+	{ id: 3, name: "Distribution Center" },
+];
+
+const placeholderPrincipals: Principal[] = [
+	// Immediate Purchase
+	{ id: 1, name: "ZESTO CORPORATION", category: "immediate" },
+	{ id: 2, name: "PRIME GLOBAL CORPORATION", category: "immediate" },
+	// Secondary Purchase
+	{ id: 3, name: "ZUELLIG PHARMA CORPORATION", category: "secondary" },
+	{ id: 4, name: "MULTIRICH FOODS CORPORATION", category: "secondary" },
+	// Monitoring
+	{ id: 5, name: "W.L. FOOD PRODUCTS", category: "monitoring" },
+	{ id: 6, name: "JIA2 CORPORATION", category: "monitoring" },
+];
+
+const placeholderProducts: ProductRow[] = [
+	// ── ZESTO CORPORATION (principal 1) ──
 	{
 		id: 1,
-		supplier: "ZESTO CORPORATION",
-		itemCount: 5,
-		status: "urgent",
-		priority: "high",
-		createdAt: "2024-01-15",
+		principalId: 1,
+		storageIds: [1],
+		priceClass: "A",
+		code: "ZES030",
+		description: "BB - Zesto Fruit Soda Calamansi 330ml x 24cs",
+		currentLevel: 120,
+		inputUoM: "cs",
+		qtyOnHand: 120,
+		unreleasedSO: 10,
+		incomingPO: 50,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
 	},
 	{
 		id: 2,
-		supplier: "ZUELLIG PHARMA CORPORATION",
-		itemCount: 3,
-		status: "secondary",
-		priority: "medium",
-		createdAt: "2024-01-14",
+		principalId: 1,
+		storageIds: [1, 2],
+		priceClass: "B",
+		code: "ZES039",
+		description: "BB - Zesto Fruit Soda Calamansi 500ml x 12cs FG",
+		currentLevel: 85,
+		inputUoM: "cs",
+		qtyOnHand: 85,
+		unreleasedSO: 5,
+		incomingPO: 30,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
 	},
 	{
 		id: 3,
-		supplier: "PRIME GLOBAL CORPORATION",
-		itemCount: 2,
-		status: "monitor",
-		priority: "low",
-		createdAt: "2024-01-13",
+		principalId: 1,
+		storageIds: [1],
+		priceClass: "B",
+		code: "ZES051",
+		description: "BB - Zesto Grape Drink 330ml x 24cs",
+		currentLevel: 200,
+		inputUoM: "cs",
+		qtyOnHand: 200,
+		unreleasedSO: 20,
+		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
 	},
 	{
 		id: 4,
-		supplier: "MULTIRICH FOODS CORPORATION",
-		itemCount: 4,
-		status: "urgent",
-		priority: "high",
-		createdAt: "2024-01-12",
+		principalId: 1,
+		storageIds: [2],
+		priceClass: "A",
+		code: "ZES032",
+		description: "BB - Zesto Light Root Beer 330ml x 24cs",
+		currentLevel: 55,
+		inputUoM: "cs",
+		qtyOnHand: 55,
+		unreleasedSO: 3,
+		incomingPO: 100,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
 	},
+	// ── PRIME GLOBAL CORPORATION (principal 2) ──
 	{
 		id: 5,
-		supplier: "W.L. FOOD PRODUCTS",
-		itemCount: 1,
-		status: "secondary",
-		priority: "medium",
-		createdAt: "2024-01-11",
+		principalId: 2,
+		storageIds: [1, 3],
+		priceClass: "A",
+		code: "PGC001",
+		description: "Prime Rice Premium 25kg",
+		currentLevel: 90,
+		inputUoM: "sack",
+		qtyOnHand: 90,
+		unreleasedSO: 15,
+		incomingPO: 200,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 6,
+		principalId: 2,
+		storageIds: [1],
+		priceClass: "A",
+		code: "PGC002",
+		description: "Prime Cooking Oil 1L x 12s",
+		currentLevel: 60,
+		inputUoM: "cs",
+		qtyOnHand: 60,
+		unreleasedSO: 8,
+		incomingPO: 25,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 7,
+		principalId: 2,
+		storageIds: [3],
+		priceClass: "C",
+		code: "PGC003",
+		description: "Prime Canned Sardines 155g x 48cs",
+		currentLevel: 300,
+		inputUoM: "cs",
+		qtyOnHand: 300,
+		unreleasedSO: 50,
+		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── ZUELLIG PHARMA CORPORATION (principal 3) ──
+	{
+		id: 8,
+		principalId: 3,
+		storageIds: [1],
+		priceClass: "A",
+		code: "ZPC001",
+		description: "Biogesic Paracetamol 500mg x 100s",
+		currentLevel: 45,
+		inputUoM: "box",
+		qtyOnHand: 45,
+		unreleasedSO: 2,
+		incomingPO: 100,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 9,
+		principalId: 3,
+		storageIds: [1, 2],
+		priceClass: "B",
+		code: "ZPC003",
+		description: "Decolgen Tablet x 20s",
+		currentLevel: 180,
+		inputUoM: "box",
+		qtyOnHand: 180,
+		unreleasedSO: 25,
+		incomingPO: 500,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 10,
+		principalId: 3,
+		storageIds: [1],
+		priceClass: "A",
+		code: "ZPC002",
+		description: "Neozep Forte Tablet x 20s",
+		currentLevel: 30,
+		inputUoM: "box",
+		qtyOnHand: 30,
+		unreleasedSO: 1,
+		incomingPO: 200,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── MULTIRICH FOODS CORPORATION (principal 4) ──
+	{
+		id: 11,
+		principalId: 4,
+		storageIds: [2],
+		priceClass: "C",
+		code: "MFC001",
+		description: "Multirich Corned Beef 260g x 24cs",
+		currentLevel: 75,
+		inputUoM: "cs",
+		qtyOnHand: 75,
+		unreleasedSO: 12,
+		incomingPO: 60,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 12,
+		principalId: 4,
+		storageIds: [2, 3],
+		priceClass: "B",
+		code: "MFC002",
+		description: "Multirich Meat Loaf 340g x 24cs",
+		currentLevel: 40,
+		inputUoM: "cs",
+		qtyOnHand: 40,
+		unreleasedSO: 5,
+		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── W.L. FOOD PRODUCTS (principal 5) ──
+	{
+		id: 13,
+		principalId: 5,
+		storageIds: [3],
+		priceClass: "C",
+		code: "WLF001",
+		description: "W.L. Premium Coffee 200g x 12",
+		currentLevel: 25,
+		inputUoM: "box",
+		qtyOnHand: 25,
+		unreleasedSO: 0,
+		incomingPO: 50,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 14,
+		principalId: 5,
+		storageIds: [1, 3],
+		priceClass: "A",
+		code: "WLF002",
+		description: "W.L. Special Noodles 500g x 20",
+		currentLevel: 150,
+		inputUoM: "box",
+		qtyOnHand: 150,
+		unreleasedSO: 30,
+		incomingPO: 100,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── JIA2 CORPORATION (principal 6) ──
+	{
+		id: 15,
+		principalId: 6,
+		storageIds: [1, 2, 3],
+		priceClass: "B",
+		code: "JIA001",
+		description: "Jia2 Soy Sauce 1L x 12",
+		currentLevel: 90,
+		inputUoM: "cs",
+		qtyOnHand: 90,
+		unreleasedSO: 7,
+		incomingPO: 30,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 16,
+		principalId: 6,
+		storageIds: [2],
+		priceClass: "C",
+		code: "JIA002",
+		description: "Jia2 Fish Sauce 500ml x 24",
+		currentLevel: 110,
+		inputUoM: "cs",
+		qtyOnHand: 110,
+		unreleasedSO: 9,
+		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
 	},
 ];
 
-type Order = "asc" | "desc";
-type OrderBy = "id" | "supplier" | "itemCount" | "status" | "priority" | "createdAt";
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const PurchasingRequirements: React.FC = () => {
-	const [items, setItems] = useState<PurchasingRequirement[]>(placeholderData);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [page, setPage] = useState(0);
-	const [rowsPerPage, setRowsPerPage] = useState(10);
-	const [order, setOrder] = useState<Order>("asc");
-	const [orderBy, setOrderBy] = useState<OrderBy>("id");
-	const [selected, setSelected] = useState<readonly number[]>([]);
-	const [searchQuery, setSearchQuery] = useState("");
+function generateMonthLabels(
+	from: Dayjs,
+	to: Dayjs,
+	freq: Frequency,
+): string[] {
+	const labels: string[] = [];
+	let current = from.startOf("month");
+	const end = to.startOf("month");
 
-	const handleRequestSort = (property: OrderBy) => {
-		const isAsc = orderBy === property && order === "asc";
-		setOrder(isAsc ? "desc" : "asc");
-		setOrderBy(property);
-	};
-
-	const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-		if (event.target.checked) {
-			const newSelecteds = items.map((n) => n.id);
-			setSelected(newSelecteds);
-			return;
+	while (current.isBefore(end) || current.isSame(end, "month")) {
+		labels.push(current.format("MMM YYYY"));
+		if (freq === "monthly") {
+			current = current.add(1, "month");
+		} else {
+			current = current.add(1, "week");
 		}
-		setSelected([]);
-	};
+	}
+	return labels;
+}
 
-	const handleClick = (_event: React.MouseEvent<unknown>, id: number) => {
-		const selectedIndex = selected.indexOf(id);
-		let newSelected: readonly number[] = [];
-
-		if (selectedIndex === -1) {
-			newSelected = newSelected.concat(selected, id);
-		} else if (selectedIndex === 0) {
-			newSelected = newSelected.concat(selected.slice(1));
-		} else if (selectedIndex === selected.length - 1) {
-			newSelected = newSelected.concat(selected.slice(0, -1));
-		} else if (selectedIndex > 0) {
-			newSelected = newSelected.concat(
-				selected.slice(0, selectedIndex),
-				selected.slice(selectedIndex + 1),
-			);
-		}
-
-		setSelected(newSelected);
-	};
-
-	const handleChangePage = (_event: unknown, newPage: number) => {
-		setPage(newPage);
-	};
-
-	const handleChangeRowsPerPage = (
-		event: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		setRowsPerPage(parseInt(event.target.value, 10));
-		setPage(0);
-	};
-
-	const isSelected = (id: number) => selected.indexOf(id) !== -1;
-
-	const emptyRows =
-		page > 0 ? Math.max(0, (1 + page) * rowsPerPage - items.length) : 0;
-
-	const filteredItems = useMemo(() => {
-		if (!searchQuery.trim()) return items;
-
-		const query = searchQuery.toLowerCase().trim();
-
-		return items.filter((item) => {
-			return (
-				item.id.toString().includes(query) ||
-				item.supplier.toLowerCase().includes(query) ||
-				item.status.toLowerCase().includes(query) ||
-				item.priority.toLowerCase().includes(query) ||
-				item.createdAt.includes(query)
-			);
+function fillDemandData(
+	products: ProductRow[],
+	monthLabels: string[],
+	defaultFactor: number,
+): ProductRow[] {
+	return products.map((product) => {
+		const demand: Record<string, number> = {};
+		monthLabels.forEach((label) => {
+			// Generate semi-random but deterministic placeholder demand
+			const seed = product.id + label.charCodeAt(0) + label.length;
+			demand[label] =
+				Math.round((Math.abs(Math.sin(seed)) * 200 + 20) * 100) / 100;
 		});
-	}, [items, searchQuery]);
 
-	const sortedItems = useMemo(() => {
-		return [...filteredItems].sort((a, b) => {
-			const aValue = a[orderBy];
-			const bValue = b[orderBy];
+		const values = Object.values(demand);
+		const highest = values.length > 0 ? Math.max(...values) : 0;
+		const factor = defaultFactor;
 
-			// Normalize strings to lowercase for case-insensitive sorting
-			const aStr = typeof aValue === "string" ? aValue.toLowerCase() : aValue;
-			const bStr = typeof bValue === "string" ? bValue.toLowerCase() : bValue;
+		return {
+			...product,
+			monthlyDemand: demand,
+			highestMonthlyDemand: highest,
+			monthlyFactor: factor,
+			suggestedOrder: Math.round(highest * factor * 100) / 100,
+		};
+	});
+}
 
-			if (aStr < bStr) {
-				return order === "asc" ? -1 : 1;
-			}
-			if (aStr > bStr) {
-				return order === "asc" ? 1 : -1;
-			}
-			return 0;
-		});
-	}, [filteredItems, order, orderBy]);
+// ─── Storage CRUD Dialog ─────────────────────────────────────────────────────
 
-	const paginatedItems = sortedItems.slice(
-		page * rowsPerPage,
-		page * rowsPerPage + rowsPerPage,
+interface StorageDialogProps {
+	open: boolean;
+	onClose: () => void;
+	locations: StorageLocation[];
+	onSave: (locations: StorageLocation[]) => void;
+}
+
+const StorageDialog: React.FC<StorageDialogProps> = ({
+	open,
+	onClose,
+	locations,
+	onSave,
+}) => {
+	const [items, setItems] = useState<StorageLocation[]>(locations);
+	const [editName, setEditName] = useState("");
+	const [editingId, setEditingId] = useState<number | null>(null);
+	const [nextId, setNextId] = useState(
+		Math.max(0, ...locations.map((l) => l.id)) + 1,
 	);
 
-	const getStatusColor = (status: string) => {
-		switch (status.toLowerCase()) {
-			case "urgent":
-				return "error";
-			case "secondary":
-				return "warning";
-			case "monitor":
-				return "info";
-			default:
-				return "default";
+	const handleAdd = () => {
+		if (!editName.trim()) return;
+		if (editingId !== null) {
+			setItems((prev) =>
+				prev.map((loc) =>
+					loc.id === editingId ? { ...loc, name: editName.trim() } : loc,
+				),
+			);
+			setEditingId(null);
+		} else {
+			setItems((prev) => [...prev, { id: nextId, name: editName.trim() }]);
+			setNextId((n) => n + 1);
+		}
+		setEditName("");
+	};
+
+	const handleEdit = (loc: StorageLocation) => {
+		setEditName(loc.name);
+		setEditingId(loc.id);
+	};
+
+	const handleDelete = (id: number) => {
+		setItems((prev) => prev.filter((loc) => loc.id !== id));
+		if (editingId === id) {
+			setEditingId(null);
+			setEditName("");
 		}
 	};
 
-	const getPriorityColor = (priority: string) => {
-		switch (priority.toLowerCase()) {
-			case "high":
-				return "error";
-			case "medium":
-				return "warning";
-			case "low":
-				return "success";
-			default:
-				return "default";
-		}
+	const handleSave = () => {
+		onSave(items);
+		onClose();
 	};
 
-	const headCells = [
-		{ id: "select" as const, disablePadding: true, label: "" },
-		{ id: "supplier" as const, disablePadding: false, label: "Supplier" },
-		{ id: "itemCount" as const, disablePadding: false, label: "Item Count" },
-		{ id: "status" as const, disablePadding: false, label: "Status" },
-		{ id: "priority" as const, disablePadding: false, label: "Priority" },
-		{ id: "createdAt" as const, disablePadding: false, label: "Created At" },
-	];
+	const handleCancel = () => {
+		setItems(locations);
+		setEditName("");
+		setEditingId(null);
+		onClose();
+	};
+
+	return (
+		<Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
+			<DialogTitle>Manage Storage Locations</DialogTitle>
+			<DialogContent>
+				<DialogContentText sx={{ mb: 2 }}>
+					Add, edit, or remove inventory storage locations.
+				</DialogContentText>
+
+				<Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+					<TextField
+						size="small"
+						fullWidth
+						placeholder="Location name"
+						value={editName}
+						onChange={(e) => setEditName(e.target.value)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") handleAdd();
+						}}
+					/>
+					<Button
+						variant="contained"
+						onClick={handleAdd}
+						disabled={!editName.trim()}
+					>
+						{editingId !== null ? "Update" : "Add"}
+					</Button>
+				</Box>
+
+				<List dense>
+					{items.map((loc) => (
+						<ListItem key={loc.id}>
+							<ListItemText primary={loc.name} />
+							<ListItemSecondaryAction>
+								<IconButton
+									edge="end"
+									size="small"
+									onClick={() => handleEdit(loc)}
+									sx={{ mr: 1 }}
+								>
+									<EditIcon fontSize="small" />
+								</IconButton>
+								<IconButton
+									edge="end"
+									size="small"
+									onClick={() => handleDelete(loc.id)}
+									color="error"
+								>
+									<DeleteIcon fontSize="small" />
+								</IconButton>
+							</ListItemSecondaryAction>
+						</ListItem>
+					))}
+					{items.length === 0 && (
+						<ListItem>
+							<ListItemText
+								primary="No storage locations added yet."
+								slotProps={{
+									primary: {
+										sx: { color: "text.secondary", fontStyle: "italic" },
+									},
+								}}
+							/>
+						</ListItem>
+					)}
+				</List>
+			</DialogContent>
+			<DialogActions>
+				<Button onClick={handleCancel}>Cancel</Button>
+				<Button onClick={handleSave} variant="contained">
+					Save
+				</Button>
+			</DialogActions>
+		</Dialog>
+	);
+};
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+const PurchasingRequirements: React.FC = () => {
+	const { darkMode } = useThemeMode();
+
+	// Theme-aware group colors for data grid headers
+	const groupColors = useMemo(
+		() => ({
+			demand: {
+				bg: darkMode ? "rgba(144, 202, 249, 0.10)" : "rgba(33, 150, 243, 0.07)",
+				color: darkMode ? "#90caf9" : "#1565c0",
+			},
+			computation: {
+				bg: darkMode ? "rgba(255, 183, 77, 0.10)" : "rgba(255, 152, 0, 0.07)",
+				color: darkMode ? "#ffb74d" : "#e65100",
+			},
+			custom: {
+				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
+				color: darkMode ? "#81c784" : "#2e7d32",
+			},
+		}),
+		[darkMode],
+	);
+
+	// Step 1: Principal
+	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
+		null,
+	);
+
+	// Step 2: Filters
+	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
+		defaultStorageLocations,
+	);
+	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>([]);
+	const priceClasses = ["A", "B", "C"];
+	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
+		[],
+	);
+	const [dateFrom, setDateFrom] = useState<Dayjs | null>(null);
+	const [dateTo, setDateTo] = useState<Dayjs | null>(null);
+	const [storageDialogOpen, setStorageDialogOpen] = useState(false);
+
+	// Step 3: Computation
+	const [frequency, setFrequency] = useState<Frequency>("monthly");
+	const [monthlyFactor, setMonthlyFactor] = useState(1.5);
+
+	// Grid data
+	const [rows, setRows] = useState<GridRowsProp>([]);
+	const [columns, setColumns] = useState<GridColDef[]>([]);
+	const [gridError, setGridError] = useState<string | null>(null);
+	const [applied, setApplied] = useState(false);
+
+	// ─── Apply Handler ────────────────────────────────────────────────────
+
+	const handleApply = useCallback(() => {
+		setGridError(null);
+
+		if (!selectedPrincipal) {
+			setGridError("Please select a Principal.");
+			return;
+		}
+		if (!dateFrom || !dateTo) {
+			setGridError("Please select a date range.");
+			return;
+		}
+		if (dateTo.isBefore(dateFrom)) {
+			setGridError("End date must be after start date.");
+			return;
+		}
+
+		// Filter products by Principal, Storage, and Price Class
+		let filtered = placeholderProducts.filter(
+			(p) => p.principalId === selectedPrincipal.id,
+		);
+
+		if (selectedStorage.length > 0) {
+			const storageIds = new Set(selectedStorage.map((s) => s.id));
+			filtered = filtered.filter((p) =>
+				p.storageIds.some((sid) => storageIds.has(sid)),
+			);
+		}
+
+		if (selectedPriceClasses.length > 0) {
+			const pcSet = new Set(selectedPriceClasses);
+			filtered = filtered.filter((p) => pcSet.has(p.priceClass));
+		}
+
+		if (filtered.length === 0) {
+			setGridError(
+				"No products match the selected filters. Try adjusting your criteria.",
+			);
+			return;
+		}
+
+		// Generate month labels
+		const monthLabels = generateMonthLabels(dateFrom, dateTo, frequency);
+		if (monthLabels.length === 0) {
+			setGridError("No months in the selected date range.");
+			return;
+		}
+
+		// Fill demand data using the global monthlyFactor
+		const data = fillDemandData(filtered, monthLabels, monthlyFactor);
+
+		// Build dynamic columns
+		const dynamicCols: GridColDef[] = buildColumns(monthLabels);
+		setColumns(dynamicCols);
+		setRows(data);
+		setApplied(true);
+	}, [
+		selectedPrincipal,
+		selectedStorage,
+		selectedPriceClasses,
+		dateFrom,
+		dateTo,
+		frequency,
+		monthlyFactor,
+	]);
+
+	// ─── Build Columns ────────────────────────────────────────────────────
+
+	const buildColumns = useCallback(
+		(monthLabels: string[]): GridColDef[] => {
+			const cols: GridColDef[] = [];
+
+			// Group 1: Static product info
+			cols.push({
+				field: "code",
+				headerName: "Code",
+				width: 100,
+				headerClassName: "group-static",
+			});
+			cols.push({
+				field: "description",
+				headerName: "Description",
+				width: 280,
+				headerClassName: "group-static",
+			});
+			cols.push({
+				field: "currentLevel",
+				headerName: "Current Level",
+				width: 120,
+				type: "number",
+				headerClassName: "group-static",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+			cols.push({
+				field: "inputUoM",
+				headerName: "Input UoM",
+				width: 100,
+				headerClassName: "group-static",
+			});
+			cols.push({
+				field: "qtyOnHand",
+				headerName: "Qty on Hand",
+				width: 110,
+				type: "number",
+				headerClassName: "group-static",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+			cols.push({
+				field: "unreleasedSO",
+				headerName: "Unreleased SO",
+				width: 120,
+				type: "number",
+				headerClassName: "group-static",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+			cols.push({
+				field: "incomingPO",
+				headerName: "Incoming PO",
+				width: 110,
+				type: "number",
+				headerClassName: "group-static",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+
+			// Group 2: Monthly Demand (dynamic)
+			monthLabels.forEach((label) => {
+				const fieldKey = `demand_${label.replace(/\s/g, "_")}`;
+				cols.push({
+					field: fieldKey,
+					headerName: label,
+					width: 100,
+					type: "number",
+					headerClassName: "group-demand",
+					valueGetter: (_value, row) =>
+						(row as ProductRow).monthlyDemand[label] ?? 0,
+					valueFormatter: (value?: number) =>
+						value != null ? value.toLocaleString() : "",
+				});
+			});
+
+			// Group 3: Monthly Computation
+			cols.push({
+				field: "highestMonthlyDemand",
+				headerName: "Highest Demand",
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+			cols.push({
+				field: "monthlyFactor",
+				headerName: "Factor",
+				width: 80,
+				type: "number",
+				editable: true,
+				headerClassName: "group-computation",
+				renderEditCell: (params) => (
+					<input
+						type="number"
+						step={0.1}
+						value={params.value ?? ""}
+						onChange={(e) => {
+							params.api.setEditCellValue({
+								id: params.id,
+								field: params.field,
+								value: parseFloat(e.target.value) || 0,
+							});
+						}}
+						style={{
+							width: "100%",
+							height: "100%",
+							border: "none",
+							outline: "none",
+							textAlign: "center",
+							padding: "0 8px",
+							fontFamily: "inherit",
+							fontSize: "inherit",
+							background: "transparent",
+						}}
+						autoFocus
+					/>
+				),
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
+				field: "suggestedOrder",
+				headerName: "Suggested Order",
+				width: 140,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+
+			// Group 4: Custom Order
+			cols.push({
+				field: "customOrder",
+				headerName: "Custom Order",
+				width: 130,
+				type: "number",
+				editable: true,
+				headerClassName: "group-custom",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
+			});
+
+			return cols;
+		},
+		[],
+	);
+
+	// ─── Grid Edit Handler ────────────────────────────────────────────────
+
+	const processRowUpdate = useCallback(
+		(newRow: GridRowModel, oldRow: GridRowModel) => {
+			const updatedRow = { ...newRow } as ProductRow;
+
+			// If monthlyFactor changed, recalculate suggestedOrder
+			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
+				updatedRow.suggestedOrder =
+					Math.round(newRow.highestMonthlyDemand * newRow.monthlyFactor * 100) /
+					100;
+			}
+
+			// If customOrder is set, clear it or keep it
+			if (newRow.customOrder === "") {
+				updatedRow.customOrder = null;
+			}
+
+			setRows((prev: readonly GridRowModel[]) =>
+				prev.map((r: GridRowModel) =>
+					(r as ProductRow).id === newRow.id ? updatedRow : r,
+				),
+			);
+
+			return updatedRow;
+		},
+		[],
+	);
+
+	// ─── Filter Panel ─────────────────────────────────────────────────────
+
+	const filterPanel = (
+		<Paper sx={{ width: "100%", mb: 3, p: 3, borderRadius: 2 }}>
+			<Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+				Purchase Requirements Filters
+			</Typography>
+
+			<Grid container spacing={3}>
+				{/* Step 1: Principal Selection */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl fullWidth>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							Step 1: Select Principal
+						</FormLabel>
+						<Autocomplete
+							size="small"
+							options={placeholderPrincipals}
+							value={selectedPrincipal}
+							onChange={(_, newVal) => setSelectedPrincipal(newVal)}
+							getOptionLabel={(option) => option.name}
+							groupBy={(option) => {
+								const labels: Record<string, string> = {
+									immediate: "Immediate Purchase Requirements",
+									secondary: "Secondary Purchase Requirements",
+									monitoring: "Monitoring",
+								};
+								return labels[option.category] || option.category;
+							}}
+							isOptionEqualToValue={(option, val) => option.id === val.id}
+							renderInput={(params) => (
+								<TextField
+									{...params}
+									placeholder="Search or select principal"
+									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+								/>
+							)}
+							renderGroup={(params) => {
+								const groupColor: Record<string, { bg: string; text: string }> = {
+									"Immediate Purchase Requirements": {
+										bg: "#d32f2f",
+										text: "#ffffff",
+									},
+									"Secondary Purchase Requirements": {
+										bg: "#ed6c02",
+										text: "#ffffff",
+									},
+									"Monitoring": {
+										bg: "#0288d1",
+										text: "#ffffff",
+									},
+								};
+								const colors =
+									groupColor[params.group] ?? {
+										bg: "var(--sidebar-bg)",
+										text: "var(--sidebar-text)",
+									};
+								return (
+									<li key={params.key}>
+										<div
+											style={{
+												fontWeight: 600,
+												fontSize: "0.75rem",
+												lineHeight: "32px",
+												padding: "0 16px",
+												backgroundColor: colors.bg,
+												color: colors.text,
+												textTransform: "uppercase",
+												letterSpacing: "0.05em",
+											}}
+										>
+											{params.group}
+										</div>
+										<ul style={{ padding: 0 }}>{params.children}</ul>
+									</li>
+								);
+							}}
+						/>
+					</FormControl>
+				</Grid>
+
+				{/* Step 2: Filters */}
+				<Grid size={{ xs: 12 }} />
+
+				{/* 2.1 Storage Locations */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl fullWidth>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							Step 2.1: Inventory Storage
+							<Tooltip title="Manage storage locations">
+								<IconButton
+									size="small"
+									onClick={() => setStorageDialogOpen(true)}
+									sx={{ ml: 0.5 }}
+								>
+									<SettingsIcon fontSize="small" />
+								</IconButton>
+							</Tooltip>
+						</FormLabel>
+						<Autocomplete
+							multiple
+							size="small"
+							options={storageLocations}
+							value={selectedStorage}
+							onChange={(_, newVal) => setSelectedStorage(newVal)}
+							getOptionLabel={(option) => option.name}
+							isOptionEqualToValue={(option, val) => option.id === val.id}
+							renderInput={(params) => (
+								<TextField
+									{...params}
+									placeholder="Select locations"
+									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+								/>
+							)}
+						/>
+					</FormControl>
+				</Grid>
+
+				{/* 2.2 Price Class */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl fullWidth>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							Step 2.2: Price Class
+						</FormLabel>
+						<Autocomplete
+							multiple
+							size="small"
+							options={priceClasses}
+							value={selectedPriceClasses}
+							onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
+							renderInput={(params) => (
+								<TextField
+									{...params}
+									placeholder="Select price classes"
+									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+								/>
+							)}
+						/>
+					</FormControl>
+				</Grid>
+
+				{/* 2.3 Date Range */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormLabel sx={{ fontWeight: 500, mb: 0.5, display: "block" }}>
+						Step 2.3: Date Range
+					</FormLabel>
+					<Box sx={{ display: "flex", gap: 1 }}>
+						<LocalizationProvider dateAdapter={AdapterDayjs}>
+							<DatePicker
+								label="From"
+								value={dateFrom}
+								onChange={(newVal) => setDateFrom(newVal)}
+								slotProps={{
+									textField: {
+										size: "small",
+										fullWidth: true,
+										sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
+									},
+								}}
+							/>
+							<DatePicker
+								label="To"
+								value={dateTo}
+								onChange={(newVal) => setDateTo(newVal)}
+								slotProps={{
+									textField: {
+										size: "small",
+										fullWidth: true,
+										sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
+									},
+								}}
+							/>
+						</LocalizationProvider>
+					</Box>
+				</Grid>
+
+				{/* Step 3: Computation Options */}
+				<Grid size={{ xs: 12 }} />
+
+				{/* 3.1 Frequency */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							Step 3.1: Frequency
+						</FormLabel>
+						<RadioGroup
+							row
+							value={frequency}
+							onChange={(e) => setFrequency(e.target.value as Frequency)}
+						>
+							<FormControlLabel
+								value="monthly"
+								control={<Radio size="small" />}
+								label="Monthly"
+							/>
+							<FormControlLabel
+								value="weekly"
+								control={<Radio size="small" />}
+								label="Weekly"
+							/>
+						</RadioGroup>
+					</FormControl>
+				</Grid>
+
+				{/* 3.2 Monthly Factor */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl fullWidth>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							Step 3.2: Monthly Factor (Default)
+						</FormLabel>
+						<TextField
+							type="number"
+							size="small"
+							value={monthlyFactor}
+							onChange={(e) =>
+								setMonthlyFactor(parseFloat(e.target.value) || 0)
+							}
+							slotProps={{
+								htmlInput: { step: 0.1, min: 0 },
+							}}
+							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
+					</FormControl>
+				</Grid>
+
+				{/* Apply Button */}
+				<Grid size={{ xs: 12 }}>
+					<Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+						<Button
+							variant="contained"
+							startIcon={<PlayArrowIcon />}
+							onClick={handleApply}
+							size="large"
+							sx={{
+								borderRadius: 2,
+								px: 4,
+							}}
+						>
+							Apply
+						</Button>
+					</Box>
+				</Grid>
+			</Grid>
+		</Paper>
+	);
+
+	// ─── Render ───────────────────────────────────────────────────────────
 
 	return (
 		<>
-			{error ? (
+			{/* Filter Panel */}
+			{filterPanel}
+
+			{/* Storage CRUD Dialog */}
+			<StorageDialog
+				open={storageDialogOpen}
+				onClose={() => setStorageDialogOpen(false)}
+				locations={storageLocations}
+				onSave={(locs) => setStorageLocations(locs)}
+			/>
+
+			{/* Error */}
+			{gridError && (
 				<Alert severity="error" sx={{ mb: 2 }}>
-					{error}
+					{gridError}
 				</Alert>
-			) : (
-				<Paper sx={{ width: "100%", mb: 2 }}>
-					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-						<TextField
-							fullWidth
-							variant="outlined"
-							placeholder="Search purchasing requirements..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<SearchIcon />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{
-								"& .MuiOutlinedInput-root": {
-									borderRadius: 2,
-									height: 44,
-								},
-								"& .MuiInputBase-input": {
-									paddingY: 0,
-								},
-							}}
-						/>
+			)}
+
+			{/* Data Grid */}
+			{applied && columns.length > 0 && (
+				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
+					<Box sx={{ px: 2, pt: 2, pb: 1 }}>
+						<Typography variant="h6" sx={{ fontWeight: 600 }}>
+							Filtered Products
+						</Typography>
 					</Box>
-					<TableContainer sx={{ maxHeight: 440 }}>
-						<Table stickyHeader aria-labelledby="tableTitle">
-							<TableHead>
-								<TableRow>
-									{headCells.map((headCell) => (
-										<TableCell
-											key={headCell.id}
-											padding={headCell.disablePadding ? "none" : "normal"}
-											sortDirection={orderBy === headCell.id ? order : false}
-											sx={{ bgcolor: "var(--sidebar-bg)", color: "var(--sidebar-text)" }}
-										>
-											{headCell.id === "select" ? (
-												loading ? (
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												) : (
-													<Checkbox
-														indeterminate={
-															selected.length > 0 &&
-															selected.length < items.length
-														}
-														checked={
-															items.length > 0 &&
-															selected.length === items.length
-														}
-														onChange={handleSelectAllClick}
-														aria-label="select all requirements"
-														sx={{
-															color: "var(--sidebar-text)",
-															"&.Mui-checked": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-indeterminate": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-root": { color: "var(--sidebar-text)" },
-														}}
-													/>
-												)
-											) : (
-												<TableSortLabel
-													active={orderBy === headCell.id}
-													direction={orderBy === headCell.id ? order : "asc"}
-													onClick={() => handleRequestSort(headCell.id)}
-													sx={{
-														"&.MuiTableSortLabel-active": { color: "var(--sidebar-text) !important" },
-														"& .MuiTableSortLabel-icon": { color: "var(--sidebar-text) !important" },
-														color: "var(--sidebar-text)",
-													}}
-												>
-													{headCell.label}
-												</TableSortLabel>
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{loading
-									? [...Array(rowsPerPage)].map((_, index) => (
-											<TableRow key={`skeleton-${index}`}>
-												<TableCell padding="none">
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={150} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={100} />
-												</TableCell>
-											</TableRow>
-										))
-									: paginatedItems.map((item, index) => {
-											const isItemSelected = isSelected(item.id);
-											const labelId = `enhanced-table-checkbox-${index}`;
-											return (
-												<TableRow
-													hover
-													onClick={(event) => handleClick(event, item.id)}
-													role="checkbox"
-													aria-checked={isItemSelected}
-													tabIndex={-1}
-													key={item.id}
-													selected={isItemSelected}
-													sx={{ cursor: "pointer" }}
-												>
-													<TableCell padding="none">
-														<Checkbox
-															color="primary"
-															checked={isItemSelected}
-															aria-labelledby={labelId}
-														/>
-													</TableCell>
-													<TableCell
-														component="th"
-														id={labelId}
-														scope="row"
-														padding="none"
-													>
-														{item.supplier}
-													</TableCell>
-													<TableCell>{item.itemCount}</TableCell>
-													<TableCell>
-														<Chip
-															label={item.status.toUpperCase()}
-															color={getStatusColor(item.status)}
-															size="small"
-														/>
-													</TableCell>
-													<TableCell>
-														<Chip
-															label={item.priority.toUpperCase()}
-															color={getPriorityColor(item.priority)}
-															size="small"
-														/>
-													</TableCell>
-													<TableCell>{item.createdAt}</TableCell>
-												</TableRow>
-											);
-										})}
-								{!loading && emptyRows > 0 && (
-									<TableRow style={{ height: 53 * emptyRows }}>
-										<TableCell colSpan={6} />
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
-					<TablePagination
-						component="div"
-						count={items.length}
-						rowsPerPage={rowsPerPage}
-						page={page}
-						onPageChange={handleChangePage}
-						onRowsPerPageChange={handleChangeRowsPerPage}
-						labelRowsPerPage="Rows:"
+					<DataGrid
+						rows={rows}
+						columns={columns}
+						editMode="row"
+						processRowUpdate={processRowUpdate}
+						onProcessRowUpdateError={(err) =>
+							console.error("Row update error:", err)
+						}
+						getRowHeight={() => 42}
+						initialState={{
+							pagination: { paginationModel: { pageSize: 20 } },
+						}}
+						pageSizeOptions={[10, 20, 50]}
+						checkboxSelection
+						disableRowSelectionOnClick
 						sx={{
-							width: "100%",
-							display: "flex",
-							flexDirection: { xs: "column", sm: "row" },
-							alignItems: "center",
-							gap: 1,
-							"& .MuiTablePagination-toolbar": {
-								flexWrap: "wrap",
-								justifyContent: { xs: "center", sm: "flex-end" },
+							border: "none",
+							"& .MuiDataGrid-columnHeader": {
+								fontWeight: 600,
+								fontSize: "0.8rem",
 							},
-							"& .MuiTablePagination-spacer": {
-								display: "none",
+							"& .MuiDataGrid-columnHeaders": {
+								borderBottom: 2,
+								borderColor: "divider",
+							},
+							"& .group-demand": {
+								backgroundColor: groupColors.demand.bg,
+								color: groupColors.demand.color,
+							},
+							"& .group-computation": {
+								backgroundColor: groupColors.computation.bg,
+								color: groupColors.computation.color,
+							},
+							"& .group-custom": {
+								backgroundColor: groupColors.custom.bg,
+								color: groupColors.custom.color,
+							},
+							"& .MuiDataGrid-cell:focus": {
+								outline: "none",
+							},
+							"& .MuiDataGrid-cell:focus-within": {
+								outline: "none",
+							},
+							"& .MuiDataGrid-footerContainer": {
+								borderTop: "1px solid",
+								borderColor: "divider",
+							},
+							"& .MuiDataGrid-virtualScroller": {
+								minHeight: 300,
+							},
+						}}
+						slotProps={{
+							pagination: {
+								labelRowsPerPage: "Rows:",
 							},
 						}}
 					/>
