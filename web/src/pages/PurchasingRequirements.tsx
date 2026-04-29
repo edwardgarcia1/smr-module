@@ -606,6 +606,13 @@ const PurchasingRequirements: React.FC = () => {
 
 	// Principal
 	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal[]>([]);
+	const principalCategoryMap = useMemo(() => {
+		const map: Record<number, string> = {};
+		placeholderPrincipals.forEach((p) => {
+			map[p.id] = p.category;
+		});
+		return map;
+	}, []);
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
@@ -813,6 +820,7 @@ const PurchasingRequirements: React.FC = () => {
 						padding: "0 8px",
 						fontFamily: "inherit",
 						fontSize: "inherit",
+						color: "inherit",
 						background: "transparent",
 					}}
 					autoFocus
@@ -1227,6 +1235,11 @@ const PurchasingRequirements: React.FC = () => {
 							console.error("Row update error:", err)
 						}
 						getRowHeight={() => 42}
+						getRowClassName={(params) => {
+							const row = params.row as ProductRow;
+							const category = principalCategoryMap[row.principalId];
+							return `row-principal-${category || "default"}`;
+						}}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
 						}}
@@ -1267,6 +1280,51 @@ const PurchasingRequirements: React.FC = () => {
 							},
 							"& .MuiDataGrid-virtualScroller": {
 								minHeight: 300,
+							},
+							"& .row-principal-immediate": {
+								backgroundColor: darkMode
+									? "rgba(239, 83, 80, 0.12)"
+									: "#ffebee",
+								"&:hover": {
+									backgroundColor: darkMode
+										? "rgba(239, 83, 80, 0.20)"
+										: "#ffcdd2",
+								},
+								"&.Mui-selected": {
+									backgroundColor: darkMode
+										? "rgba(239, 83, 80, 0.28) !important"
+										: "#ef9a9a !important",
+								},
+							},
+							"& .row-principal-secondary": {
+								backgroundColor: darkMode
+									? "rgba(255, 183, 77, 0.12)"
+									: "#fff3e0",
+								"&:hover": {
+									backgroundColor: darkMode
+										? "rgba(255, 183, 77, 0.20)"
+										: "#ffe0b2",
+								},
+								"&.Mui-selected": {
+									backgroundColor: darkMode
+										? "rgba(255, 183, 77, 0.28) !important"
+										: "#ffcc80 !important",
+								},
+							},
+							"& .row-principal-monitoring": {
+								backgroundColor: darkMode
+									? "rgba(100, 181, 246, 0.12)"
+									: "#e3f2fd",
+								"&:hover": {
+									backgroundColor: darkMode
+										? "rgba(100, 181, 246, 0.20)"
+										: "#bbdefb",
+								},
+								"&.Mui-selected": {
+									backgroundColor: darkMode
+										? "rgba(100, 181, 246, 0.28) !important"
+										: "#90caf9 !important",
+								},
 							},
 						}}
 						slotProps={{
