@@ -26,6 +26,7 @@ import {
 	Tooltip,
 	Chip,
 	Checkbox,
+	CircularProgress,
 } from "@mui/material";
 import { useThemeMode } from "../providers/AppProvider";
 import { DataGrid } from "@mui/x-data-grid";
@@ -39,6 +40,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -636,22 +638,27 @@ const PurchasingRequirements: React.FC = () => {
 	const [columns, setColumns] = useState<GridColDef[]>([]);
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
+	const [isApplying, setIsApplying] = useState(false);
 
 	// ─── Apply Handler ────────────────────────────────────────────────────
 
-	const handleApply = useCallback(() => {
+	const handleApply = useCallback(async () => {
 		setGridError(null);
+		setIsApplying(true);
 
 		if (selectedPrincipal.length === 0) {
 			setGridError("Please select a Principal.");
+			setIsApplying(false);
 			return;
 		}
 		if (!dateFrom || !dateTo) {
 			setGridError("Please select a date range.");
+			setIsApplying(false);
 			return;
 		}
 		if (dateTo.isBefore(dateFrom)) {
 			setGridError("End date must be after start date.");
+			setIsApplying(false);
 			return;
 		}
 
@@ -677,6 +684,7 @@ const PurchasingRequirements: React.FC = () => {
 			setGridError(
 				"No products match the selected filters. Try adjusting your criteria.",
 			);
+			setIsApplying(false);
 			return;
 		}
 
@@ -684,8 +692,12 @@ const PurchasingRequirements: React.FC = () => {
 		const monthLabels = generateMonthLabels(dateFrom, dateTo, frequency);
 		if (monthLabels.length === 0) {
 			setGridError("No months in the selected date range.");
+			setIsApplying(false);
 			return;
 		}
+
+		// Simulate async processing so the spinner is visible
+		await new Promise((resolve) => setTimeout(resolve, 600));
 
 		// Fill demand data using the global monthlyFactor
 		const data = fillDemandData(filtered, monthLabels, monthlyFactor);
@@ -695,6 +707,7 @@ const PurchasingRequirements: React.FC = () => {
 		setColumns(dynamicCols);
 		setRows(data);
 		setApplied(true);
+		setIsApplying(false);
 	}, [
 		selectedPrincipal,
 		selectedStorage,
@@ -1177,12 +1190,19 @@ const PurchasingRequirements: React.FC = () => {
 
 				{/* Apply Button */}
 				<Grid size={{ xs: 12 }}>
-					<Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+					<Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1, alignItems: "center", gap: 1.5 }}>
+						{isApplying && (
+							<CircularProgress size={22} thickness={2.5} />
+						)}
+						{!isApplying && applied && (
+							<CheckCircleIcon sx={{ color: "success.main", fontSize: 22 }} />
+						)}
 						<Button
 							variant="contained"
 							startIcon={<PlayArrowIcon />}
 							onClick={handleApply}
 							size="large"
+							disabled={isApplying}
 							sx={{
 								borderRadius: 2,
 								px: 4,
