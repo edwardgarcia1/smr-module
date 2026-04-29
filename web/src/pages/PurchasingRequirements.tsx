@@ -24,6 +24,8 @@ import {
 	ListItemSecondaryAction,
 	Alert,
 	Tooltip,
+	Chip,
+	Checkbox,
 } from "@mui/material";
 import { useThemeMode } from "../providers/AppProvider";
 import { DataGrid } from "@mui/x-data-grid";
@@ -35,6 +37,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -600,12 +604,10 @@ const PurchasingRequirements: React.FC = () => {
 		[darkMode],
 	);
 
-	// Step 1: Principal
-	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
-		null,
-	);
+	// Principal
+	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal[]>([]);
 
-	// Step 2: Filters
+	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
 		defaultStorageLocations,
 	);
@@ -618,7 +620,7 @@ const PurchasingRequirements: React.FC = () => {
 	const [dateTo, setDateTo] = useState<Dayjs | null>(null);
 	const [storageDialogOpen, setStorageDialogOpen] = useState(false);
 
-	// Step 3: Computation
+	// Computation
 	const [frequency, setFrequency] = useState<Frequency>("monthly");
 	const [monthlyFactor, setMonthlyFactor] = useState(1.5);
 
@@ -633,7 +635,7 @@ const PurchasingRequirements: React.FC = () => {
 	const handleApply = useCallback(() => {
 		setGridError(null);
 
-		if (!selectedPrincipal) {
+		if (selectedPrincipal.length === 0) {
 			setGridError("Please select a Principal.");
 			return;
 		}
@@ -647,8 +649,9 @@ const PurchasingRequirements: React.FC = () => {
 		}
 
 		// Filter products by Principal, Storage, and Price Class
-		let filtered = placeholderProducts.filter(
-			(p) => p.principalId === selectedPrincipal.id,
+		const selectedPrincipalIds = new Set(selectedPrincipal.map((p) => p.id));
+		let filtered = placeholderProducts.filter((p) =>
+			selectedPrincipalIds.has(p.principalId),
 		);
 
 		if (selectedStorage.length > 0) {
@@ -697,154 +700,151 @@ const PurchasingRequirements: React.FC = () => {
 
 	// ─── Build Columns ────────────────────────────────────────────────────
 
-	const buildColumns = useCallback(
-		(monthLabels: string[]): GridColDef[] => {
-			const cols: GridColDef[] = [];
+	const buildColumns = useCallback((monthLabels: string[]): GridColDef[] => {
+		const cols: GridColDef[] = [];
 
-			// Group 1: Static product info
+		// Group 1: Static product info
+		cols.push({
+			field: "code",
+			headerName: "Code",
+			width: 100,
+			headerClassName: "group-static",
+		});
+		cols.push({
+			field: "description",
+			headerName: "Description",
+			width: 280,
+			headerClassName: "group-static",
+		});
+		cols.push({
+			field: "currentLevel",
+			headerName: "Current Level",
+			width: 120,
+			type: "number",
+			headerClassName: "group-static",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
+		cols.push({
+			field: "inputUoM",
+			headerName: "Input UoM",
+			width: 100,
+			headerClassName: "group-static",
+		});
+		cols.push({
+			field: "qtyOnHand",
+			headerName: "Qty on Hand",
+			width: 110,
+			type: "number",
+			headerClassName: "group-static",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
+		cols.push({
+			field: "unreleasedSO",
+			headerName: "Unreleased SO",
+			width: 120,
+			type: "number",
+			headerClassName: "group-static",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
+		cols.push({
+			field: "incomingPO",
+			headerName: "Incoming PO",
+			width: 110,
+			type: "number",
+			headerClassName: "group-static",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
+
+		// Group 2: Monthly Demand (dynamic)
+		monthLabels.forEach((label) => {
+			const fieldKey = `demand_${label.replace(/\s/g, "_")}`;
 			cols.push({
-				field: "code",
-				headerName: "Code",
+				field: fieldKey,
+				headerName: label,
 				width: 100,
-				headerClassName: "group-static",
-			});
-			cols.push({
-				field: "description",
-				headerName: "Description",
-				width: 280,
-				headerClassName: "group-static",
-			});
-			cols.push({
-				field: "currentLevel",
-				headerName: "Current Level",
-				width: 120,
 				type: "number",
-				headerClassName: "group-static",
+				headerClassName: "group-demand",
+				valueGetter: (_value, row) =>
+					(row as ProductRow).monthlyDemand[label] ?? 0,
 				valueFormatter: (value?: number) =>
 					value != null ? value.toLocaleString() : "",
 			});
-			cols.push({
-				field: "inputUoM",
-				headerName: "Input UoM",
-				width: 100,
-				headerClassName: "group-static",
-			});
-			cols.push({
-				field: "qtyOnHand",
-				headerName: "Qty on Hand",
-				width: 110,
-				type: "number",
-				headerClassName: "group-static",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
-			cols.push({
-				field: "unreleasedSO",
-				headerName: "Unreleased SO",
-				width: 120,
-				type: "number",
-				headerClassName: "group-static",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
-			cols.push({
-				field: "incomingPO",
-				headerName: "Incoming PO",
-				width: 110,
-				type: "number",
-				headerClassName: "group-static",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
+		});
 
-			// Group 2: Monthly Demand (dynamic)
-			monthLabels.forEach((label) => {
-				const fieldKey = `demand_${label.replace(/\s/g, "_")}`;
-				cols.push({
-					field: fieldKey,
-					headerName: label,
-					width: 100,
-					type: "number",
-					headerClassName: "group-demand",
-					valueGetter: (_value, row) =>
-						(row as ProductRow).monthlyDemand[label] ?? 0,
-					valueFormatter: (value?: number) =>
-						value != null ? value.toLocaleString() : "",
-				});
-			});
+		// Group 3: Monthly Computation
+		cols.push({
+			field: "highestMonthlyDemand",
+			headerName: "Highest Demand",
+			width: 130,
+			type: "number",
+			headerClassName: "group-computation",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
+		cols.push({
+			field: "monthlyFactor",
+			headerName: "Factor",
+			width: 80,
+			type: "number",
+			editable: true,
+			headerClassName: "group-computation",
+			renderEditCell: (params) => (
+				<input
+					type="number"
+					step={0.1}
+					value={params.value ?? ""}
+					onChange={(e) => {
+						params.api.setEditCellValue({
+							id: params.id,
+							field: params.field,
+							value: parseFloat(e.target.value) || 0,
+						});
+					}}
+					style={{
+						width: "100%",
+						height: "100%",
+						border: "none",
+						outline: "none",
+						textAlign: "center",
+						padding: "0 8px",
+						fontFamily: "inherit",
+						fontSize: "inherit",
+						background: "transparent",
+					}}
+					autoFocus
+				/>
+			),
+			valueFormatter: (value?: number) =>
+				value != null ? value.toFixed(2) : "",
+		});
+		cols.push({
+			field: "suggestedOrder",
+			headerName: "Suggested Order",
+			width: 140,
+			type: "number",
+			headerClassName: "group-computation",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
 
-			// Group 3: Monthly Computation
-			cols.push({
-				field: "highestMonthlyDemand",
-				headerName: "Highest Demand",
-				width: 130,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
-			cols.push({
-				field: "monthlyFactor",
-				headerName: "Factor",
-				width: 80,
-				type: "number",
-				editable: true,
-				headerClassName: "group-computation",
-				renderEditCell: (params) => (
-					<input
-						type="number"
-						step={0.1}
-						value={params.value ?? ""}
-						onChange={(e) => {
-							params.api.setEditCellValue({
-								id: params.id,
-								field: params.field,
-								value: parseFloat(e.target.value) || 0,
-							});
-						}}
-						style={{
-							width: "100%",
-							height: "100%",
-							border: "none",
-							outline: "none",
-							textAlign: "center",
-							padding: "0 8px",
-							fontFamily: "inherit",
-							fontSize: "inherit",
-							background: "transparent",
-						}}
-						autoFocus
-					/>
-				),
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
-			});
-			cols.push({
-				field: "suggestedOrder",
-				headerName: "Suggested Order",
-				width: 140,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
+		// Group 4: Custom Order
+		cols.push({
+			field: "customOrder",
+			headerName: "Custom Order",
+			width: 130,
+			type: "number",
+			editable: true,
+			headerClassName: "group-custom",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString() : "",
+		});
 
-			// Group 4: Custom Order
-			cols.push({
-				field: "customOrder",
-				headerName: "Custom Order",
-				width: 130,
-				type: "number",
-				editable: true,
-				headerClassName: "group-custom",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
-			});
-
-			return cols;
-		},
-		[],
-	);
+		return cols;
+	}, []);
 
 	// ─── Grid Edit Handler ────────────────────────────────────────────────
 
@@ -884,13 +884,13 @@ const PurchasingRequirements: React.FC = () => {
 			</Typography>
 
 			<Grid container spacing={3}>
-				{/* Step 1: Principal Selection */}
-				<Grid size={{ xs: 12, md: 4 }}>
+				<Grid size={{ xs: 12, md: 6 }}>
 					<FormControl fullWidth>
 						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Step 1: Select Principal
+							Select Principal
 						</FormLabel>
 						<Autocomplete
+							multiple
 							size="small"
 							options={placeholderPrincipals}
 							value={selectedPrincipal}
@@ -905,6 +905,50 @@ const PurchasingRequirements: React.FC = () => {
 								return labels[option.category] || option.category;
 							}}
 							isOptionEqualToValue={(option, val) => option.id === val.id}
+							disableCloseOnSelect
+							renderOption={(props, option, { selected }) => {
+								const { key, ...rest } = props;
+								return (
+									<li key={key} {...rest}>
+										<Checkbox
+											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+											checkedIcon={<CheckBoxIcon fontSize="small" />}
+											checked={selected}
+										/>
+										{option.name}
+									</li>
+								);
+							}}
+							renderValue={(value, getItemProps) => {
+								const principals = value as Principal[];
+								return (
+									<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+										{principals.map((principal, index) => {
+											const tagProps = getItemProps({ index });
+											const { key, ...chipProps } = tagProps;
+											const chipColors: Record<string, string> = {
+												immediate: "#d32f2f",
+												secondary: "#ed6c02",
+												monitoring: "#0288d1",
+											};
+											return (
+												<Chip
+													key={key}
+													label={principal.name}
+													size="small"
+													{...chipProps}
+													sx={{
+														backgroundColor:
+															chipColors[principal.category] || "#757575",
+														color: "#fff",
+														fontWeight: 500,
+													}}
+												/>
+											);
+										})}
+									</Box>
+								);
+							}}
 							renderInput={(params) => (
 								<TextField
 									{...params}
@@ -913,25 +957,25 @@ const PurchasingRequirements: React.FC = () => {
 								/>
 							)}
 							renderGroup={(params) => {
-								const groupColor: Record<string, { bg: string; text: string }> = {
-									"Immediate Purchase Requirements": {
-										bg: "#d32f2f",
-										text: "#ffffff",
-									},
-									"Secondary Purchase Requirements": {
-										bg: "#ed6c02",
-										text: "#ffffff",
-									},
-									"Monitoring": {
-										bg: "#0288d1",
-										text: "#ffffff",
-									},
-								};
-								const colors =
-									groupColor[params.group] ?? {
-										bg: "var(--sidebar-bg)",
-										text: "var(--sidebar-text)",
+								const groupColor: Record<string, { bg: string; text: string }> =
+									{
+										"Immediate Purchase Requirements": {
+											bg: "#d32f2f",
+											text: "#ffffff",
+										},
+										"Secondary Purchase Requirements": {
+											bg: "#ed6c02",
+											text: "#ffffff",
+										},
+										Monitoring: {
+											bg: "#0288d1",
+											text: "#ffffff",
+										},
 									};
+								const colors = groupColor[params.group] ?? {
+									bg: "var(--sidebar-bg)",
+									text: "var(--sidebar-text)",
+								};
 								return (
 									<li key={params.key}>
 										<div
@@ -956,14 +1000,13 @@ const PurchasingRequirements: React.FC = () => {
 					</FormControl>
 				</Grid>
 
-				{/* Step 2: Filters */}
+				{/* Filters */}
 				<Grid size={{ xs: 12 }} />
 
-				{/* 2.1 Storage Locations */}
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormControl fullWidth>
 						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Step 2.1: Inventory Storage
+							Inventory Storage
 							<Tooltip title="Manage storage locations">
 								<IconButton
 									size="small"
@@ -982,6 +1025,20 @@ const PurchasingRequirements: React.FC = () => {
 							onChange={(_, newVal) => setSelectedStorage(newVal)}
 							getOptionLabel={(option) => option.name}
 							isOptionEqualToValue={(option, val) => option.id === val.id}
+							disableCloseOnSelect
+							renderOption={(props, option, { selected }) => {
+								const { key, ...rest } = props;
+								return (
+									<li key={key} {...rest}>
+										<Checkbox
+											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+											checkedIcon={<CheckBoxIcon fontSize="small" />}
+											checked={selected}
+										/>
+										{option.name}
+									</li>
+								);
+							}}
 							renderInput={(params) => (
 								<TextField
 									{...params}
@@ -993,18 +1050,30 @@ const PurchasingRequirements: React.FC = () => {
 					</FormControl>
 				</Grid>
 
-				{/* 2.2 Price Class */}
+				{/* Price Class */}
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Step 2.2: Price Class
-						</FormLabel>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Price Class</FormLabel>
 						<Autocomplete
 							multiple
 							size="small"
 							options={priceClasses}
 							value={selectedPriceClasses}
 							onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
+							disableCloseOnSelect
+							renderOption={(props, option, { selected }) => {
+								const { key, ...rest } = props;
+								return (
+									<li key={key} {...rest}>
+										<Checkbox
+											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+											checkedIcon={<CheckBoxIcon fontSize="small" />}
+											checked={selected}
+										/>
+										{option}
+									</li>
+								);
+							}}
 							renderInput={(params) => (
 								<TextField
 									{...params}
@@ -1016,10 +1085,10 @@ const PurchasingRequirements: React.FC = () => {
 					</FormControl>
 				</Grid>
 
-				{/* 2.3 Date Range */}
+				{/* Date Range */}
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormLabel sx={{ fontWeight: 500, mb: 0.5, display: "block" }}>
-						Step 2.3: Date Range
+						Date Range
 					</FormLabel>
 					<Box sx={{ display: "flex", gap: 1 }}>
 						<LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1051,15 +1120,13 @@ const PurchasingRequirements: React.FC = () => {
 					</Box>
 				</Grid>
 
-				{/* Step 3: Computation Options */}
+				{/* Computation Options */}
 				<Grid size={{ xs: 12 }} />
 
-				{/* 3.1 Frequency */}
+				{/* Frequency */}
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormControl>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Step 3.1: Frequency
-						</FormLabel>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Frequency</FormLabel>
 						<RadioGroup
 							row
 							value={frequency}
@@ -1083,7 +1150,7 @@ const PurchasingRequirements: React.FC = () => {
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormControl fullWidth>
 						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Step 3.2: Monthly Factor (Default)
+							Monthly Factor (Default)
 						</FormLabel>
 						<TextField
 							type="number"
