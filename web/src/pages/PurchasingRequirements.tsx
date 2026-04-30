@@ -29,7 +29,13 @@ import {
 	CircularProgress,
 } from "@mui/material";
 import { useThemeMode } from "../providers/AppProvider";
-import { DataGrid } from "@mui/x-data-grid";
+import {
+	DataGrid,
+	GridToolbarColumnsButton,
+	GridToolbarFilterButton,
+	GridToolbarDensitySelector,
+	GridToolbarExport,
+} from "@mui/x-data-grid";
 import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -1270,6 +1276,34 @@ const PurchasingRequirements: React.FC = () => {
 		</Paper>
 	);
 
+	// ─── Custom Toolbar ─────────────────────────────────────────────────
+
+	const CustomToolbar = useCallback(() => {
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					px: 2,
+					py: 1,
+					borderBottom: "1px solid",
+					borderColor: "divider",
+				}}
+			>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					Filtered Products
+				</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+					<GridToolbarColumnsButton />
+					<GridToolbarFilterButton />
+					<GridToolbarDensitySelector />
+					<GridToolbarExport />
+				</Box>
+			</Box>
+		);
+	}, []);
+
 	// ─── Render ───────────────────────────────────────────────────────────
 
 	return (
@@ -1288,11 +1322,6 @@ const PurchasingRequirements: React.FC = () => {
 			{/* Data Grid */}
 			{applied && columns.length > 0 && (
 				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
-					<Box sx={{ px: 2, pt: 2, pb: 1 }}>
-						<Typography variant="h6" sx={{ fontWeight: 600 }}>
-							Filtered Products
-						</Typography>
-					</Box>
 					<DataGrid
 						rows={rows}
 						columns={columns}
@@ -1302,6 +1331,8 @@ const PurchasingRequirements: React.FC = () => {
 							console.error("Row update error:", err)
 						}
 						getRowHeight={() => 42}
+						slots={{ toolbar: CustomToolbar }}
+						showToolbar
 						getRowClassName={(params) => {
 							const row = params.row as ProductRow;
 							const category = principalCategoryMap[row.principalId];
