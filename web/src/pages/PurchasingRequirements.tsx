@@ -48,6 +48,8 @@ import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import TableChartIcon from "@mui/icons-material/TableChart";
+import { exportDataGridToExcel } from "../utils/exportToExcel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1278,6 +1280,13 @@ const PurchasingRequirements: React.FC = () => {
 
 	// ─── Custom Toolbar ─────────────────────────────────────────────────
 
+	const handleExcelExport = useCallback(() => {
+		const filename = poRefNbr
+			? `purchase-requirements-${poRefNbr}.xlsx`
+			: "purchase-requirements.xlsx";
+		exportDataGridToExcel(rows as Record<string, unknown>[], columns, filename);
+	}, [rows, columns, poRefNbr]);
+
 	const CustomToolbar = useCallback(() => {
 		return (
 			<Box
@@ -1299,10 +1308,28 @@ const PurchasingRequirements: React.FC = () => {
 					<GridToolbarFilterButton />
 					<GridToolbarDensitySelector />
 					<GridToolbarExport />
+					<Tooltip title="Export to Excel">
+						<Button
+							size="small"
+							color="primary"
+							startIcon={<TableChartIcon />}
+							onClick={handleExcelExport}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+							}}
+						>
+							Excel
+						</Button>
+					</Tooltip>
 				</Box>
+
 			</Box>
 		);
-	}, []);
+	}, [handleExcelExport]);
 
 	// ─── Render ───────────────────────────────────────────────────────────
 
