@@ -33,7 +33,6 @@ import {
 	DataGrid,
 	GridToolbarColumnsButton,
 	GridToolbarFilterButton,
-	GridToolbarDensitySelector,
 	GridToolbarExport,
 } from "@mui/x-data-grid";
 import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
@@ -1204,9 +1203,7 @@ const PurchasingRequirements: React.FC = () => {
 				{/* PO RefNbr Input */}
 				<Grid size={{ xs: 12, md: 4 }}>
 					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							PO RefNbr
-						</FormLabel>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>PO RefNbr</FormLabel>
 						<TextField
 							size="small"
 							value={poRefNbr}
@@ -1249,9 +1246,7 @@ const PurchasingRequirements: React.FC = () => {
 						)}
 						{/* Indicators + Apply on the right */}
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-							{isApplying && (
-								<CircularProgress size={22} thickness={2.5} />
-							)}
+							{isApplying && <CircularProgress size={22} thickness={2.5} />}
 							{!isApplying && applied && !gridError && (
 								<CheckCircleIcon sx={{ color: "success.main", fontSize: 22 }} />
 							)}
@@ -1306,7 +1301,6 @@ const PurchasingRequirements: React.FC = () => {
 				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
 					<GridToolbarColumnsButton />
 					<GridToolbarFilterButton />
-					<GridToolbarDensitySelector />
 					<GridToolbarExport />
 					<Tooltip title="Export to Excel">
 						<Button
@@ -1326,7 +1320,6 @@ const PurchasingRequirements: React.FC = () => {
 						</Button>
 					</Tooltip>
 				</Box>
-
 			</Box>
 		);
 	}, [handleExcelExport]);
