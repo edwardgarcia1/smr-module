@@ -68,6 +68,17 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 	background-color: #6b7280;
 }
 
+/* Number input spinners - ensure visibility */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+	opacity: 1;
+}
+
+/* Number input spinners - dark mode: use native dark-styled arrows */
+html.dark-mode input[type="number"] {
+	color-scheme: dark;
+}
+
 /* Table header sort icons */
 .MuiTableSortLabel-icon {
 	color: var(--sidebar-text) !important;
