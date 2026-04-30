@@ -632,6 +632,7 @@ const PurchasingRequirements: React.FC = () => {
 	// Computation
 	const [frequency, setFrequency] = useState<Frequency>("monthly");
 	const [monthlyFactor, setMonthlyFactor] = useState(1.5);
+	const [poRefNbr, setPoRefNbr] = useState("");
 
 	// Grid data
 	const [rows, setRows] = useState<GridRowsProp>([]);
@@ -1183,6 +1184,22 @@ const PurchasingRequirements: React.FC = () => {
 							slotProps={{
 								htmlInput: { step: 0.1, min: 0 },
 							}}
+							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
+					</FormControl>
+				</Grid>
+
+				{/* PO RefNbr Input */}
+				<Grid size={{ xs: 12, md: 4 }}>
+					<FormControl fullWidth>
+						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+							PO RefNbr
+						</FormLabel>
+						<TextField
+							size="small"
+							value={poRefNbr}
+							onChange={(e) => setPoRefNbr(e.target.value)}
+							placeholder="Enter PO reference number"
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
 					</FormControl>
