@@ -9,8 +9,12 @@ import {
 	Paper,
 	Alert,
 	Link,
+	IconButton,
+	InputAdornment,
 } from "@mui/material";
 import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useNavigate } from "react-router-dom";
 const appName = import.meta.env.VITE_APP_NAME;
 
@@ -21,6 +25,7 @@ const Register: React.FC = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const [showPassword, setShowPassword] = useState(false);
 	const navigate = useNavigate();
 	const isMounted = useRef(true);
 
@@ -29,6 +34,11 @@ const Register: React.FC = () => {
 			isMounted.current = false;
 		};
 	}, []);
+
+	const handleClickShowPassword = () => setShowPassword((show) => !show);
+	const handleMouseDownPassword = (e: React.MouseEvent<HTMLButtonElement>) => {
+		e.preventDefault();
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -175,7 +185,7 @@ const Register: React.FC = () => {
 							fullWidth
 							name="password"
 							label="Password"
-							type="password"
+							type={showPassword ? "text" : "password"}
 							id="password"
 							autoComplete="new-password"
 							value={password}
@@ -186,6 +196,22 @@ const Register: React.FC = () => {
 								},
 								"& .Mui-focused .MuiOutlinedInput-notchedOutline": {
 									borderColor: "var(--accent)",
+								},
+							}}
+							slotProps={{
+								input: {
+									endAdornment: (
+										<InputAdornment position="end">
+											<IconButton
+												aria-label={showPassword ? "hide password" : "show password"}
+												onClick={handleClickShowPassword}
+												onMouseDown={handleMouseDownPassword}
+												edge="end"
+											>
+												{showPassword ? <VisibilityOff /> : <Visibility />}
+											</IconButton>
+										</InputAdornment>
+									),
 								},
 							}}
 						/>
