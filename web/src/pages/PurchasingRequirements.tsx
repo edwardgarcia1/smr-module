@@ -27,13 +27,15 @@ import {
 	Chip,
 	Checkbox,
 	CircularProgress,
+	useTheme,
 } from "@mui/material";
 import { useThemeMode } from "../providers/AppProvider";
 import {
 	DataGrid,
-	GridToolbarColumnsButton,
-	GridToolbarFilterButton,
-	GridToolbarExport,
+	ColumnsPanelTrigger,
+	FilterPanelTrigger,
+	ExportCsv,
+	ExportPrint,
 } from "@mui/x-data-grid";
 import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
@@ -47,6 +49,10 @@ import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 
@@ -594,6 +600,7 @@ const StorageDialog: React.FC<StorageDialogProps> = ({
 
 const PurchasingRequirements: React.FC = () => {
 	const { darkMode } = useThemeMode();
+	const theme = useTheme();
 
 	// Theme-aware group colors for data grid headers
 	const groupColors = useMemo(
@@ -1299,9 +1306,66 @@ const PurchasingRequirements: React.FC = () => {
 					Filtered Products
 				</Typography>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-					<GridToolbarColumnsButton />
-					<GridToolbarFilterButton />
-					<GridToolbarExport />
+					<ColumnsPanelTrigger
+						size="small"
+						startIcon={<ViewColumnIcon />}
+						style={{
+							minWidth: "auto",
+							textTransform: "none",
+							fontSize: "0.8125rem",
+							fontWeight: 500,
+							paddingLeft: 6,
+							paddingRight: 6,
+							color: theme.palette.primary.main,
+						}}
+					>
+						Columns
+					</ColumnsPanelTrigger>
+					<FilterPanelTrigger
+						size="small"
+						startIcon={<FilterListIcon />}
+						style={{
+							minWidth: "auto",
+							textTransform: "none",
+							fontSize: "0.8125rem",
+							fontWeight: 500,
+							paddingLeft: 6,
+							paddingRight: 6,
+							color: theme.palette.primary.main,
+						}}
+					>
+						Filters
+					</FilterPanelTrigger>
+					<ExportCsv
+						size="small"
+						startIcon={<FileDownloadIcon />}
+						style={{
+							minWidth: "auto",
+							textTransform: "none",
+							fontSize: "0.8125rem",
+							fontWeight: 500,
+							paddingLeft: 6,
+							paddingRight: 6,
+							color: theme.palette.primary.main,
+						}}
+					>
+						CSV
+					</ExportCsv>
+					<ExportPrint
+						size="small"
+						startIcon={<PrintIcon />}
+						style={{
+							minWidth: "auto",
+							textTransform: "none",
+							fontSize: "0.8125rem",
+							fontWeight: 500,
+							paddingLeft: 6,
+							paddingRight: 6,
+							color: theme.palette.primary.main,
+						}}
+					>
+						Print
+					</ExportPrint>
 					<Tooltip title="Export to Excel">
 						<Button
 							size="small"
