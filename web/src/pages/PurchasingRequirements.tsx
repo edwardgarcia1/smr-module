@@ -41,6 +41,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CancelIcon from "@mui/icons-material/Cancel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -645,6 +646,9 @@ const PurchasingRequirements: React.FC = () => {
 
 	const handleApply = useCallback(async () => {
 		setGridError(null);
+		setApplied(false);
+		setRows([]);
+		setColumns([]);
 		setIsApplying(true);
 
 		if (selectedPrincipal.length === 0) {
@@ -1207,26 +1211,59 @@ const PurchasingRequirements: React.FC = () => {
 
 				{/* Apply Button */}
 				<Grid size={{ xs: 12 }}>
-					<Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1, alignItems: "center", gap: 1.5 }}>
-						{isApplying && (
-							<CircularProgress size={22} thickness={2.5} />
+					<Box
+						sx={{
+							display: "flex",
+							flexDirection: { xs: "column", md: "row" },
+							alignItems: { xs: "flex-end", md: "center" },
+							gap: 1.5,
+							mt: 1,
+						}}
+					>
+						{/* Error message — own row on mobile, left side on desktop */}
+						{gridError && (
+							<Alert
+								severity="error"
+								sx={{
+									width: "100%",
+									flex: { md: 1 },
+									mb: 0,
+									py: 0.5,
+									alignSelf: "stretch",
+								}}
+							>
+								{gridError}
+							</Alert>
 						)}
-						{!isApplying && applied && (
-							<CheckCircleIcon sx={{ color: "success.main", fontSize: 22 }} />
+						{/* Spacer when no error (hidden on mobile) */}
+						{!gridError && (
+							<Box sx={{ flex: 1, display: { xs: "none", md: "block" } }} />
 						)}
-						<Button
-							variant="contained"
-							startIcon={<PlayArrowIcon />}
-							onClick={handleApply}
-							size="large"
-							disabled={isApplying}
-							sx={{
-								borderRadius: 2,
-								px: 4,
-							}}
-						>
-							Apply
-						</Button>
+						{/* Indicators + Apply on the right */}
+						<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+							{isApplying && (
+								<CircularProgress size={22} thickness={2.5} />
+							)}
+							{!isApplying && applied && !gridError && (
+								<CheckCircleIcon sx={{ color: "success.main", fontSize: 22 }} />
+							)}
+							{!isApplying && gridError && (
+								<CancelIcon sx={{ color: "error.main", fontSize: 22 }} />
+							)}
+							<Button
+								variant="contained"
+								startIcon={<PlayArrowIcon />}
+								onClick={handleApply}
+								size="large"
+								disabled={isApplying}
+								sx={{
+									borderRadius: 2,
+									px: 4,
+								}}
+							>
+								Apply
+							</Button>
+						</Box>
 					</Box>
 				</Grid>
 			</Grid>
@@ -1247,13 +1284,6 @@ const PurchasingRequirements: React.FC = () => {
 				locations={storageLocations}
 				onSave={(locs) => setStorageLocations(locs)}
 			/>
-
-			{/* Error */}
-			{gridError && (
-				<Alert severity="error" sx={{ mb: 2 }}>
-					{gridError}
-				</Alert>
-			)}
 
 			{/* Data Grid */}
 			{applied && columns.length > 0 && (
