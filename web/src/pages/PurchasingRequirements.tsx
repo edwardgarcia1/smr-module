@@ -45,6 +45,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
+import AddIcon from "@mui/icons-material/Add";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -640,9 +641,35 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
 		[],
 	);
-	const [dateFrom, setDateFrom] = useState<Dayjs | null>(null);
-	const [dateTo, setDateTo] = useState<Dayjs | null>(null);
 	const [storageDialogOpen, setStorageDialogOpen] = useState(false);
+
+	// Date range list
+	interface DateRangeItem {
+		from: Dayjs | null;
+		to: Dayjs | null;
+	}
+	const [dateRanges, setDateRanges] = useState<DateRangeItem[]>([
+		{ from: null, to: null },
+	]);
+
+	const handleAddDateRange = useCallback(() => {
+		setDateRanges((prev) => [...prev, { from: null, to: null }]);
+	}, []);
+
+	const handleRemoveDateRange = useCallback((index: number) => {
+		setDateRanges((prev) => prev.filter((_, i) => i !== index));
+	}, []);
+
+	const handleUpdateDateRange = useCallback(
+		(index: number, field: "from" | "to", value: Dayjs | null) => {
+			setDateRanges((prev) =>
+				prev.map((item, i) =>
+					i === index ? { ...item, [field]: value } : item,
+				),
+			);
+		},
+		[],
+	);
 
 	// Computation
 	const [frequency, setFrequency] = useState<Frequency>("monthly");
@@ -670,16 +697,30 @@ const PurchasingRequirements: React.FC = () => {
 			setIsApplying(false);
 			return;
 		}
-		if (!dateFrom || !dateTo) {
-			setGridError("Please select a date range.");
+		if (dateRanges.length === 0 || dateRanges.some((dr) => !dr.from || !dr.to)) {
+			setGridError("Please fill in all date ranges.");
 			setIsApplying(false);
 			return;
 		}
-		if (dateTo.isBefore(dateFrom)) {
-			setGridError("End date must be after start date.");
-			setIsApplying(false);
-			return;
+		for (const dr of dateRanges) {
+			if (dr.to!.isBefore(dr.from!)) {
+				setGridError(
+					"End date must be after start date in each date range.",
+				);
+				setIsApplying(false);
+				return;
+			}
 		}
+
+		// Compute overall min/max across all date ranges for column generation
+		const overallFrom = dateRanges.reduce<Dayjs>(
+			(min, dr) => (dr.from!.isBefore(min) ? dr.from! : min),
+			dateRanges[0].from!,
+		);
+		const overallTo = dateRanges.reduce<Dayjs>(
+			(max, dr) => (dr.to!.isAfter(max) ? dr.to! : max),
+			dateRanges[0].to!,
+		);
 
 		// Filter products by Principal, Storage, and Price Class
 		const selectedPrincipalIds = new Set(selectedPrincipal.map((p) => p.id));
@@ -708,7 +749,7 @@ const PurchasingRequirements: React.FC = () => {
 		}
 
 		// Generate month labels
-		const monthLabels = generateMonthLabels(dateFrom, dateTo, frequency);
+		const monthLabels = generateMonthLabels(overallFrom, overallTo, frequency);
 		if (monthLabels.length === 0) {
 			setGridError("No months in the selected date range.");
 			setIsApplying(false);
@@ -731,8 +772,7 @@ const PurchasingRequirements: React.FC = () => {
 		selectedPrincipal,
 		selectedStorage,
 		selectedPriceClasses,
-		dateFrom,
-		dateTo,
+		dateRanges,
 		frequency,
 		monthlyFactor,
 	]);
@@ -923,306 +963,340 @@ const PurchasingRequirements: React.FC = () => {
 				Purchase Requirements Filters
 			</Typography>
 
-			<Grid container spacing={3}>
-				<Grid size={{ xs: 12, md: 6 }}>
-					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Select Principal
-						</FormLabel>
-						<Autocomplete
-							multiple
-							size="small"
-							options={placeholderPrincipals}
-							value={selectedPrincipal}
-							onChange={(_, newVal) => setSelectedPrincipal(newVal)}
-							getOptionLabel={(option) => option.name}
-							groupBy={(option) => {
-								const labels: Record<string, string> = {
-									immediate: "Immediate Purchase Requirements",
-									secondary: "Secondary Purchase Requirements",
-									monitoring: "Monitoring",
-								};
-								return labels[option.category] || option.category;
-							}}
-							isOptionEqualToValue={(option, val) => option.id === val.id}
-							disableCloseOnSelect
-							renderOption={(props, option, { selected }) => {
-								const { key, ...rest } = props;
-								return (
-									<li key={key} {...rest}>
-										<Checkbox
-											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-											checkedIcon={<CheckBoxIcon fontSize="small" />}
-											checked={selected}
-										/>
-										{option.name}
-									</li>
-								);
-							}}
-							renderValue={(value, getItemProps) => {
-								const principals = value as Principal[];
-								return (
-									<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-										{principals.map((principal, index) => {
-											const tagProps = getItemProps({ index });
-											const { key, ...chipProps } = tagProps;
-											const chipColors: Record<string, string> = {
-												immediate: "#d32f2f",
-												secondary: "#ed6c02",
-												monitoring: "#0288d1",
-											};
-											return (
-												<Chip
-													key={key}
-													label={principal.name}
-													size="small"
-													{...chipProps}
-													sx={{
-														backgroundColor:
-															chipColors[principal.category] || "#757575",
-														color: "#fff",
-														fontWeight: 500,
-													}}
-												/>
-											);
-										})}
-									</Box>
-								);
-							}}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									placeholder="Search or select principal"
-									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-								/>
-							)}
-							renderGroup={(params) => {
-								const groupColor: Record<string, { bg: string; text: string }> =
-									{
-										"Immediate Purchase Requirements": {
-											bg: "#d32f2f",
-											text: "#ffffff",
-										},
-										"Secondary Purchase Requirements": {
-											bg: "#ed6c02",
-											text: "#ffffff",
-										},
-										Monitoring: {
-											bg: "#0288d1",
-											text: "#ffffff",
-										},
-									};
-								const colors = groupColor[params.group] ?? {
-									bg: "var(--sidebar-bg)",
-									text: "var(--sidebar-text)",
-								};
-								return (
-									<li key={params.key}>
-										<div
-											style={{
-												fontWeight: 600,
-												fontSize: "0.75rem",
-												lineHeight: "32px",
-												padding: "0 16px",
-												backgroundColor: colors.bg,
-												color: colors.text,
-												textTransform: "uppercase",
-												letterSpacing: "0.05em",
-											}}
-										>
-											{params.group}
-										</div>
-										<ul style={{ padding: 0 }}>{params.children}</ul>
-									</li>
-								);
-							}}
-						/>
-					</FormControl>
-				</Grid>
-
-				{/* Filters */}
-				<Grid size={{ xs: 12 }} />
-
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Inventory Storage
-							<Tooltip title="Manage storage locations">
-								<IconButton
+			<Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+				{/* Left column - filters (60%) */}
+				<Box sx={{ flex: "3 1 0%", minWidth: 300 }}>
+					<Grid container spacing={3}>
+						{/* Principal - full width */}
+						<Grid size={{ xs: 12 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Select Principal
+								</FormLabel>
+								<Autocomplete
+									multiple
 									size="small"
-									onClick={() => setStorageDialogOpen(true)}
-									sx={{ ml: 0.5 }}
+									options={placeholderPrincipals}
+									value={selectedPrincipal}
+									onChange={(_, newVal) => setSelectedPrincipal(newVal)}
+									getOptionLabel={(option) => option.name}
+									groupBy={(option) => {
+										const labels: Record<string, string> = {
+											immediate: "Immediate Purchase Requirements",
+											secondary: "Secondary Purchase Requirements",
+											monitoring: "Monitoring",
+										};
+										return labels[option.category] || option.category;
+									}}
+									isOptionEqualToValue={(option, val) => option.id === val.id}
+									disableCloseOnSelect
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option.name}
+											</li>
+										);
+									}}
+									renderValue={(value, getItemProps) => {
+										const principals = value as Principal[];
+										return (
+											<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+												{principals.map((principal, index) => {
+													const tagProps = getItemProps({ index });
+													const { key, ...chipProps } = tagProps;
+													const chipColors: Record<string, string> = {
+														immediate: "#d32f2f",
+														secondary: "#ed6c02",
+														monitoring: "#0288d1",
+													};
+													return (
+														<Chip
+															key={key}
+															label={principal.name}
+															size="small"
+															{...chipProps}
+															sx={{
+																backgroundColor:
+																	chipColors[principal.category] || "#757575",
+																color: "#fff",
+																fontWeight: 500,
+															}}
+														/>
+													);
+												})}
+											</Box>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											placeholder="Search or select principal"
+											sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+										/>
+									)}
+									renderGroup={(params) => {
+										const groupColor: Record<string, { bg: string; text: string }> =
+											{
+												"Immediate Purchase Requirements": {
+													bg: "#d32f2f",
+													text: "#ffffff",
+												},
+												"Secondary Purchase Requirements": {
+													bg: "#ed6c02",
+													text: "#ffffff",
+												},
+												Monitoring: {
+													bg: "#0288d1",
+													text: "#ffffff",
+												},
+											};
+										const colors = groupColor[params.group] ?? {
+											bg: "var(--sidebar-bg)",
+											text: "var(--sidebar-text)",
+										};
+										return (
+											<li key={params.key}>
+												<div
+													style={{
+														fontWeight: 600,
+														fontSize: "0.75rem",
+														lineHeight: "32px",
+														padding: "0 16px",
+														backgroundColor: colors.bg,
+														color: colors.text,
+														textTransform: "uppercase",
+														letterSpacing: "0.05em",
+													}}
+												>
+													{params.group}
+												</div>
+												<ul style={{ padding: 0 }}>{params.children}</ul>
+											</li>
+										);
+									}}
+								/>
+							</FormControl>
+						</Grid>
+						{/* Inventory Storage - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Inventory Storage
+									<Tooltip title="Manage storage locations">
+										<IconButton
+											size="small"
+											onClick={() => setStorageDialogOpen(true)}
+											sx={{ ml: 0.5 }}
+										>
+											<SettingsIcon fontSize="small" />
+										</IconButton>
+									</Tooltip>
+								</FormLabel>
+								<Autocomplete
+									multiple
+									size="small"
+									options={storageLocations}
+									value={selectedStorage}
+									onChange={(_, newVal) => setSelectedStorage(newVal)}
+									getOptionLabel={(option) => option.name}
+									isOptionEqualToValue={(option, val) => option.id === val.id}
+									disableCloseOnSelect
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option.name}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											placeholder="Select locations"
+											sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+										/>
+									)}
+								/>
+							</FormControl>
+						</Grid>
+						{/* Price Class - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Price Class</FormLabel>
+								<Autocomplete
+									multiple
+									size="small"
+									options={priceClasses}
+									value={selectedPriceClasses}
+									onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
+									disableCloseOnSelect
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											placeholder="Select price classes"
+											sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+										/>
+									)}
+								/>
+							</FormControl>
+						</Grid>
+						{/* Frequency - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Frequency
+								</FormLabel>
+								<RadioGroup
+									row
+									value={frequency}
+									onChange={(e) =>
+										setFrequency(e.target.value as Frequency)
+									}
 								>
-									<SettingsIcon fontSize="small" />
-								</IconButton>
-							</Tooltip>
+									<FormControlLabel
+										value="monthly"
+										control={<Radio size="small" />}
+										label="Monthly"
+									/>
+									<FormControlLabel
+										value="weekly"
+										control={<Radio size="small" />}
+										label="Weekly"
+									/>
+								</RadioGroup>
+							</FormControl>
+						</Grid>
+						{/* Monthly Factor - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Monthly Factor (Default)
+								</FormLabel>
+								<TextField
+									type="number"
+									size="small"
+									value={monthlyFactor}
+									onChange={(e) =>
+										setMonthlyFactor(parseFloat(e.target.value) || 0)
+									}
+									slotProps={{
+										htmlInput: { step: 0.1, min: 0 },
+									}}
+									sx={{
+										"& .MuiOutlinedInput-root": { borderRadius: 2 },
+									}}
+								/>
+							</FormControl>
+						</Grid>
+						{/* PO RefNbr - full width */}
+						<Grid size={{ xs: 12 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									PO RefNbr
+								</FormLabel>
+								<TextField
+									size="small"
+									value={poRefNbr}
+									onChange={(e) => setPoRefNbr(e.target.value)}
+									placeholder="Enter PO reference number"
+									sx={{
+										"& .MuiOutlinedInput-root": { borderRadius: 2 },
+									}}
+								/>
+							</FormControl>
+						</Grid>
+					</Grid>
+				</Box>
+
+				{/* Right column - DateRange card (40%) */}
+				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
+					<Paper sx={{ p: 2, height: 290, overflowY: "auto", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
+							Date Range
 						</FormLabel>
-						<Autocomplete
-							multiple
-							size="small"
-							options={storageLocations}
-							value={selectedStorage}
-							onChange={(_, newVal) => setSelectedStorage(newVal)}
-							getOptionLabel={(option) => option.name}
-							isOptionEqualToValue={(option, val) => option.id === val.id}
-							disableCloseOnSelect
-							renderOption={(props, option, { selected }) => {
-								const { key, ...rest } = props;
-								return (
-									<li key={key} {...rest}>
-										<Checkbox
-											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-											checkedIcon={<CheckBoxIcon fontSize="small" />}
-											checked={selected}
-										/>
-										{option.name}
-									</li>
-								);
-							}}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									placeholder="Select locations"
-									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-								/>
-							)}
-						/>
-					</FormControl>
-				</Grid>
-
-				{/* Price Class */}
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Price Class</FormLabel>
-						<Autocomplete
-							multiple
-							size="small"
-							options={priceClasses}
-							value={selectedPriceClasses}
-							onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
-							disableCloseOnSelect
-							renderOption={(props, option, { selected }) => {
-								const { key, ...rest } = props;
-								return (
-									<li key={key} {...rest}>
-										<Checkbox
-											icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-											checkedIcon={<CheckBoxIcon fontSize="small" />}
-											checked={selected}
-										/>
-										{option}
-									</li>
-								);
-							}}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									placeholder="Select price classes"
-									sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-								/>
-							)}
-						/>
-					</FormControl>
-				</Grid>
-
-				{/* Date Range */}
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormLabel sx={{ fontWeight: 500, mb: 0.5, display: "block" }}>
-						Date Range
-					</FormLabel>
-					<Box sx={{ display: "flex", gap: 1 }}>
 						<LocalizationProvider dateAdapter={AdapterDayjs}>
-							<DatePicker
-								label="From"
-								value={dateFrom}
-								onChange={(newVal) => setDateFrom(newVal)}
-								slotProps={{
-									textField: {
-										size: "small",
-										fullWidth: true,
-										sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
-									},
-								}}
-							/>
-							<DatePicker
-								label="To"
-								value={dateTo}
-								onChange={(newVal) => setDateTo(newVal)}
-								slotProps={{
-									textField: {
-										size: "small",
-										fullWidth: true,
-										sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
-									},
-								}}
-							/>
+							<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+								{dateRanges.map((dr, index) => (
+									<Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+										<DatePicker
+											label={`From ${dateRanges.length > 1 ? index + 1 : ""}`}
+											value={dr.from}
+											onChange={(v) => handleUpdateDateRange(index, "from", v)}
+											slotProps={{
+												textField: {
+													size: "small",
+													fullWidth: true,
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
+												},
+											}}
+										/>
+										<DatePicker
+											label={`To ${dateRanges.length > 1 ? index + 1 : ""}`}
+											value={dr.to}
+											onChange={(v) => handleUpdateDateRange(index, "to", v)}
+											slotProps={{
+												textField: {
+													size: "small",
+													fullWidth: true,
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
+												},
+											}}
+										/>
+										{dateRanges.length > 1 && (
+											<IconButton
+												size="small"
+												onClick={() => handleRemoveDateRange(index)}
+												color="error"
+											>
+												<DeleteIcon fontSize="small" />
+											</IconButton>
+										)}
+									</Box>
+								))}
+								<Button
+									size="small"
+									startIcon={<AddIcon />}
+									onClick={handleAddDateRange}
+									variant="outlined"
+									sx={{ alignSelf: "flex-start" }}
+								>
+									Add Date Range
+								</Button>
+							</Box>
 						</LocalizationProvider>
-					</Box>
-				</Grid>
+					</Paper>
+				</Box>
 
-				{/* Computation Options */}
-				<Grid size={{ xs: 12 }} />
-
-				{/* Frequency */}
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormControl>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Frequency</FormLabel>
-						<RadioGroup
-							row
-							value={frequency}
-							onChange={(e) => setFrequency(e.target.value as Frequency)}
-						>
-							<FormControlLabel
-								value="monthly"
-								control={<Radio size="small" />}
-								label="Monthly"
-							/>
-							<FormControlLabel
-								value="weekly"
-								control={<Radio size="small" />}
-								label="Weekly"
-							/>
-						</RadioGroup>
-					</FormControl>
-				</Grid>
-
-				{/* 3.2 Monthly Factor */}
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-							Monthly Factor (Default)
-						</FormLabel>
-						<TextField
-							type="number"
-							size="small"
-							value={monthlyFactor}
-							onChange={(e) =>
-								setMonthlyFactor(parseFloat(e.target.value) || 0)
-							}
-							slotProps={{
-								htmlInput: { step: 0.1, min: 0 },
-							}}
-							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-						/>
-					</FormControl>
-				</Grid>
-
-				{/* PO RefNbr Input */}
-				<Grid size={{ xs: 12, md: 4 }}>
-					<FormControl fullWidth>
-						<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>PO RefNbr</FormLabel>
-						<TextField
-							size="small"
-							value={poRefNbr}
-							onChange={(e) => setPoRefNbr(e.target.value)}
-							placeholder="Enter PO reference number"
-							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-						/>
-					</FormControl>
-				</Grid>
-
-				{/* Apply Button */}
-				<Grid size={{ xs: 12 }}>
+				{/* Apply Button - full width */}
+				<Box sx={{ width: "100%" }}>
 					<Box
 						sx={{
 							display: "flex",
@@ -1232,7 +1306,7 @@ const PurchasingRequirements: React.FC = () => {
 							mt: 1,
 						}}
 					>
-						{/* Error message — own row on mobile, left side on desktop */}
+						{/* Error message - own row on mobile, left side on desktop */}
 						{gridError && (
 							<Alert
 								severity="error"
@@ -1275,8 +1349,8 @@ const PurchasingRequirements: React.FC = () => {
 							</Button>
 						</Box>
 					</Box>
-				</Grid>
-			</Grid>
+				</Box>
+			</Box>
 		</Paper>
 	);
 
