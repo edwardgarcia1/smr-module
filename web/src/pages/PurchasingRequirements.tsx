@@ -1454,6 +1454,16 @@ const PurchasingRequirements: React.FC = () => {
 	}, [rows, columns, poRefNbr]);
 
 	const CustomToolbar = useCallback(() => {
+		const labelSx = { display: { xs: "none", md: "inline" } };
+		const iconSx = {
+			minWidth: "auto",
+			textTransform: "none",
+			fontSize: "0.8125rem",
+			fontWeight: 500,
+			paddingLeft: 0.75,
+			paddingRight: 0.75,
+			color: theme.palette.primary.main,
+		};
 		return (
 			<Box
 				sx={{
@@ -1473,62 +1483,30 @@ const PurchasingRequirements: React.FC = () => {
 					<ColumnsPanelTrigger
 						size="small"
 						startIcon={<ViewColumnIcon />}
-						style={{
-							minWidth: "auto",
-							textTransform: "none",
-							fontSize: "0.8125rem",
-							fontWeight: 500,
-							paddingLeft: 6,
-							paddingRight: 6,
-							color: theme.palette.primary.main,
-						}}
+						style={iconSx}
 					>
-						Columns
+						<Box component="span" sx={labelSx}>Columns</Box>
 					</ColumnsPanelTrigger>
 					<FilterPanelTrigger
 						size="small"
 						startIcon={<FilterListIcon />}
-						style={{
-							minWidth: "auto",
-							textTransform: "none",
-							fontSize: "0.8125rem",
-							fontWeight: 500,
-							paddingLeft: 6,
-							paddingRight: 6,
-							color: theme.palette.primary.main,
-						}}
+						style={iconSx}
 					>
-						Filters
+						<Box component="span" sx={labelSx}>Filters</Box>
 					</FilterPanelTrigger>
 					<ExportCsv
 						size="small"
 						startIcon={<FileDownloadIcon />}
-						style={{
-							minWidth: "auto",
-							textTransform: "none",
-							fontSize: "0.8125rem",
-							fontWeight: 500,
-							paddingLeft: 6,
-							paddingRight: 6,
-							color: theme.palette.primary.main,
-						}}
+						style={iconSx}
 					>
-						CSV
+						<Box component="span" sx={labelSx}>CSV</Box>
 					</ExportCsv>
 					<ExportPrint
 						size="small"
 						startIcon={<PrintIcon />}
-						style={{
-							minWidth: "auto",
-							textTransform: "none",
-							fontSize: "0.8125rem",
-							fontWeight: 500,
-							paddingLeft: 6,
-							paddingRight: 6,
-							color: theme.palette.primary.main,
-						}}
+						style={iconSx}
 					>
-						Print
+						<Box component="span" sx={labelSx}>Print</Box>
 					</ExportPrint>
 					<Tooltip title="Export to Excel">
 						<Button
@@ -1544,7 +1522,7 @@ const PurchasingRequirements: React.FC = () => {
 								px: 0.75,
 							}}
 						>
-							Excel
+							<Box component="span" sx={labelSx}>Excel</Box>
 						</Button>
 					</Tooltip>
 				</Box>
