@@ -55,6 +55,7 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
+import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -748,6 +749,7 @@ const PurchasingRequirements: React.FC = () => {
 	const [poRefNbr, setPoRefNbr] = useState(
 		persistedForm?.poRefNbr ?? "",
 	);
+	const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
 	// Grid data
 	const [rows, setRows] = useState<GridRowsProp>([]);
@@ -1028,6 +1030,31 @@ const PurchasingRequirements: React.FC = () => {
 		[],
 	);
 
+	// ─── Clear Handlers ──────────────────────────────────────────────────
+
+	const handleClearConfirmOpen = useCallback(() => {
+		setClearConfirmOpen(true);
+	}, []);
+
+	const handleClearConfirmClose = useCallback(() => {
+		setClearConfirmOpen(false);
+	}, []);
+
+	const handleClearAll = useCallback(() => {
+		setSelectedPrincipal(null);
+		setSelectedStorage([]);
+		setSelectedPriceClasses([]);
+		setDateRanges([{ from: null, to: null }]);
+		setFrequency("monthly");
+		setMonthlyFactor(1.5);
+		setPoRefNbr("");
+		setRows([]);
+		setColumns([]);
+		setGridError(null);
+		setApplied(false);
+		setClearConfirmOpen(false);
+	}, []);
+
 	// ─── Filter Panel ─────────────────────────────────────────────────────
 
 	const filterPanel = (
@@ -1270,21 +1297,40 @@ const PurchasingRequirements: React.FC = () => {
 								/>
 							</FormControl>
 						</Grid>
-						{/* PO RefNbr - full width */}
+						{/* PO RefNbr - with Clear button */}
 						<Grid size={{ xs: 12 }}>
 							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
 									PO RefNbr
 								</FormLabel>
-								<TextField
-									size="small"
-									value={poRefNbr}
-									onChange={(e) => setPoRefNbr(e.target.value)}
-									placeholder="Enter PO reference number"
-									sx={{
-										"& .MuiOutlinedInput-root": { borderRadius: 2 },
-									}}
-								/>
+								<Box sx={{ display: "flex", gap: 1 }}>
+									<TextField
+										size="small"
+										value={poRefNbr}
+										onChange={(e) => setPoRefNbr(e.target.value)}
+										placeholder="Enter PO reference number"
+										sx={{
+											flex: 3,
+											"& .MuiOutlinedInput-root": { borderRadius: 2 },
+										}}
+									/>
+									<Button
+										variant="outlined"
+										color="error"
+										size="small"
+										startIcon={<DeleteSweepIcon />}
+										onClick={handleClearConfirmOpen}
+										sx={{
+											flex: 1,
+											borderRadius: 2,
+											textTransform: "none",
+											fontWeight: 500,
+											fontSize: "0.8125rem",
+										}}
+									>
+										Clear
+									</Button>
+								</Box>
 							</FormControl>
 						</Grid>
 					</Grid>
@@ -1563,6 +1609,33 @@ const PurchasingRequirements: React.FC = () => {
 				locations={storageLocations}
 				onSave={(locs) => setStorageLocations(locs)}
 			/>
+
+			{/* Clear Confirmation Dialog */}
+			<Dialog
+				open={clearConfirmOpen}
+				onClose={handleClearConfirmClose}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle>Clear All Filters?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						This will reset all filters, date ranges, frequency, factor, PO
+						reference number, and the results grid. This action cannot be
+						undone.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={handleClearConfirmClose}>Cancel</Button>
+					<Button
+						onClick={handleClearAll}
+						variant="contained"
+						color="error"
+					>
+						Clear All
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			{/* Data Grid */}
 			{applied && columns.length > 0 && (
