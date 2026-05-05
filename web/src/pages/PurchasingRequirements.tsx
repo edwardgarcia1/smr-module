@@ -609,8 +609,7 @@ function serializeDateRanges(
 function deserializeDateRanges(
 	serialized: { from: string | null; to: string | null }[],
 ): { from: Dayjs | null; to: Dayjs | null }[] {
-	if (!serialized || serialized.length === 0)
-		return [{ from: null, to: null }];
+	if (!serialized || serialized.length === 0) return [{ from: null, to: null }];
 	return serialized.map((r) => ({
 		from: r.from ? dayjs(r.from) : null,
 		to: r.to ? dayjs(r.to) : null,
@@ -792,9 +791,8 @@ const PurchasingRequirements: React.FC = () => {
 	);
 
 	// Principal
-	const [selectedPrincipal, setSelectedPrincipal] = useState<PrincipalOption | null>(
-		persistedForm?.selectedPrincipal ?? null,
-	);
+	const [selectedPrincipal, setSelectedPrincipal] =
+		useState<PrincipalOption | null>(persistedForm?.selectedPrincipal ?? null);
 	const principalCategories: Record<number, string[]> = {
 		1: ["immediate", "secondary", "monitoring"],
 		2: ["immediate"],
@@ -873,9 +871,7 @@ const PurchasingRequirements: React.FC = () => {
 	const [monthlyFactor, setMonthlyFactor] = useState(
 		persistedForm?.monthlyFactor ?? 1.5,
 	);
-	const [poRefNbr, setPoRefNbr] = useState(
-		persistedForm?.poRefNbr ?? "",
-	);
+	const [poRefNbr, setPoRefNbr] = useState(persistedForm?.poRefNbr ?? "");
 	const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
 	// Grid data
@@ -899,16 +895,17 @@ const PurchasingRequirements: React.FC = () => {
 			setIsApplying(false);
 			return;
 		}
-		if (dateRanges.length === 0 || dateRanges.some((dr) => !dr.from || !dr.to)) {
+		if (
+			dateRanges.length === 0 ||
+			dateRanges.some((dr) => !dr.from || !dr.to)
+		) {
 			setGridError("Please fill in all date ranges.");
 			setIsApplying(false);
 			return;
 		}
 		for (const dr of dateRanges) {
 			if (dr.to!.isBefore(dr.from!)) {
-				setGridError(
-					"End date must be after start date in each date range.",
-				);
+				setGridError("End date must be after start date in each date range.");
 				setIsApplying(false);
 				return;
 			}
@@ -1217,7 +1214,8 @@ const PurchasingRequirements: React.FC = () => {
 										return labels[option.category] || option.category;
 									}}
 									isOptionEqualToValue={(option, val) =>
-										option.principal.id === val.principal.id && option.category === val.category
+										option.principal.id === val.principal.id &&
+										option.category === val.category
 									}
 									renderOption={(props, option) => {
 										const { key, ...rest } = props;
@@ -1238,7 +1236,8 @@ const PurchasingRequirements: React.FC = () => {
 												label={value.principal.name}
 												size="small"
 												sx={{
-													backgroundColor: chipColors[value.category] || "#757575",
+													backgroundColor:
+														chipColors[value.category] || "#757575",
 													color: "#fff",
 													fontWeight: 500,
 													height: 24,
@@ -1255,21 +1254,23 @@ const PurchasingRequirements: React.FC = () => {
 										/>
 									)}
 									renderGroup={(params) => {
-										const groupColor: Record<string, { bg: string; text: string }> =
-											{
-												"Immediate Purchase Requirements": {
-													bg: "#d32f2f",
-													text: "#ffffff",
-												},
-												"Secondary Purchase Requirements": {
-													bg: "#ed6c02",
-													text: "#ffffff",
-												},
-												Monitoring: {
-													bg: "#0288d1",
-													text: "#ffffff",
-												},
-											};
+										const groupColor: Record<
+											string,
+											{ bg: string; text: string }
+										> = {
+											"Immediate Purchase Requirements": {
+												bg: "#d32f2f",
+												text: "#ffffff",
+											},
+											"Secondary Purchase Requirements": {
+												bg: "#ed6c02",
+												text: "#ffffff",
+											},
+											Monitoring: {
+												bg: "#0288d1",
+												text: "#ffffff",
+											},
+										};
 										const colors = groupColor[params.group] ?? {
 											bg: "var(--sidebar-bg)",
 											text: "var(--sidebar-text)",
@@ -1347,7 +1348,9 @@ const PurchasingRequirements: React.FC = () => {
 						{/* Price Class - half width */}
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Price Class</FormLabel>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Price Class
+								</FormLabel>
 								<Autocomplete
 									multiple
 									size="small"
@@ -1387,9 +1390,7 @@ const PurchasingRequirements: React.FC = () => {
 								<RadioGroup
 									row
 									value={frequency}
-									onChange={(e) =>
-										setFrequency(e.target.value as Frequency)
-									}
+									onChange={(e) => setFrequency(e.target.value as Frequency)}
 								>
 									<FormControlLabel
 										value="monthly"
@@ -1457,7 +1458,7 @@ const PurchasingRequirements: React.FC = () => {
 											fontSize: "0.8125rem",
 										}}
 									>
-										Clear
+										Clear All
 									</Button>
 								</Box>
 							</FormControl>
@@ -1467,14 +1468,26 @@ const PurchasingRequirements: React.FC = () => {
 
 				{/* Right column - DateRange card (40%) */}
 				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
-					<Paper sx={{ p: 2, height: 290, overflowY: "auto", borderRadius: 2, border: "1px solid", borderColor: "divider" }}>
+					<Paper
+						sx={{
+							p: 2,
+							height: 290,
+							overflowY: "auto",
+							borderRadius: 2,
+							border: "1px solid",
+							borderColor: "divider",
+						}}
+					>
 						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
 							Date Range
 						</FormLabel>
 						<LocalizationProvider dateAdapter={AdapterDayjs}>
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
 								{dateRanges.map((dr, index) => (
-									<Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+									<Box
+										key={index}
+										sx={{ display: "flex", gap: 1, alignItems: "center" }}
+									>
 										<DatePicker
 											label={`From ${dateRanges.length > 1 ? index + 1 : ""}`}
 											value={dr.from}
@@ -1756,11 +1769,7 @@ const PurchasingRequirements: React.FC = () => {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={handleClearConfirmClose}>Cancel</Button>
-					<Button
-						onClick={handleClearAll}
-						variant="contained"
-						color="error"
-					>
+					<Button onClick={handleClearAll} variant="contained" color="error">
 						Clear All
 					</Button>
 				</DialogActions>
