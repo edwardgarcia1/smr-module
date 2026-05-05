@@ -64,6 +64,10 @@ type Frequency = "weekly" | "monthly";
 interface Principal {
 	id: number;
 	name: string;
+}
+
+interface PrincipalOption {
+	principal: Principal;
 	category: "immediate" | "secondary" | "monitoring";
 }
 
@@ -100,15 +104,12 @@ const defaultStorageLocations: StorageLocation[] = [
 ];
 
 const placeholderPrincipals: Principal[] = [
-	// Immediate Purchase
-	{ id: 1, name: "ZESTO CORPORATION", category: "immediate" },
-	{ id: 2, name: "PRIME GLOBAL CORPORATION", category: "immediate" },
-	// Secondary Purchase
-	{ id: 3, name: "ZUELLIG PHARMA CORPORATION", category: "secondary" },
-	{ id: 4, name: "MULTIRICH FOODS CORPORATION", category: "secondary" },
-	// Monitoring
-	{ id: 5, name: "W.L. FOOD PRODUCTS", category: "monitoring" },
-	{ id: 6, name: "JIA2 CORPORATION", category: "monitoring" },
+	{ id: 1, name: "ZESTO CORPORATION" },
+	{ id: 2, name: "PRIME GLOBAL CORPORATION" },
+	{ id: 3, name: "ZUELLIG PHARMA CORPORATION" },
+	{ id: 4, name: "MULTIRICH FOODS CORPORATION" },
+	{ id: 5, name: "W.L. FOOD PRODUCTS" },
+	{ id: 6, name: "JIA2 CORPORATION" },
 ];
 
 const placeholderProducts: ProductRow[] = [
@@ -623,14 +624,19 @@ const PurchasingRequirements: React.FC = () => {
 	);
 
 	// Principal
-	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal[]>([]);
-	const principalCategoryMap = useMemo(() => {
-		const map: Record<number, string> = {};
-		placeholderPrincipals.forEach((p) => {
-			map[p.id] = p.category;
-		});
-		return map;
-	}, []);
+	const [selectedPrincipal, setSelectedPrincipal] = useState<PrincipalOption | null>(null);
+	const principalCategoryMap: Record<number, string> = {
+		1: "immediate",
+		2: "immediate",
+		3: "secondary",
+		4: "secondary",
+		5: "monitoring",
+		6: "monitoring",
+	};
+	const principalOptions: PrincipalOption[] = placeholderPrincipals.map((p) => ({
+		principal: p,
+		category: principalCategoryMap[p.id] as "immediate" | "secondary" | "monitoring",
+	}));
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
@@ -692,7 +698,7 @@ const PurchasingRequirements: React.FC = () => {
 		setColumns([]);
 		setIsApplying(true);
 
-		if (selectedPrincipal.length === 0) {
+		if (!selectedPrincipal) {
 			setGridError("Please select a Principal.");
 			setIsApplying(false);
 			return;
@@ -723,7 +729,7 @@ const PurchasingRequirements: React.FC = () => {
 		);
 
 		// Filter products by Principal, Storage, and Price Class
-		const selectedPrincipalIds = new Set(selectedPrincipal.map((p) => p.id));
+		const selectedPrincipalIds = new Set([selectedPrincipal.principal.id]);
 		let filtered = placeholderProducts.filter((p) =>
 			selectedPrincipalIds.has(p.principalId),
 		);
@@ -974,12 +980,11 @@ const PurchasingRequirements: React.FC = () => {
 									Select Principal
 								</FormLabel>
 								<Autocomplete
-									multiple
 									size="small"
-									options={placeholderPrincipals}
+									options={principalOptions}
 									value={selectedPrincipal}
 									onChange={(_, newVal) => setSelectedPrincipal(newVal)}
-									getOptionLabel={(option) => option.name}
+									getOptionLabel={(option) => option.principal.name}
 									groupBy={(option) => {
 										const labels: Record<string, string> = {
 											immediate: "Immediate Purchase Requirements",
@@ -988,49 +993,35 @@ const PurchasingRequirements: React.FC = () => {
 										};
 										return labels[option.category] || option.category;
 									}}
-									isOptionEqualToValue={(option, val) => option.id === val.id}
-									disableCloseOnSelect
-									renderOption={(props, option, { selected }) => {
+									isOptionEqualToValue={(option, val) =>
+										option.principal.id === val.principal.id && option.category === val.category
+									}
+									renderOption={(props, option) => {
 										const { key, ...rest } = props;
 										return (
 											<li key={key} {...rest}>
-												<Checkbox
-													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-													checkedIcon={<CheckBoxIcon fontSize="small" />}
-													checked={selected}
-												/>
-												{option.name}
+												{option.principal.name}
 											</li>
 										);
 									}}
-									renderValue={(value, getItemProps) => {
-										const principals = value as Principal[];
+									renderValue={(value) => {
+										const chipColors: Record<string, string> = {
+											immediate: "#d32f2f",
+											secondary: "#ed6c02",
+											monitoring: "#0288d1",
+										};
 										return (
-											<Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-												{principals.map((principal, index) => {
-													const tagProps = getItemProps({ index });
-													const { key, ...chipProps } = tagProps;
-													const chipColors: Record<string, string> = {
-														immediate: "#d32f2f",
-														secondary: "#ed6c02",
-														monitoring: "#0288d1",
-													};
-													return (
-														<Chip
-															key={key}
-															label={principal.name}
-															size="small"
-															{...chipProps}
-															sx={{
-																backgroundColor:
-																	chipColors[principal.category] || "#757575",
-																color: "#fff",
-																fontWeight: 500,
-															}}
-														/>
-													);
-												})}
-											</Box>
+											<Chip
+												label={value.principal.name}
+												size="small"
+												sx={{
+													backgroundColor: chipColors[value.category] || "#757575",
+													color: "#fff",
+													fontWeight: 500,
+													height: 24,
+													"& .MuiChip-label": { px: 1 },
+												}}
+											/>
 										);
 									}}
 									renderInput={(params) => (
