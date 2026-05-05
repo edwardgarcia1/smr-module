@@ -80,6 +80,7 @@ interface StorageLocation {
 interface ProductRow {
 	id: number;
 	principalId: number;
+	principalCategory: "immediate" | "secondary" | "monitoring";
 	storageIds: number[];
 	priceClass: string;
 	code: string;
@@ -118,6 +119,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 1,
 		principalId: 1,
+		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "A",
 		code: "ZES030",
@@ -136,6 +138,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 2,
 		principalId: 1,
+		principalCategory: "immediate",
 		storageIds: [1, 2],
 		priceClass: "B",
 		code: "ZES039",
@@ -154,6 +157,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 3,
 		principalId: 1,
+		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "B",
 		code: "ZES051",
@@ -172,6 +176,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 4,
 		principalId: 1,
+		principalCategory: "immediate",
 		storageIds: [2],
 		priceClass: "A",
 		code: "ZES032",
@@ -191,6 +196,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 5,
 		principalId: 2,
+		principalCategory: "immediate",
 		storageIds: [1, 3],
 		priceClass: "A",
 		code: "PGC001",
@@ -209,6 +215,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 6,
 		principalId: 2,
+		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "A",
 		code: "PGC002",
@@ -227,6 +234,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 7,
 		principalId: 2,
+		principalCategory: "immediate",
 		storageIds: [3],
 		priceClass: "C",
 		code: "PGC003",
@@ -246,6 +254,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 8,
 		principalId: 3,
+		principalCategory: "secondary",
 		storageIds: [1],
 		priceClass: "A",
 		code: "ZPC001",
@@ -264,6 +273,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 9,
 		principalId: 3,
+		principalCategory: "secondary",
 		storageIds: [1, 2],
 		priceClass: "B",
 		code: "ZPC003",
@@ -282,6 +292,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 10,
 		principalId: 3,
+		principalCategory: "secondary",
 		storageIds: [1],
 		priceClass: "A",
 		code: "ZPC002",
@@ -301,6 +312,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 11,
 		principalId: 4,
+		principalCategory: "secondary",
 		storageIds: [2],
 		priceClass: "C",
 		code: "MFC001",
@@ -319,6 +331,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 12,
 		principalId: 4,
+		principalCategory: "secondary",
 		storageIds: [2, 3],
 		priceClass: "B",
 		code: "MFC002",
@@ -338,6 +351,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 13,
 		principalId: 5,
+		principalCategory: "monitoring",
 		storageIds: [3],
 		priceClass: "C",
 		code: "WLF001",
@@ -356,6 +370,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 14,
 		principalId: 5,
+		principalCategory: "monitoring",
 		storageIds: [1, 3],
 		priceClass: "A",
 		code: "WLF002",
@@ -375,6 +390,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 15,
 		principalId: 6,
+		principalCategory: "monitoring",
 		storageIds: [1, 2, 3],
 		priceClass: "B",
 		code: "JIA001",
@@ -393,6 +409,7 @@ const placeholderProducts: ProductRow[] = [
 	{
 		id: 16,
 		principalId: 6,
+		principalCategory: "monitoring",
 		storageIds: [2],
 		priceClass: "C",
 		code: "JIA002",
@@ -402,6 +419,103 @@ const placeholderProducts: ProductRow[] = [
 		qtyOnHand: 110,
 		unreleasedSO: 9,
 		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── ZESTO CORPORATION (principal 1) - SECONDARY ──
+	{
+		id: 17,
+		principalId: 1,
+		principalCategory: "secondary",
+		storageIds: [1, 3],
+		priceClass: "B",
+		code: "ZES061",
+		description: "BB - Zesto Apple Juice Drink 330ml x 24cs",
+		currentLevel: 65,
+		inputUoM: "cs",
+		qtyOnHand: 65,
+		unreleasedSO: 8,
+		incomingPO: 40,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 18,
+		principalId: 1,
+		principalCategory: "secondary",
+		storageIds: [2],
+		priceClass: "A",
+		code: "ZES062",
+		description: "BB - Zesto Orange Drink 330ml x 24cs",
+		currentLevel: 45,
+		inputUoM: "cs",
+		qtyOnHand: 45,
+		unreleasedSO: 3,
+		incomingPO: 80,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 19,
+		principalId: 1,
+		principalCategory: "secondary",
+		storageIds: [1, 2],
+		priceClass: "C",
+		code: "ZES063",
+		description: "BB - Zesto Pineapple Drink 330ml x 24cs",
+		currentLevel: 35,
+		inputUoM: "cs",
+		qtyOnHand: 35,
+		unreleasedSO: 5,
+		incomingPO: 20,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	// ── ZESTO CORPORATION (principal 1) - MONITORING ──
+	{
+		id: 20,
+		principalId: 1,
+		principalCategory: "monitoring",
+		storageIds: [3],
+		priceClass: "B",
+		code: "ZES071",
+		description: "BB - Zesto Ice Cream Vanilla 1L x 12",
+		currentLevel: 20,
+		inputUoM: "cs",
+		qtyOnHand: 20,
+		unreleasedSO: 2,
+		incomingPO: 0,
+		monthlyDemand: {},
+		highestMonthlyDemand: 0,
+		monthlyFactor: 1.5,
+		suggestedOrder: 0,
+		customOrder: null,
+	},
+	{
+		id: 21,
+		principalId: 1,
+		principalCategory: "monitoring",
+		storageIds: [1],
+		priceClass: "A",
+		code: "ZES072",
+		description: "BB - Zesto Ice Cream Chocolate 1L x 12",
+		currentLevel: 15,
+		inputUoM: "cs",
+		qtyOnHand: 15,
+		unreleasedSO: 1,
+		incomingPO: 30,
 		monthlyDemand: {},
 		highestMonthlyDemand: 0,
 		monthlyFactor: 1.5,
@@ -681,18 +795,31 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedPrincipal, setSelectedPrincipal] = useState<PrincipalOption | null>(
 		persistedForm?.selectedPrincipal ?? null,
 	);
-	const principalCategoryMap: Record<number, string> = {
-		1: "immediate",
-		2: "immediate",
-		3: "secondary",
-		4: "secondary",
-		5: "monitoring",
-		6: "monitoring",
+	const principalCategories: Record<number, string[]> = {
+		1: ["immediate", "secondary", "monitoring"],
+		2: ["immediate"],
+		3: ["secondary"],
+		4: ["secondary"],
+		5: ["monitoring"],
+		6: ["monitoring"],
 	};
-	const principalOptions: PrincipalOption[] = placeholderPrincipals.map((p) => ({
-		principal: p,
-		category: principalCategoryMap[p.id] as "immediate" | "secondary" | "monitoring",
-	}));
+	const principalOptions: PrincipalOption[] = placeholderPrincipals
+		.flatMap((p) =>
+			(principalCategories[p.id] || []).map((cat) => ({
+				principal: p,
+				category: cat as "immediate" | "secondary" | "monitoring",
+			})),
+		)
+		.sort((a, b) => {
+			const catOrder: Record<string, number> = {
+				immediate: 0,
+				secondary: 1,
+				monitoring: 2,
+			};
+			const catDiff = catOrder[a.category] - catOrder[b.category];
+			if (catDiff !== 0) return catDiff;
+			return a.principal.name.localeCompare(b.principal.name);
+		});
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
@@ -797,10 +924,12 @@ const PurchasingRequirements: React.FC = () => {
 			dateRanges[0].to!,
 		);
 
-		// Filter products by Principal, Storage, and Price Class
+		// Filter products by Principal, Category, Storage, and Price Class
 		const selectedPrincipalIds = new Set([selectedPrincipal.principal.id]);
-		let filtered = placeholderProducts.filter((p) =>
-			selectedPrincipalIds.has(p.principalId),
+		let filtered = placeholderProducts.filter(
+			(p) =>
+				selectedPrincipalIds.has(p.principalId) &&
+				p.principalCategory === selectedPrincipal.category,
 		);
 
 		if (selectedStorage.length > 0) {
@@ -1653,7 +1782,7 @@ const PurchasingRequirements: React.FC = () => {
 						showToolbar
 						getRowClassName={(params) => {
 							const row = params.row as ProductRow;
-							const category = principalCategoryMap[row.principalId];
+							const category = row.principalCategory;
 							return `row-principal-${category || "default"}`;
 						}}
 						initialState={{
