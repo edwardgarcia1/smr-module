@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
 	Box,
 	Paper,
@@ -40,7 +40,7 @@ import {
 import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import type { Dayjs } from "dayjs";
+import dayjs, { type Dayjs } from "dayjs";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -459,6 +459,49 @@ function fillDemandData(
 	});
 }
 
+// ─── Form State Persistence ───────────────────────────────────────────────────
+
+const FORM_STORAGE_KEY = "pr-form-state-v3";
+
+interface PersistedFormState {
+	selectedPrincipal: PrincipalOption | null;
+	selectedStorage: StorageLocation[];
+	selectedPriceClasses: string[];
+	storageLocations: StorageLocation[];
+	frequency: Frequency;
+	monthlyFactor: number;
+	poRefNbr: string;
+	dateRanges: { from: string | null; to: string | null }[];
+}
+
+function persistFormState(state: PersistedFormState): void {
+	try {
+		localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(state));
+	} catch {
+		/* localStorage full or unavailable */
+	}
+}
+
+function serializeDateRanges(
+	ranges: { from: Dayjs | null; to: Dayjs | null }[],
+): { from: string | null; to: string | null }[] {
+	return ranges.map((r) => ({
+		from: r.from?.toISOString() ?? null,
+		to: r.to?.toISOString() ?? null,
+	}));
+}
+
+function deserializeDateRanges(
+	serialized: { from: string | null; to: string | null }[],
+): { from: Dayjs | null; to: Dayjs | null }[] {
+	if (!serialized || serialized.length === 0)
+		return [{ from: null, to: null }];
+	return serialized.map((r) => ({
+		from: r.from ? dayjs(r.from) : null,
+		to: r.to ? dayjs(r.to) : null,
+	}));
+}
+
 // ─── Storage CRUD Dialog ─────────────────────────────────────────────────────
 
 interface StorageDialogProps {
@@ -604,6 +647,16 @@ const PurchasingRequirements: React.FC = () => {
 	const { darkMode } = useThemeMode();
 	const theme = useTheme();
 
+	// Load persisted form state from localStorage
+	const [persistedForm] = useState(() => {
+		try {
+			const raw = localStorage.getItem(FORM_STORAGE_KEY);
+			return raw ? (JSON.parse(raw) as PersistedFormState) : null;
+		} catch {
+			return null;
+		}
+	});
+
 	// Theme-aware group colors for data grid headers
 	const groupColors = useMemo(
 		() => ({
@@ -624,7 +677,9 @@ const PurchasingRequirements: React.FC = () => {
 	);
 
 	// Principal
-	const [selectedPrincipal, setSelectedPrincipal] = useState<PrincipalOption | null>(null);
+	const [selectedPrincipal, setSelectedPrincipal] = useState<PrincipalOption | null>(
+		persistedForm?.selectedPrincipal ?? null,
+	);
 	const principalCategoryMap: Record<number, string> = {
 		1: "immediate",
 		2: "immediate",
@@ -640,12 +695,14 @@ const PurchasingRequirements: React.FC = () => {
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
-		defaultStorageLocations,
+		persistedForm?.storageLocations ?? defaultStorageLocations,
 	);
-	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>([]);
+	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
+		persistedForm?.selectedStorage ?? [],
+	);
 	const priceClasses = ["A", "B", "C"];
 	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
-		[],
+		persistedForm?.selectedPriceClasses ?? [],
 	);
 	const [storageDialogOpen, setStorageDialogOpen] = useState(false);
 
@@ -654,9 +711,13 @@ const PurchasingRequirements: React.FC = () => {
 		from: Dayjs | null;
 		to: Dayjs | null;
 	}
-	const [dateRanges, setDateRanges] = useState<DateRangeItem[]>([
-		{ from: null, to: null },
-	]);
+	const [dateRanges, setDateRanges] = useState<DateRangeItem[]>(() => {
+		const saved = persistedForm?.dateRanges;
+		if (saved && saved.length > 0) {
+			return deserializeDateRanges(saved) as DateRangeItem[];
+		}
+		return [{ from: null, to: null }];
+	});
 
 	const handleAddDateRange = useCallback(() => {
 		setDateRanges((prev) => [...prev, { from: null, to: null }]);
@@ -678,9 +739,15 @@ const PurchasingRequirements: React.FC = () => {
 	);
 
 	// Computation
-	const [frequency, setFrequency] = useState<Frequency>("monthly");
-	const [monthlyFactor, setMonthlyFactor] = useState(1.5);
-	const [poRefNbr, setPoRefNbr] = useState("");
+	const [frequency, setFrequency] = useState<Frequency>(
+		persistedForm?.frequency ?? "monthly",
+	);
+	const [monthlyFactor, setMonthlyFactor] = useState(
+		persistedForm?.monthlyFactor ?? 1.5,
+	);
+	const [poRefNbr, setPoRefNbr] = useState(
+		persistedForm?.poRefNbr ?? "",
+	);
 
 	// Grid data
 	const [rows, setRows] = useState<GridRowsProp>([]);
@@ -1452,6 +1519,35 @@ const PurchasingRequirements: React.FC = () => {
 			</Box>
 		);
 	}, [handleExcelExport]);
+
+	// ─── Persist Form State ──────────────────────────────────────────────
+
+	const persistState = useMemo(
+		() => ({
+			selectedPrincipal,
+			selectedStorage,
+			selectedPriceClasses,
+			storageLocations,
+			frequency,
+			monthlyFactor,
+			poRefNbr,
+			dateRanges: serializeDateRanges(dateRanges),
+		}),
+		[
+			selectedPrincipal,
+			selectedStorage,
+			selectedPriceClasses,
+			storageLocations,
+			frequency,
+			monthlyFactor,
+			poRefNbr,
+			dateRanges,
+		],
+	);
+
+	useEffect(() => {
+		persistFormState(persistState);
+	}, [persistState]);
 
 	// ─── Render ───────────────────────────────────────────────────────────
 
