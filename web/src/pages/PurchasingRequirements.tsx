@@ -18,10 +18,6 @@ import {
 	DialogContent,
 	DialogContentText,
 	DialogActions,
-	List,
-	ListItem,
-	ListItemText,
-	ListItemSecondaryAction,
 	Alert,
 	Tooltip,
 	Chip,
@@ -41,9 +37,7 @@ import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { type Dayjs } from "dayjs";
-import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import SettingsIcon from "@mui/icons-material/Settings";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import AddIcon from "@mui/icons-material/Add";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
@@ -616,145 +610,6 @@ function deserializeDateRanges(
 	}));
 }
 
-// ─── Storage CRUD Dialog ─────────────────────────────────────────────────────
-
-interface StorageDialogProps {
-	open: boolean;
-	onClose: () => void;
-	locations: StorageLocation[];
-	onSave: (locations: StorageLocation[]) => void;
-}
-
-const StorageDialog: React.FC<StorageDialogProps> = ({
-	open,
-	onClose,
-	locations,
-	onSave,
-}) => {
-	const [items, setItems] = useState<StorageLocation[]>(locations);
-	const [editName, setEditName] = useState("");
-	const [editingId, setEditingId] = useState<number | null>(null);
-	const [nextId, setNextId] = useState(
-		Math.max(0, ...locations.map((l) => l.id)) + 1,
-	);
-
-	const handleAdd = () => {
-		if (!editName.trim()) return;
-		if (editingId !== null) {
-			setItems((prev) =>
-				prev.map((loc) =>
-					loc.id === editingId ? { ...loc, name: editName.trim() } : loc,
-				),
-			);
-			setEditingId(null);
-		} else {
-			setItems((prev) => [...prev, { id: nextId, name: editName.trim() }]);
-			setNextId((n) => n + 1);
-		}
-		setEditName("");
-	};
-
-	const handleEdit = (loc: StorageLocation) => {
-		setEditName(loc.name);
-		setEditingId(loc.id);
-	};
-
-	const handleDelete = (id: number) => {
-		setItems((prev) => prev.filter((loc) => loc.id !== id));
-		if (editingId === id) {
-			setEditingId(null);
-			setEditName("");
-		}
-	};
-
-	const handleSave = () => {
-		onSave(items);
-		onClose();
-	};
-
-	const handleCancel = () => {
-		setItems(locations);
-		setEditName("");
-		setEditingId(null);
-		onClose();
-	};
-
-	return (
-		<Dialog open={open} onClose={handleCancel} maxWidth="sm" fullWidth>
-			<DialogTitle>Manage Storage Locations</DialogTitle>
-			<DialogContent>
-				<DialogContentText sx={{ mb: 2 }}>
-					Add, edit, or remove inventory storage locations.
-				</DialogContentText>
-
-				<Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-					<TextField
-						size="small"
-						fullWidth
-						placeholder="Location name"
-						value={editName}
-						onChange={(e) => setEditName(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") handleAdd();
-						}}
-					/>
-					<Button
-						variant="contained"
-						onClick={handleAdd}
-						disabled={!editName.trim()}
-					>
-						{editingId !== null ? "Update" : "Add"}
-					</Button>
-				</Box>
-
-				<List dense>
-					{items.map((loc) => (
-						<ListItem key={loc.id}>
-							<ListItemText primary={loc.name} />
-							<ListItemSecondaryAction>
-								<IconButton
-									edge="end"
-									size="small"
-									onClick={() => handleEdit(loc)}
-									sx={{ mr: 1 }}
-								>
-									<EditIcon fontSize="small" />
-								</IconButton>
-								<IconButton
-									edge="end"
-									size="small"
-									onClick={() => handleDelete(loc.id)}
-									color="error"
-								>
-									<DeleteIcon fontSize="small" />
-								</IconButton>
-							</ListItemSecondaryAction>
-						</ListItem>
-					))}
-					{items.length === 0 && (
-						<ListItem>
-							<ListItemText
-								primary="No storage locations added yet."
-								slotProps={{
-									primary: {
-										sx: { color: "text.secondary", fontStyle: "italic" },
-									},
-								}}
-							/>
-						</ListItem>
-					)}
-				</List>
-			</DialogContent>
-			<DialogActions>
-				<Button onClick={handleCancel}>Cancel</Button>
-				<Button onClick={handleSave} variant="contained">
-					Save
-				</Button>
-			</DialogActions>
-		</Dialog>
-	);
-};
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const PurchasingRequirements: React.FC = () => {
@@ -830,8 +685,6 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
 		persistedForm?.selectedPriceClasses ?? [],
 	);
-	const [storageDialogOpen, setStorageDialogOpen] = useState(false);
-
 	// Date range list
 	interface DateRangeItem {
 		from: Dayjs | null;
@@ -1303,15 +1156,6 @@ const PurchasingRequirements: React.FC = () => {
 							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
 									Inventory Storage
-									<Tooltip title="Manage storage locations">
-										<IconButton
-											size="small"
-											onClick={() => setStorageDialogOpen(true)}
-											sx={{ ml: 0.5 }}
-										>
-											<SettingsIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
 								</FormLabel>
 								<Autocomplete
 									multiple
@@ -1743,14 +1587,6 @@ const PurchasingRequirements: React.FC = () => {
 		<>
 			{/* Filter Panel */}
 			{filterPanel}
-
-			{/* Storage CRUD Dialog */}
-			<StorageDialog
-				open={storageDialogOpen}
-				onClose={() => setStorageDialogOpen(false)}
-				locations={storageLocations}
-				onSave={(locs) => setStorageLocations(locs)}
-			/>
 
 			{/* Clear Confirmation Dialog */}
 			<Dialog
