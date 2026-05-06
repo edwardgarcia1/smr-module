@@ -1,36 +1,30 @@
 # AGENTS.md - Root
 
-## Project Overview
-Fullstack Starter template with **Bun** monorepo: **Backend** (`api/`) and **Frontend** (`web/`).
+## Identity
+SMR Module — Inventory & Supply Management System.
+Bun monorepo: `api/` (backend) + `web/` (frontend).
 
-## ⚠️ CRITICAL Rules
-1. **NO package installation in root**: Run `bun install` only in `api/` or `web/` directories.
-2. **Read Sub-AGENTS.md**: When working on `api/` or `web/`, read `./AGENTS.md` inside those folders first.
-3. **No Git Operations**: Do not run `git add`, `git commit`, or `git push` without explicit user instruction.
-4. **Port Conflicts**: When starting servers, use a 5-digit port (e.g., `30000`) if the default is in use. Pass port via environment variable or inline command.
-5. **Use Existing Patterns**: Follow structure in `api/` and `web/`. Do not create arbitrary folders.
+## Critical Rules
+1. **No root install**: `bun install` in `api/` or `web/` only.
+2. **Read sub-AGENTS.md first**: Before touching `api/` or `web/`, read their `AGENTS.md`.
+3. **No git ops**: No `git add`, `commit`, `push` without explicit instruction.
+4. **Port conflicts**: Use 5-digit port (e.g., `30001`). Pass via env or inline.
+5. **Follow existing patterns**: Do not create arbitrary folders. Mirror existing module structure.
+6. **Read CONTEXT.md**: For project understanding, read `CONTEXT.md`, `api/CONTEXT.md`, `web/CONTEXT.md`.
 
-## File Structure
-```text
-fullstack-starter/
-├── api/          # Backend (Elysia + Drizzle + Bun)
-├── web/          # Frontend (React + Vite + MUI)
-├── README.md     # Project documentation
-├── AGENTS.md     # This file
-└── .env          # (Optional) Global vars (avoid secrets)
-```
+## Naming
+- Files: `kebab-case` for config/routes, `PascalCase` for components.
+- Folders: `kebab-case`.
+- Variables: `camelCase`.
 
-## Commands & Purposes
-- **Backend**: `cd api && bun run dev` (Start API), `bun run build` (Build).
-- **Frontend**: `cd web && bun run dev` (Start Vite), `bun run build` (Build).
-- **Database**: `cd api && bun run db:generate`, `bun run db:migrate`.
+## Commands
+- Backend: `cd api && bun run dev`
+- Frontend: `cd web && bun run dev`
+- DB migrate: `cd api && bun run db:migrate`
 
-## Naming Conventions
-- **Files**: `kebab-case` for config/routes, `PascalCase` for components.
-- **Folders**: `kebab-case` (e.g., `auth-routes`).
-- **Variables**: `camelCase`.
-
-## Reading Guide
-1. Check `./README.md` for general setup.
-2. Check `./api/AGENTS.md` for backend specifics.
-3. Check `./web/AGENTS.md` for frontend specifics.
+## Reading Order
+1. `CONTEXT.md` — Project overview
+2. `api/CONTEXT.md` — Backend architecture
+3. `web/CONTEXT.md` — Frontend architecture
+4. `api/AGENTS.md` — Backend rules
+5. `web/AGENTS.md` — Frontend rules

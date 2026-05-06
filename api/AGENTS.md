@@ -1,43 +1,48 @@
 # AGENTS.md - API
 
-## Project Overview
-**Backend** service for the Fullstack Starter template. Built with **Elysia**, **Drizzle ORM**, and **Bun**.
+## Identity
+Elysia backend for SMR Module. Auth, users, inventory CRUD.
 
-## Project Structure (Flat Map)
-- `src/index.ts`: Server entry point.
-- `src/routes.ts`: Route aggregation.
-- `src/config/db.ts`: Database connection.
-- `src/middlewares/`: Auth, JWT, Rate Limit, CASL, Error handling.
-- `src/modules/users/`: User domain (schema, service, routes).
-- `drizzle/`: Database migrations.
-- `package.json`: Dependencies and scripts.
+## Rules
+1. **DB is MSSQL**: Raw queries via `mssql` pool. No ORM (no Drizzle).
+2. **Error handling**: Use `CustomError` subclasses (`BadRequestError`, `UnauthorizedError`, `ForbiddenError`, `NotFoundError`). Import from `middlewares/error.ts`.
+3. **Auth guard**: Use `authGuard` derive in routes for protected endpoints.
+4. **RBAC**: Use `checkPermission` from `middlewares/casl.ts`. Define new subjects in CASL config.
+5. **DB connection**: `getDb()` from `config/db.ts` — singleton pool.
+6. **New modules**: Mirror `modules/users/` structure: `{module}.schema.ts`, `{module}.service.ts`, `{module}.routes.ts`. Register in `routes.ts`.
+7. **Validation**: Use Elysia `t` for body/query/param validation in route definitions.
+8. **String trimming**: Use `trimStrings` util for MSSQL CHAR/NCHAR padding.
+9. **Port**: Default `3000`. Override via `PORT` env. Use 5-digit for local dev.
+10. **Env vars**: Copy `.env` template if missing. Never commit real `.env`.
+11. **Mobile client test**: `x-client-type: mobile` header → JSON tokens instead of cookies.
 
-## Why This Structure?
-This follows **domain-driven design**: Each module (e.g., `users`) contains its own schema, service, and routes. Centralized config and middleware keep logic DRY.
+## Structure
+```
+src/
+├── index.ts            # Entry, CORS, middleware
+├── routes.ts           # Route aggregation
+├── migrate.ts          # DB setup + seed
+├── config/
+│   └── db.ts           # MSSQL pool
+├── middlewares/
+│   ├── auth.ts         # JWT derive guard
+│   ├── jwt.ts          # Token sign/verify
+│   ├── casl.ts         # Authorization
+│   ├── error.ts        # Error classes + handler
+│   └── rateLimit.ts    # In-memory rate limiter
+├── modules/
+│   ├── users/          # Auth + user CRUD
+│   └── inventory/      # Site CRUD
+├── shared/
+│   └── auth.ts         # Token extraction helpers
+└── utils/
+    └── trimStrings.ts  # Whitespace trim
+```
 
 ## Commands
-Check `package.json`:
-- `dev`: Start development server with hot reload.
-- `build`: Build for production.
-- `start`: Run production build.
-- `test`: Run tests.
-- `typecheck`: Check TypeScript types.
-- `db:generate`: Generate Drizzle migrations.
-- `db:migrate`: Run pending migrations.
-
-## Naming Conventions
-- **Files**: `kebab-case` for config/routes, `PascalCase` for components.
-- **Folders**: `kebab-case` (e.g., `auth-routes`).
-- **Variables**: `camelCase`.
-
-## Port Configuration
-Default port is `3000`. If in use, pass custom port via environment variable:
-```bash
-PORT=30001 bun run dev
-```
-Always use a 5-digit port to avoid conflicts.
-
-## Important Notes
-- **NO git operations**: Do not run `git add`, `git commit`, or `git push`.
-- **Read Root AGENTS.md**: For general project rules.
-- **Read README.md**: For more context on setup and features.
+- `bun run dev` — Dev server (hot reload)
+- `bun run build` — Production build
+- `bun run start` — Start production
+- `bun run test` — Run E2E tests (Eden Treaty)
+- `bun run typecheck` — Check types
+- `bun run db:migrate` — Create tables + seed superadmin
