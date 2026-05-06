@@ -1,199 +1,226 @@
-# Fullstack Starter
+# SMR Module — Inventory & Supply Management System
 
-A modern full-stack starter template built with **Bun**, **Elysia**, **Drizzle ORM**, **React**, **TypeScript**, and **Vite**. This project is designed to provide a robust foundation for building scalable web applications with a clear separation of concerns between the backend and frontend.
+Full-stack app for managing purchase requirements, inventory items, suppliers, purchase orders, and pricing. Built with **Bun**, **Elysia**, **React 19**, **MUI 9**, and **MSSQL**.
 
-## 🚀 Features
+## Features
 
-- **Backend**: High-performance API using Elysia (Bun), Drizzle ORM (PostgreSQL), JWT Authentication, Role-Based Access Control (RBAC) with CASL, and Swagger documentation.
-- **Frontend**: React application with Vite, Material-UI (MUI), Zustand for state management, and React Router.
-- **Dev Experience**: Hot reloading, TypeScript, ESLint, and structured project layout.
+- **Dashboard**: Summary cards (immediate/secondary/monitoring purchases), quick stats, quick actions.
+- **Purchasing Requirements**: Dynamic filter panel (principal, storage, class, frequency, date range), DataGrid with monthly demand columns, editable factor/custom order, Excel export.
+- **Inventory Items**: Supplier inventory view with price class coding.
+- **Suppliers**: Card grid of supplier contacts.
+- **Purchase Orders**: PO tracking with status chips.
+- **Prices**: Item pricing table.
+- **User Management**: Role-based access (superadmin/admin/user).
+- **Auth**: JWT access/refresh tokens. httpOnly cookies for web, JSON body for mobile.
+- **RBAC**: CASL — superadmin (full), admin (read users, manage settings), user (read settings).
+- **Dark Mode**: Light/dark toggle persisted in localStorage.
 
-## 📁 Project Structure
+## Stack
 
-```text
-fullstack-starter/
-├── api/                  # Backend (Elysia + Drizzle)
+### Backend (`api/`)
+| Layer | |
+|-------|---|
+| Runtime | Bun |
+| Framework | Elysia 1.4 |
+| Database | MSSQL (raw queries via `mssql`) |
+| Auth | JWT (HS256) — access 15min, refresh 7d |
+| RBAC | CASL 6.8 |
+| Docs | Swagger (OpenAPI) at `/api/docs` |
+| Testing | Eden Treaty (E2E) |
+
+### Frontend (`web/`)
+| Layer | |
+|-------|---|
+| Framework | React 19 + TypeScript 6 |
+| Build | Vite 8 + React Compiler |
+| UI | MUI 9 + Emotion |
+| Data Grid | MUI X DataGrid 9 + Date Pickers |
+| Router | React Router 7 (lazy routes) |
+| State | Zustand 5 |
+| Excel | `xlsx` |
+
+## Project Structure
+
+```
+smr-module/
+├── api/                        # Elysia backend
 │   ├── src/
-│   │   ├── config/       # Database configuration
-│   │   ├── middlewares/  # Auth, JWT, Rate Limit, CASL, Error handling
-│   │   ├── modules/      # Domain logic (Users, Auth, etc.)
-│   │   │   └── users/
-│   │   │       ├── schema.ts
-│   │   │       ├── service.ts
-│   │   │       ├── auth.routes.ts
-│   │   │       └── users.routes.ts
-│   │   └── index.ts      # Server entry
-│   ├── drizzle/          # Database migrations
+│   │   ├── index.ts            # Server entry + CORS
+│   │   ├── routes.ts           # Route aggregation
+│   │   ├── migrate.ts          # DB setup + seed
+│   │   ├── config/
+│   │   │   └── db.ts           # MSSQL connection pool
+│   │   ├── middlewares/
+│   │   │   ├── auth.ts         # JWT derive guard
+│   │   │   ├── jwt.ts          # Token sign/verify
+│   │   │   ├── casl.ts         # Authorization
+│   │   │   ├── error.ts        # Error classes + handler
+│   │   │   └── rateLimit.ts    # 60 req/min per IP
+│   │   ├── modules/
+│   │   │   ├── users/          # Auth + user CRUD
+│   │   │   └── inventory/      # Site CRUD
+│   │   ├── shared/auth.ts      # Token helpers
+│   │   └── utils/trimStrings.ts# MSSQL padding fix
 │   └── package.json
-├── web/                  # Frontend (React + Vite)
+├── web/                        # React frontend
 │   ├── src/
-│   │   ├── config/       # Ability config (CASL)
-│   │   ├── layouts/      # App layout components
-│   │   ├── pages/        # Route pages
-│   │   ├── providers/    # Context providers (Theme, Auth)
-│   │   ├── store/        # Zustand stores
-│   │   ├── utils/        # Helpers & API client
-│   │   └── App.tsx       # Main app component
+│   │   ├── App.tsx             # Routes + layout
+│   │   ├── config/ability.ts   # CASL definitions
+│   │   ├── layouts/            # AppLayout, AppHeader, AppSidebar
+│   │   ├── pages/              # Home, Login, Users, InventoryItems,
+│   │   │                       # Suppliers, PurchaseOrders,
+│   │   │                       # PurchasingRequirements, Prices, etc.
+│   │   ├── providers/          # Theme (dark mode)
+│   │   ├── services/api.ts     # Fetch wrapper + auto-refresh
+│   │   ├── store/useAuthStore.ts# Zustand auth state
+│   │   └── utils/exportToExcel.ts
 │   └── package.json
-└── README.md
+├── AGENTS.md                   # AI instructions
+├── CONTEXT.md                  # Project context
+└── README.md                   # This file
 ```
 
-## 🛠 Prerequisites
+## Prerequisites
 
 - **Bun**: [Install Bun](https://bun.sh/docs/installation)
-- **Node.js**: v18+ (optional, for npm packages if needed)
-- **PostgreSQL**: Local installation or Docker container
+- **MSSQL Server**: Local or remote instance
+- **Node.js v18+**: Optional, for tooling
 
-## 🚦 Getting Started
+## Getting Started
 
-### 1. Clone the repository
+### 1. Install Dependencies
 
-```bash
-git clone <repository-url>
-cd fullstack-starter
-```
+**Backend only** — no root install:
 
-### 2. Install Dependencies
-
-**Root (optional, for workspace management):**
-```bash
-bun install
-```
-
-**Backend:**
 ```bash
 cd api
 bun install
 ```
 
 **Frontend:**
+
 ```bash
 cd web
 bun install
 ```
 
-### 3. Environment Setup
+### 2. Environment Setup
 
 **Backend (`api/.env`):**
-Create a `.env` file in the `api` directory:
 
 ```env
-# Database
 DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
+DB_USER=sa
 DB_PASSWORD=your_password
-DB_NAME=fullstack_db
+DB_NAME=your_database
+DB_PORT=1433
 
-# JWT Secrets (Generate secure keys for production)
-JWT_SECRET=your_jwt_secret
-REFRESH_SECRET=your_refresh_secret
+SUPERADMIN_USERNAME=sadmin123
+SUPERADMIN_PASSWORD=your_password
+SUPERADMIN_NAME="Super Administrator"
 
-# CORS
+JWT_SECRET=your-secret-key
+JWT_REFRESH_SECRET=your-refresh-secret
+
 CORS_ORIGIN=http://localhost:5173
+
+NODE_ENV=development
 ```
 
 **Frontend (`web/.env`):**
-Create a `.env` file in the `web` directory:
 
 ```env
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
-### 4. Database Setup
+### 3. Database Setup
 
-1.  Ensure your PostgreSQL server is running.
-2.  Generate migrations:
-    ```bash
-    cd api
-    bun run db:generate
-    ```
-3.  Run migrations:
-    ```bash
-    bun run db:migrate
-    ```
+The `Site` table must exist in your MSSQL database.
 
-### 5. Running the Project
+Run the migration script to create `SMR_Users` table and seed the superadmin user:
 
-**Development Mode:**
+```bash
+cd api
+bun run db:migrate
+```
 
-Open two terminals:
+This creates the `SMR_Users` table (id, username, password/bcrypt, name, role) and inserts the superadmin from env vars.
 
-1.  **Backend:**
-    ```bash
-    cd api
-    bun run dev
-    ```
-    *Runs on `http://localhost:3000`*
+### 4. Run Development
 
-2.  **Frontend:**
-    ```bash
-    cd web
-    bun run dev
-    ```
-    *Runs on `http://localhost:5173`*
+Two terminals:
 
-**Production Mode:**
+```bash
+# Terminal 1 — Backend (port 3000)
+cd api
+bun run dev
 
-1.  **Build Backend:**
-    ```bash
-    cd api
-    bun run build
-    bun start
-    ```
+# Terminal 2 — Frontend (port 5173)
+cd web
+bun run dev
+```
 
-2.  **Build Frontend:**
-    ```bash
-    cd web
-    bun run build
-    bun run preview
-    ```
+- API: `http://localhost:3000`
+- Swagger docs: `http://localhost:3000/api/docs`
+- Frontend: `http://localhost:5173`
 
-## 📚 Tech Stack
+### 5. Production
 
-### Backend
-- **Runtime**: Bun
-- **Framework**: Elysia
-- **ORM**: Drizzle ORM
-- **Database**: PostgreSQL
-- **Authentication**: JWT (Access & Refresh tokens)
-- **Authorization**: CASL
-- **Documentation**: Swagger (OpenAPI)
+```bash
+# Backend
+cd api
+bun run build
+bun run start
 
-### Frontend
-- **Framework**: React 19
-- **Build Tool**: Vite
-- **Language**: TypeScript
-- **UI Library**: Material-UI (MUI)
-- **State Management**: Zustand
-- **Routing**: React Router v7
-- **Styling**: CSS-in-JS (Emotion)
+# Frontend
+cd web
+bun run build
+bun run preview
+```
 
-## ⚙️ Customization
+## API Endpoints
 
-### API Customization
-- **Routes**: Modify `api/src/routes.ts` to add new route groups.
-- **Modules**: Add new domain modules in `api/src/modules/` (e.g., `products`, `orders`).
-- **Database Schema**: Update Drizzle schemas in `api/src/modules/*/schema.ts` and regenerate migrations.
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| POST | `/api/auth/login` | No | — | Login (cookie or JSON body) |
+| POST | `/api/auth/register` | No | — | Register new user |
+| POST | `/api/auth/refresh` | No | — | Refresh access token |
+| POST | `/api/auth/logout` | No | — | Clear auth cookies |
+| POST | `/api/auth/me` | Yes | Any | Current user profile |
+| GET | `/api/users` | Yes | superadmin | List all users |
+| GET | `/api/users/profile` | Yes | Any | Own profile |
+| GET | `/api/inventory` | Yes | superadmin | List sites |
+| GET | `/api/inventory/:siteId` | Yes | superadmin | Get site |
+| POST | `/api/inventory` | Yes | superadmin | Create site |
+| PUT | `/api/inventory/:siteId` | Yes | superadmin | Update site |
+| DELETE | `/api/inventory/:siteId` | Yes | superadmin | Delete site |
 
-### Web Customization
-- **Theming**: Customize the MUI theme in `web/src/providers/AppProvider.tsx`.
-- **Routing**: Update routes in `web/src/App.tsx`.
-- **API Client**: Modify the API client in `web/src/utils/api.ts` (base URL, interceptors).
+## Development Status
 
-### Environment Variables
-Refer to the `.env` examples in the "Getting Started" section. Never commit sensitive keys to version control.
+| Feature | Status |
+|---------|--------|
+| Auth (login/register/refresh/logout) | Working |
+| User CRUD | Working (DB-backed) |
+| Site CRUD | Working (DB-backed) |
+| Dashboard | Frontend only (hardcoded) |
+| Inventory Items | Frontend only (hardcoded) |
+| Suppliers | Frontend only (hardcoded) |
+| Purchase Orders | Frontend only (hardcoded) |
+| Purchasing Requirements | Frontend only (hardcoded) |
+| Prices | Frontend only (hardcoded) |
 
-## 📖 Documentation
+## Port Configuration
 
-- **API Documentation**: Once the backend is running, visit `http://localhost:3000/api/docs` for the Swagger UI.
-- **Frontend**: Check `web/README.md` for frontend-specific details.
-- **Backend**: Check `api/README.md` for backend-specific details.
+If default ports conflict, use 5-digit ports:
 
-## 🤝 Contributing
+```bash
+# Backend
+PORT=30001 bun run dev
 
-Contributions are welcome! Please open an issue or submit a pull request.
+# Frontend
+bun run dev -- --port 30001
+```
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License.
+MIT

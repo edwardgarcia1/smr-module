@@ -1,15 +1,15 @@
-# API
+# API — SMR Module Backend
 
-Backend service for the Fullstack Starter template. Built with **Elysia**, **Drizzle ORM**, and **Bun**.
+Elysia backend for Inventory & Supply Management System. Auth, user CRUD, inventory site CRUD. MSSQL, JWT, CASL RBAC.
 
-## 🛠 Prerequisites
+## Prerequisites
 
-- **Bun**: v1.1+
-- **PostgreSQL**: Running instance
+- **Bun**: 1.1+
+- **MSSQL Server**: Running instance
 
-## 🚦 Getting Started
+## Getting Started
 
-### Installation
+### Install
 
 ```bash
 bun install
@@ -17,20 +17,40 @@ bun install
 
 ### Environment
 
-Create a `.env` file in the root of this directory:
+Create `api/.env`:
 
 ```env
 DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
+DB_USER=sa
 DB_PASSWORD=your_password
-DB_NAME=fullstack_db
-JWT_SECRET=secret
-REFRESH_SECRET=secret
+DB_NAME=your_database
+DB_PORT=1433
+
+SUPERADMIN_USERNAME=sadmin123
+SUPERADMIN_PASSWORD=your_password
+SUPERADMIN_NAME="Super Administrator"
+
+JWT_SECRET=your-secret-key
+JWT_REFRESH_SECRET=your-refresh-secret
+
 CORS_ORIGIN=http://localhost:5173
+
+NODE_ENV=development
 ```
 
-### Running
+### Database Setup
+
+The `Site` table must exist in your MSSQL database.
+
+Create `SMR_Users` table and seed superadmin:
+
+```bash
+bun run db:migrate
+```
+
+This runs `src/migrate.ts` — creates `SMR_Users` (id, username, password/bcrypt, name, role) and inserts the superadmin user from env vars if not present.
+
+### Run
 
 **Development:**
 
@@ -42,90 +62,128 @@ bun run dev
 
 ```bash
 bun run build
-bun start
+bun run start
 ```
 
-## 📂 Project Structure
+## Project Structure
 
-```text
+```
 api/
 ├── src/
+│   ├── index.ts            # Server entry + CORS
+│   ├── routes.ts           # Route aggregation
+│   ├── migrate.ts          # DB setup + superadmin seed
 │   ├── config/
-│   │   └── db.ts           # Database connection
+│   │   └── db.ts           # MSSQL connection pool (singleton)
 │   ├── middlewares/
-│   │   ├── auth.ts         # Auth guard
-│   │   ├── casl.ts         # RBAC middleware
-│   │   ├── error.ts        # Error handling
-│   │   ├── jwt.ts          # JWT setup
-│   │   └── rateLimit.ts    # Rate limiting
+│   │   ├── auth.ts         # JWT derive guard (header + cookie)
+│   │   ├── jwt.ts          # Access + refresh token sign/verify
+│   │   ├── casl.ts         # RBAC permissions
+│   │   ├── error.ts        # Custom error classes + handler
+│   │   └── rateLimit.ts    # 60 req/min per IP (in-memory)
 │   ├── modules/
-│   │   └── users/          # User domain
-│   │       ├── auth.routes.ts
-│   │       ├── users.routes.ts
-│   │       ├── schema.ts   # Drizzle schema
-│   │       └── service.ts  # Business logic
+│   │   ├── users/          # Auth routes + user CRUD
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── users.routes.ts
+│   │   │   ├── user.schema.ts
+│   │   │   └── user.service.ts
+│   │   └── inventory/      # Site CRUD (superadmin only)
+│   │       ├── inventory.routes.ts
+│   │       ├── inventory.schema.ts
+│   │       └── inventory.service.ts
 │   ├── shared/
-│   │   └── auth.ts         # Shared auth helpers
-│   ├── index.ts            # Server entry
-│   └── routes.ts           # Route aggregation
-├── drizzle/                # Migrations
+│   │   └── auth.ts         # Token extraction helpers
+│   └── utils/
+│       └── trimStrings.ts  # MSSQL CHAR/NCHAR padding trim
+├── test/
+│   └── index.test.ts       # E2E tests (Eden Treaty)
 └── package.json
 ```
 
-## 📜 Scripts
+## Scripts
 
-- `dev`: Start development server with hot reload.
-- `build`: Build for production.
-- `start`: Run production build.
-- `test`: Run tests (Bun test runner).
-- `typecheck`: Check TypeScript types.
-- `db:generate`: Generate Drizzle migrations.
-- `db:migrate`: Run pending migrations.
+| Script | Description |
+|--------|-------------|
+| `dev` | Dev server with hot reload (`bun --watch`) |
+| `build` | Build for production |
+| `start` | Run production build |
+| `test` | Run E2E tests (Bun test runner + Eden) |
+| `typecheck` | TypeScript type check |
+| `db:migrate` | Create `SMR_Users` table + seed superadmin |
 
-## 🛡️ Authentication & Authorization
+## Auth & Authorization
 
 ### JWT Strategy
 
-- **Access Token**: Short-lived (15 min), stored in cookies (httpOnly) or returned for mobile clients.
-- **Refresh Token**: Long-lived (7 days), stored in cookies, used to rotate access tokens.
+- **Access Token**: 1h expiry, HS256, stored in httpOnly cookie (web) or JSON body (mobile).
+- **Refresh Token**: 7d expiry, stored in httpOnly cookie.
+- **Auto-refresh**: Frontend 401 interceptor calls `/api/auth/refresh`.
+- **Mobile**: Send `x-client-type: mobile` header → tokens returned in JSON body.
 
-### RBAC (Role-Based Access Control)
+Token extraction order: `Authorization: Bearer <token>` header → `authorization` cookie (Bearer prefixed) → `accessToken` cookie.
 
-- Uses **CASL** for permission management.
-- Roles: `superadmin`, `admin`, `user`.
-- Permissions defined in `src/modules/users/service.ts` (conceptually) or middleware logic.
+### RBAC (CASL)
 
-## 📡 API Endpoints
+| Role | Subjects |
+|------|----------|
+| `superadmin` | `manage` all (User, Site) |
+| `admin` | `read` User, `manage` settings |
+| `user` | `read` settings |
+
+Permissions defined in `src/middlewares/casl.ts`. Enforced via `checkPermission(action, subject)`.
+
+## API Endpoints
 
 ### Auth
 
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/me` - Get current user profile
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/register` | No | Register user (username, password, name) |
+| POST | `/api/auth/login` | No | Login, returns httpOnly cookies or JSON |
+| POST | `/api/auth/logout` | No | Clear auth cookies |
+| POST | `/api/auth/refresh` | No | Refresh access token |
+| POST | `/api/auth/me` | Yes | Current user profile |
 
 ### Users
 
-- `GET /api/users` - List all users (Admin only)
-- `GET /api/users/profile` - Get current user profile
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| GET | `/api/users` | Yes | superadmin | List all users (no passwords) |
+| GET | `/api/users/profile` | Yes | Any | Own profile |
 
-## 🗄️ Database
+### Inventory (Sites)
 
-### Migrations
+| Method | Path | Auth | Role | Description |
+|--------|------|------|------|-------------|
+| GET | `/api/inventory` | Yes | superadmin | List all sites |
+| GET | `/api/inventory/:siteId` | Yes | superadmin | Get single site |
+| POST | `/api/inventory` | Yes | superadmin | Create site (SiteId max 10, Name max 30) |
+| PUT | `/api/inventory/:siteId` | Yes | superadmin | Update site name |
+| DELETE | `/api/inventory/:siteId` | Yes | superadmin | Delete site |
 
-1.  Update schema in `src/modules/*/schema.ts`.
-2.  Generate migration:
-    ```bash
-    bun run db:generate
-    ```
-3.  Apply migration:
-    ```bash
-    bun run db:migrate
-    ```
+### Docs
 
-## 🔧 Configuration
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/docs` | Swagger UI |
 
-- **CORS**: Configured in `src/index.ts`.
-- **Rate Limiting**: Configured in `src/middlewares/rateLimit.ts`.
+## Database
+
+- **MSSQL** via `mssql` npm package (raw queries, no ORM).
+- Connection pool singleton via `getDb()` in `src/config/db.ts`.
+- Config: `encrypt: false`, `trustServerCertificate: true`.
+- Table `SMR_Users` — auto-created by `db:migrate`.
+- Table `Site` — must exist in database (assumed from `MLDIAPP`).
+
+## Configuration
+
+- **CORS**: Configured in `src/index.ts`. Supports multiple origins (comma/space separated in env).
+- **Rate Limit**: 60 requests/minute/IP. In-memory Map (resets on restart, not shared across instances).
 - **Swagger**: Available at `/api/docs` when running.
+- **Error handling**: `CustomError` subclasses — `BadRequestError` (400), `UnauthorizedError` (401), `ForbiddenError` (403), `NotFoundError` (404).
+
+## Notes
+
+- No Drizzle ORM despite template docs. All DB operations are raw SQL.
+- Passwords hashed with bcrypt (cost 10) via `Bun.password.hash`.
+- Rate limiter is in-memory — single instance only. Resets on server restart.
