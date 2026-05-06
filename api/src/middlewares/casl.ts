@@ -3,7 +3,7 @@ import { createMongoAbility, AbilityBuilder, type MongoAbility, type InferSubjec
 import { type AuthUser } from "./auth";
 import { ForbiddenError } from "./error";
 
-export type Subject = "User" | "all";
+export type Subject = "User" | "Site" | "all";
 export type Actions = "manage" | "create" | "read" | "update" | "delete";
 
 export type AppAbility = MongoAbility<[Actions, InferSubjects<Subject>]>;
@@ -19,6 +19,7 @@ export const caslMiddleware = (app: Elysia) =>
             // Original logic: only superadmin can list/manipulate users
             if (user.role === "superadmin") {
                 can("manage", "User");
+                can("manage", "Site");
             }
         }
 
