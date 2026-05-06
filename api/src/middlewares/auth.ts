@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { jwtMiddleware } from "./jwt";
-import { findUserById } from "../modules/users/service";
+import { findUserById } from "../modules/users/user.service";
 
 export interface AuthUser {
 	id: number;
@@ -27,7 +27,7 @@ export const authGuard = (app: Elysia) =>
 			authHeader.startsWith("Bearer ")
 		) {
 			token = authHeader.substring(7);
-		} 
+		}
 		// Check cookie for Bearer token
 		else if (
 			(cookie as any)?.authorization &&
