@@ -3,6 +3,7 @@ import { swagger } from "@elysiajs/swagger";
 import { authRoutes } from "./modules/users/auth.routes";
 import { userRoutes } from "./modules/users/users.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
+import { principalRoutes } from "./modules/principal/principal.routes";
 import { errorMiddleware } from "./middlewares/error";
 
 export const routes = new Elysia({ prefix: "/api" })
@@ -12,4 +13,5 @@ export const routes = new Elysia({ prefix: "/api" })
     .use(errorMiddleware)
     .use(authRoutes)
     .use(userRoutes)
-    .use(inventoryRoutes);
+    .use(inventoryRoutes)
+    .use(principalRoutes);
