@@ -1,55 +1,65 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Client } from "pg";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { users, type NewUser } from "./modules/users/schema";
-import { eq } from "drizzle-orm";
+import sql from "mssql";
+import { CREATE_USERS_TABLE_SQL } from "./modules/users/schema";
 
-const client = new Client({
-	host: process.env.DB_HOST || "localhost",
-	port: Number(process.env.DB_PORT) || 5432,
-	user: process.env.DB_USER,
-	password: process.env.DB_PASSWORD,
-	database: process.env.DB_NAME,
-});
+const config: sql.config = {
+  server: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT) || 1433,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  options: {
+    encrypt: false,
+    trustServerCertificate: true,
+  },
+};
 
-await client.connect();
+async function migrate() {
+  const pool = await sql.connect(config);
 
-const db = drizzle(client);
+  try {
+    console.log("Running migrations...");
 
-try {
-	console.log("Running migrations...");
-	await migrate(db, { migrationsFolder: "./drizzle" });
-	console.log("Migrations completed successfully");
+    // Create SMR_Users table if it doesn't exist
+    await pool.request().query(CREATE_USERS_TABLE_SQL);
+    console.log("SMR_Users table ready");
 
-	console.log("Checking for superadmin user...");
-	const [existingUser] = await db
-		.select()
-		.from(users)
-		.where(eq(users.username, process.env.SUPERADMIN_USERNAME || "superadmin"));
+    // Seed superadmin if not exists
+    const username = process.env.SUPERADMIN_USERNAME || "superadmin";
+    const checkResult = await pool
+      .request()
+      .input("username", username)
+      .query("SELECT COUNT(*) AS cnt FROM SMR_Users WHERE username = @username");
 
-	if (!existingUser) {
-		console.log("Creating superadmin user...");
-		const hashedPassword = await Bun.password.hash(
-			process.env.SUPERADMIN_PASSWORD || "Passw0rd",
-			{
-				algorithm: "bcrypt",
-				cost: 10,
-			},
-		);
-		const superadminUser: NewUser = {
-			username: process.env.SUPERADMIN_USERNAME || "superadmin",
-			password: hashedPassword,
-			name: process.env.SUPERADMIN_NAME || "Super Admin",
-			role: "superadmin",
-		};
-		await db.insert(users).values(superadminUser);
-		console.log("Superadmin user created successfully");
-	} else {
-		console.log("Superadmin user already exists");
-	}
-} catch (error) {
-	console.error("Migration or user creation failed:", error);
-	process.exit(1);
-} finally {
-	await client.end();
+    const count = checkResult.recordset[0]?.cnt ?? 0;
+
+    if (count === 0) {
+      console.log("Creating superadmin user...");
+      const hashedPassword = await Bun.password.hash(
+        process.env.SUPERADMIN_PASSWORD || "Passw0rd",
+        { algorithm: "bcrypt", cost: 10 },
+      );
+
+      await pool
+        .request()
+        .input("username", username)
+        .input("password", hashedPassword)
+        .input("name", process.env.SUPERADMIN_NAME || "Super Admin")
+        .input("role", "superadmin")
+        .query(`
+          INSERT INTO SMR_Users (username, password, name, role)
+          VALUES (@username, @password, @name, @role)
+        `);
+
+      console.log("Superadmin user created successfully");
+    } else {
+      console.log("Superadmin user already exists");
+    }
+  } catch (error) {
+    console.error("Migration or user creation failed:", error);
+    process.exit(1);
+  } finally {
+    await pool.close();
+  }
 }
+
+await migrate();
