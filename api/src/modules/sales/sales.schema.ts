@@ -6,6 +6,13 @@ export interface DateRange {
 	end: string; // ISO date, e.g. "2026-02-26"
 }
 
+/** Optional filters for sales query */
+export interface SalesFilter {
+	siteID?: string;
+	priceClassID?: string;
+	classID?: string;
+}
+
 /** Paginated response wrapper */
 export interface PaginatedResponse<T> {
 	data: T[];

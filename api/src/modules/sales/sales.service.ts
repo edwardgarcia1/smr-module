@@ -1,6 +1,6 @@
 import { getDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
-import type { DateRange, PaginatedResponse, SalesRecord } from "./sales.schema";
+import type { DateRange, PaginatedResponse, SalesFilter, SalesRecord } from "./sales.schema";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
@@ -95,7 +95,8 @@ WHERE sh.Cancelled = 0
   AND sh.SOTypeID IN ('BS','XX','EM','BN','VS','ER','BEP','BEX','EVE','EVX','RD','DX','OS','OX','XS','OR')
   AND sl.CpnyID <> ''
   AND sh.InvcDate >= CONVERT(DATETIME, '2025-01-01 00:00:00', 102)
-  {DATE_RANGES}`;
+  {DATE_RANGES}
+  {FILTERS}`;
 
 const COLUMNS = `
     sh.ShipperID, sh.OrdNbr, sh.OrdDate, sh.InvcDate, sh.InvcNbr,
@@ -137,14 +138,52 @@ function buildDateRangeClause(ranges: DateRange[]): {
 	};
 }
 
-function buildCountSql(dateRanges: DateRange[]): {
+function buildFilterClause(filter?: SalesFilter): {
+	clause: string;
+	params: Record<string, string>;
+} {
+	if (!filter) return { clause: "", params: {} };
+
+	const parts: string[] = [];
+	const params: Record<string, string> = {};
+
+	if (filter.siteID) {
+		parts.push("sh.SiteID = @siteID");
+		params.siteID = filter.siteID;
+	}
+	if (filter.priceClassID) {
+		parts.push("c.PriceClassID = @priceClassID");
+		params.priceClassID = filter.priceClassID;
+	}
+	if (filter.classID) {
+		parts.push("i.ClassID = @classID");
+		params.classID = filter.classID;
+	}
+
+	if (parts.length === 0) return { clause: "", params: {} };
+
+	return {
+		clause: `AND ${parts.join(" AND ")}`,
+		params,
+	};
+}
+
+function buildCountSql(
+	dateRanges: DateRange[],
+	filter?: SalesFilter,
+): {
 	sql: string;
 	params: Record<string, string>;
 } {
-	const { clause, params } = buildDateRangeClause(dateRanges);
+	const { clause: dateClause, params: dateParams } = buildDateRangeClause(dateRanges);
+	const { clause: filterClause, params: filterParams } = buildFilterClause(filter);
+
+	let sql = BASE_FROM.replace("{DATE_RANGES}", dateClause);
+	sql = sql.replace("{FILTERS}", filterClause);
+
 	return {
-		sql: `SELECT COUNT(*) AS _total ${BASE_FROM.replace("{DATE_RANGES}", clause)}`,
-		params,
+		sql: `SELECT COUNT(*) AS _total ${sql}`,
+		params: { ...dateParams, ...filterParams },
 	};
 }
 
@@ -152,9 +191,13 @@ function buildDataSql(
 	dateRanges: DateRange[],
 	offset: number,
 	limit: number,
+	filter?: SalesFilter,
 ): { sql: string; params: Record<string, string> } {
-	const { clause, params } = buildDateRangeClause(dateRanges);
-	const fromClause = BASE_FROM.replace("{DATE_RANGES}", clause);
+	const { clause: dateClause, params: dateParams } = buildDateRangeClause(dateRanges);
+	const { clause: filterClause, params: filterParams } = buildFilterClause(filter);
+
+	let fromClause = BASE_FROM.replace("{DATE_RANGES}", dateClause);
+	fromClause = fromClause.replace("{FILTERS}", filterClause);
 
 	// MSSQL 2008-compatible pagination via ROW_NUMBER
 	const sql = `
@@ -168,7 +211,7 @@ ORDER BY _row_num`;
 
 	return {
 		sql,
-		params: { ...params, _offset: String(offset), _limit: String(limit) },
+		params: { ...dateParams, ...filterParams, _offset: String(offset), _limit: String(limit) },
 	};
 }
 
@@ -252,23 +295,25 @@ function transformRow(row: Record<string, any>): SalesRecord {
 export { MAX_LIMIT, DEFAULT_LIMIT };
 
 /**
- * Fetch paginated sales records with optional date-range filtering.
+ * Fetch paginated sales records with optional date-range and field filtering.
  *
  * @param page     Page number (1-based).
  * @param limit    Rows per page (capped at MAX_LIMIT).
  * @param dateRanges  Optional date-range pairs. Supports gaps.
+ * @param filter   Optional filters (siteID, priceClassID, classID).
  */
 export async function getSales(
 	page: number,
 	limit: number,
 	dateRanges?: DateRange[],
+	filter?: SalesFilter,
 ): Promise<PaginatedResponse<SalesRecord>> {
 	const pool = await getDb();
 
 	// Run count + data in parallel
 	const [countResult, dataResult] = await Promise.all([
-		runCount(pool, dateRanges),
-		runData(pool, page, limit, dateRanges),
+		runCount(pool, dateRanges, filter),
+		runData(pool, page, limit, dateRanges, filter),
 	]);
 
 	const total = countResult;
@@ -286,8 +331,9 @@ export async function getSales(
 async function runCount(
 	pool: Awaited<ReturnType<typeof getDb>>,
 	dateRanges?: DateRange[],
+	filter?: SalesFilter,
 ): Promise<number> {
-	const { sql, params } = buildCountSql(dateRanges ?? []);
+	const { sql, params } = buildCountSql(dateRanges ?? [], filter);
 	const request = pool.request();
 
 	for (const [key, val] of Object.entries(params)) {
@@ -303,9 +349,10 @@ async function runData(
 	page: number,
 	limit: number,
 	dateRanges?: DateRange[],
+	filter?: SalesFilter,
 ): Promise<SalesRecord[]> {
 	const offset = (page - 1) * limit;
-	const { sql, params } = buildDataSql(dateRanges ?? [], offset, limit);
+	const { sql, params } = buildDataSql(dateRanges ?? [], offset, limit, filter);
 	const request = pool.request();
 
 	for (const [key, val] of Object.entries(params)) {

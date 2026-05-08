@@ -47,18 +47,23 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 	/**
 	 * GET /sales
 	 *
-	 * Paginated sales data with optional date-range filtering.
+	 * Paginated sales data with optional date-range and field filtering.
 	 *
 	 * Query params:
 	 *   page       (number, default 1)
 	 *   limit      (number, default 500, max 10000)
 	 *   dateRange  (repeatable) — "YYYY-MM-DD,YYYY-MM-DD"
+	 *   siteID     (string, optional) — filter by SiteID
+	 *   priceClassID (string, optional) — filter by PriceClassID
+	 *   classID    (string, optional) — filter by ClassID
 	 *
 	 * Examples:
 	 *   GET /sales
 	 *   GET /sales?page=1&limit=200
 	 *   GET /sales?dateRange=2026-01-01,2026-02-26&page=1&limit=500
 	 *   GET /sales?dateRange=2026-01-01,2026-02-26&dateRange=2026-04-03,2026-06-12
+	 *   GET /sales?siteID=MAIN&classID=ABC
+	 *   GET /sales?priceClassID=WHOLESALE&page=1&limit=100
 	 */
 	.get(
 		"/",
@@ -75,6 +80,11 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 				page,
 				limit,
 				dateRanges.length > 0 ? dateRanges : undefined,
+				{
+					siteID: query.siteID || undefined,
+					priceClassID: query.priceClassID || undefined,
+					classID: query.classID || undefined,
+				},
 			);
 		},
 		{
@@ -84,6 +94,9 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 				dateRange: t.Optional(
 					t.Union([t.String(), t.Array(t.String())]),
 				),
+				siteID: t.Optional(t.String()),
+				priceClassID: t.Optional(t.String()),
+				classID: t.Optional(t.String()),
 			}),
 		},
 	);
