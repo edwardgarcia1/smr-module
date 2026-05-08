@@ -9,6 +9,7 @@ const config: sql.config = {
   options: {
     encrypt: false, // MSSQL 2008 does not support encryption by default
     trustServerCertificate: true,
+    requestTimeout: 180_000, // 3 min — accommodates heavy reporting queries
   },
 };
 

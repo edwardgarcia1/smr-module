@@ -15,7 +15,7 @@ export function trimStrings<T>(input: T): T {
     return input.map(trimStrings) as unknown as T;
   }
 
-  if (input !== null && typeof input === "object") {
+  if (input !== null && typeof input === "object" && input.constructor === Object) {
     const cleaned: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
       cleaned[key] = trimStrings(value);

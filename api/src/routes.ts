@@ -6,6 +6,7 @@ import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { principalRoutes } from "./modules/principal/principal.routes";
 import { itemRoutes } from "./modules/item/item.routes";
 import { priceRoutes } from "./modules/price/price.routes";
+import { salesRoutes } from "./modules/sales/sales.routes";
 import { errorMiddleware } from "./middlewares/error";
 
 export const routes = new Elysia({ prefix: "/api" })
@@ -18,4 +19,5 @@ export const routes = new Elysia({ prefix: "/api" })
     .use(inventoryRoutes)
     .use(principalRoutes)
     .use(itemRoutes)
-    .use(priceRoutes);
+    .use(priceRoutes)
+    .use(salesRoutes);
