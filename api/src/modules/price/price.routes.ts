@@ -1,14 +1,16 @@
 import { Elysia, t } from "elysia";
 import {
 	createSlsPrc,
-	getAllSlsPrc,
 	getSlsPrcById,
 	updateSlsPrc,
 	deleteSlsPrc,
 	createSlsPrcDet,
-	getAllSlsPrcDet,
 	getSlsPrcDetByHeaderId,
-	getSlsPrcWithDets,
+	getSlsPrcPaginated,
+	getSlsPrcDetPaginated,
+	getSlsPrcWithDetsPaginated,
+	MAX_LIMIT,
+	DEFAULT_LIMIT,
 } from "./price.service";
 import { authGuard } from "../../middlewares/auth";
 import { rateLimitMiddleware } from "../../middlewares/rateLimit";
@@ -19,6 +21,10 @@ import {
 	UnauthorizedError,
 } from "../../middlewares/error";
 
+function clamp(val: number, min: number, max: number): number {
+	return Math.min(Math.max(val, min), max);
+}
+
 export const priceRoutes = new Elysia({ prefix: "/price" })
 	.use(rateLimitMiddleware)
 	.use(authGuard)
@@ -26,14 +32,26 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── SlsPrc (header) routes ───────────────────────────────────────
 
-	// GET /price/ids — list all price headers
-	.get("/ids", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	// GET /price/ids — paginated list of price headers
+	.get(
+		"/ids",
+		async ({ query, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
 
-		return getAllSlsPrc();
-	})
+			const page = clamp(Number(query.page) || 1, 1, Infinity);
+			const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
+
+			return getSlsPrcPaginated(page, limit);
+		},
+		{
+			query: t.Object({
+				page: t.Optional(t.String()),
+				limit: t.Optional(t.String()),
+			}),
+		},
+	)
 
 	// GET /price/ids/:slsPrcId — single price header
 	.get(
@@ -115,14 +133,26 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── SlsPrcDet (detail) routes ────────────────────────────────────
 
-	// GET /price/value — list all values
-	.get("/value", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	// GET /price/value — paginated list of all values
+	.get(
+		"/value",
+		async ({ query, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
 
-		return getAllSlsPrcDet();
-	})
+			const page = clamp(Number(query.page) || 1, 1, Infinity);
+			const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
+
+			return getSlsPrcDetPaginated(page, limit);
+		},
+		{
+			query: t.Object({
+				page: t.Optional(t.String()),
+				limit: t.Optional(t.String()),
+			}),
+		},
+	)
 
 	// GET /price/value/:slsPrcId — details by header
 	.get(
@@ -160,11 +190,23 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /price — IDs + Values on SlsPrcID
-	.get("/", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	// GET /price — paginated IDs + Values on SlsPrcID
+	.get(
+		"/",
+		async ({ query, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
 
-		return getSlsPrcWithDets();
-	});
+			const page = clamp(Number(query.page) || 1, 1, Infinity);
+			const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
+
+			return getSlsPrcWithDetsPaginated(page, limit);
+		},
+		{
+			query: t.Object({
+				page: t.Optional(t.String()),
+				limit: t.Optional(t.String()),
+			}),
+		},
+	);

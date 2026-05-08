@@ -29,6 +29,15 @@ export type NewSlsPrcDet = {
 
 export type SlsPrcDetUpdate = Partial<Pick<SlsPrcDet, "DiscPrice" | "SlsUnit">>;
 
+/** Paginated response wrapper */
+export interface PaginatedResponse<T> {
+	data: T[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
 /** Joined result of SlsPrc + SlsPrcDet on SlsPrcID */
 export interface SlsPrcWithDet extends SlsPrc {
 	DiscPrice: number | null;
