@@ -11,15 +11,17 @@ export const defineAbilitiesFor = (user: User | null) => {
   }
 
   // Role-based permissions
-  if (user.role === 'superadmin') {
-    can('manage', 'all');
-  } else if (user.role === 'admin') {
-    can('read', 'users');
-    can('manage', 'settings');
-  } else {
-    // Regular user
-    can('read', 'settings');
-  }
+	if (user.role === 'superadmin') {
+		can('manage', 'all');
+	} else if (user.role === 'admin') {
+		can('read', 'users');
+		can('manage', 'settings');
+		can('read', 'principals');
+	} else {
+		// Regular user
+		can('read', 'settings');
+		can('read', 'principals');
+	}
 
   return build();
 };

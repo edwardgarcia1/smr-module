@@ -218,29 +218,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="suppliers" ability={ability}>
-					<ListItemButton
-						selected={isActive("/suppliers")}
-						onClick={() => handleNav("/suppliers")}
-						sx={getSidebarItemSx(collapsed)}
+			<Can I="read" a="principals" ability={ability}>
+				<ListItemButton
+					selected={isActive("/principals")}
+					onClick={() => handleNav("/principals")}
+					sx={getSidebarItemSx(collapsed)}
+				>
+					<ListItemIcon
+						sx={{
+							color: "var(--sidebar-icon)",
+							minWidth: collapsed ? "auto" : 36,
+						}}
 					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<LocalShippingIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Suppliers"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
+						<LocalShippingIcon sx={{ fontSize: 18 }} />
+					</ListItemIcon>
+					<ListItemText
+						primary="Principals"
+						sx={{
+							fontSize: 13,
+							display: collapsed ? "none" : "block",
+						}}
+					/>
+				</ListItemButton>
+			</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
 					<ListItemButton
 						selected={isActive("/purchase-orders")}
