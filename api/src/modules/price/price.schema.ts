@@ -38,10 +38,11 @@ export interface PaginatedResponse<T> {
 	totalPages: number;
 }
 
-/** Joined result of SlsPrc + SlsPrcDet on SlsPrcID */
+/** Joined result of SlsPrc + SlsPrcDet on SlsPrcID + Inventory on InvtID */
 export interface SlsPrcWithDet extends SlsPrc {
 	DiscPrice: number | null;
 	SlsUnit: string | null;
+	Descr: string | null;
 }
 
 /** MSSQL 2008 compatible DDL for SlsPrc table */

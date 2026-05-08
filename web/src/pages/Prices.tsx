@@ -26,6 +26,7 @@ interface SlsPrcWithDet {
 	SlsPrcID: string;
 	InvtID: string;
 	CatalogNbr: string;
+	Descr: string | null;
 	DiscPrice: number | null;
 	SlsUnit: string | null;
 	_id: string;
@@ -125,26 +126,28 @@ const Prices: React.FC = () => {
 		{
 			field: "SlsPrcID",
 			headerName: "Price ID",
-			minWidth: 200,
-			flex: 1,
+			width: 150,
 		},
 		{
 			field: "InvtID",
 			headerName: "Inventory ID",
-			minWidth: 200,
+			width: 150,
+		},
+		{
+			field: "Descr",
+			headerName: "Description",
+			minWidth: 250,
 			flex: 1,
 		},
 		{
 			field: "CatalogNbr",
 			headerName: "Catalog Number",
-			minWidth: 200,
-			flex: 1,
+			width: 150,
 		},
 		{
 			field: "DiscPrice",
 			headerName: "Discount Price",
-			minWidth: 150,
-			flex: 1,
+			width: 150,
 			type: "number",
 			valueFormatter: (value: number | null) => {
 				if (value === null || value === undefined) return "";
@@ -157,8 +160,7 @@ const Prices: React.FC = () => {
 		{
 			field: "SlsUnit",
 			headerName: "Sales Unit",
-			minWidth: 150,
-			flex: 1,
+			width: 150,
 		},
 	];
 
@@ -221,7 +223,10 @@ const Prices: React.FC = () => {
 						startIcon={<FilterListIcon />}
 						style={iconSx}
 					>
-						<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						<Box
+							component="span"
+							sx={{ display: { xs: "none", md: "inline" } }}
+						>
 							Filters
 						</Box>
 					</FilterPanelTrigger>
@@ -230,7 +235,10 @@ const Prices: React.FC = () => {
 						startIcon={<ViewColumnIcon />}
 						style={iconSx}
 					>
-						<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						<Box
+							component="span"
+							sx={{ display: { xs: "none", md: "inline" } }}
+						>
 							Columns
 						</Box>
 					</ColumnsPanelTrigger>
@@ -259,6 +267,9 @@ const Prices: React.FC = () => {
 					disableColumnSorting
 					slots={{ toolbar: CustomToolbar }}
 					showToolbar
+					initialState={{
+						columns: { columnVisibilityModel: { SlsPrcID: false } },
+					}}
 					slotProps={{
 						loadingOverlay: {
 							variant: "skeleton",

@@ -144,9 +144,11 @@ export const getSlsPrcWithDets = async (): Promise<SlsPrcWithDet[]> => {
 	const result = await pool.request().query(`
       SELECT
         h.SlsPrcID, h.InvtID, h.CatalogNbr,
-        d.DiscPrice, d.SlsUnit
+        d.DiscPrice, d.SlsUnit,
+        i.Descr
       FROM SlsPrc h
       LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID
+      LEFT JOIN Inventory i ON h.InvtID = i.InvtID
       ORDER BY h.SlsPrcID
     `);
 	return trimStrings(result.recordset as SlsPrcWithDet[]);
@@ -258,18 +260,20 @@ export const getSlsPrcWithDetsPaginated = async (
 
 	const hasSearch = search != null && search.trim().length > 0;
 	const searchClause = hasSearch
-		? `WHERE h.SlsPrcID LIKE @search OR h.InvtID LIKE @search OR h.CatalogNbr LIKE @search`
+		? `WHERE h.SlsPrcID LIKE @search OR h.InvtID LIKE @search OR h.CatalogNbr LIKE @search OR i.Descr LIKE @search`
 		: "";
 
-	const countQuery = `SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID ${searchClause}`;
+	const countQuery = `SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID LEFT JOIN Inventory i ON h.InvtID = i.InvtID ${searchClause}`;
 
 	const dataQuery = `
     SELECT * FROM (
       SELECT ROW_NUMBER() OVER (ORDER BY h.SlsPrcID) AS _row_num,
         h.SlsPrcID, h.InvtID, h.CatalogNbr,
-        d.DiscPrice, d.SlsUnit
+        d.DiscPrice, d.SlsUnit,
+        i.Descr
       FROM SlsPrc h
       LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID
+      LEFT JOIN Inventory i ON h.InvtID = i.InvtID
       ${searchClause}
     ) AS _paginated
     WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
