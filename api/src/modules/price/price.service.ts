@@ -251,28 +251,44 @@ export const getSlsPrcDetPaginated = async (
 export const getSlsPrcWithDetsPaginated = async (
 	page: number,
 	limit: number,
+	search?: string,
 ): Promise<PaginatedResponse<SlsPrcWithDet>> => {
 	const pool = await getDb();
 	const offset = (page - 1) * limit;
 
-	const [countResult, dataResult] = await Promise.all([
-		pool.request().query("SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID"),
-		pool
-			.request()
-			.input("_offset", offset)
-			.input("_limit", limit)
-			.query(`
-        SELECT * FROM (
-          SELECT ROW_NUMBER() OVER (ORDER BY h.SlsPrcID) AS _row_num,
-            h.SlsPrcID, h.InvtID, h.CatalogNbr,
-            d.DiscPrice, d.SlsUnit
-          FROM SlsPrc h
-          LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID
-        ) AS _paginated
-        WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
-        ORDER BY _row_num
-      `),
-	]);
+	const hasSearch = search != null && search.trim().length > 0;
+	const searchClause = hasSearch
+		? `WHERE h.SlsPrcID LIKE @search OR h.InvtID LIKE @search OR h.CatalogNbr LIKE @search`
+		: "";
+
+	const countQuery = `SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID ${searchClause}`;
+
+	const dataQuery = `
+    SELECT * FROM (
+      SELECT ROW_NUMBER() OVER (ORDER BY h.SlsPrcID) AS _row_num,
+        h.SlsPrcID, h.InvtID, h.CatalogNbr,
+        d.DiscPrice, d.SlsUnit
+      FROM SlsPrc h
+      LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID
+      ${searchClause}
+    ) AS _paginated
+    WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
+    ORDER BY _row_num
+  `;
+
+	const countRequest = pool.request();
+	if (hasSearch) {
+		countRequest.input("search", `%${search.trim()}%`);
+	}
+	const countResult = await countRequest.query(countQuery);
+
+	const dataRequest = pool.request();
+	if (hasSearch) {
+		dataRequest.input("search", `%${search.trim()}%`);
+	}
+	dataRequest.input("_offset", offset);
+	dataRequest.input("_limit", limit);
+	const dataResult = await dataRequest.query(dataQuery);
 
 	const total = Number(countResult.recordset[0]?._total) || 0;
 	const data = trimStrings(dataResult.recordset as SlsPrcWithDet[]);

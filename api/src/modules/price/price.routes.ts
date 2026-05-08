@@ -190,7 +190,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /price — paginated IDs + Values on SlsPrcID
+	// GET /price — paginated IDs + Values on SlsPrcID, with optional search
 	.get(
 		"/",
 		async ({ query, rateLimit, limited, ability, user }) => {
@@ -200,13 +200,15 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 			const page = clamp(Number(query.page) || 1, 1, Infinity);
 			const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
+			const search = query.search;
 
-			return getSlsPrcWithDetsPaginated(page, limit);
+			return getSlsPrcWithDetsPaginated(page, limit, search);
 		},
 		{
 			query: t.Object({
 				page: t.Optional(t.String()),
 				limit: t.Optional(t.String()),
+				search: t.Optional(t.String()),
 			}),
 		},
 	);
