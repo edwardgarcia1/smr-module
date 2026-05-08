@@ -28,8 +28,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 
 	// ── ProductClass routes ──────────────────────────────────────────
 
-	// GET /principal/product-class — list all product classes
-	.get("/product-class", async ({ rateLimit, limited, ability, user }) => {
+	// GET /principal/ids — list all principal identifiers
+	.get("/ids", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
@@ -37,9 +37,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		return getAllProductClasses();
 	})
 
-	// GET /principal/product-class/:classId — single product class
+	// GET /principal/ids/:classId — single principal by classId
 	.get(
-		"/product-class/:classId",
+		"/ids/:classId",
 		async ({ params: { classId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -54,9 +54,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// POST /principal/product-class — create product class
+	// POST /principal/ids — create principal
 	.post(
-		"/product-class",
+		"/ids",
 		async ({ body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -73,9 +73,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// PUT /principal/product-class/:classId — update product class
+	// PUT /principal/ids/:classId — update principal
 	.put(
-		"/product-class/:classId",
+		"/ids/:classId",
 		async ({
 			params: { classId },
 			body,
@@ -99,9 +99,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// DELETE /principal/product-class/:classId — delete product class
+	// DELETE /principal/ids/:classId — delete product class
 	.delete(
-		"/product-class/:classId",
+		"/ids/:classId",
 		async ({ params: { classId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -115,10 +115,10 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// ── Vendor routes ────────────────────────────────────────────────
+	// ── Address routes ────────────────────────────────────────────────
 
-	// GET /principal/vendor — list all vendors
-	.get("/vendor", async ({ rateLimit, limited, ability, user }) => {
+	// GET /principal/address — list all principal address
+	.get("/address", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
@@ -126,9 +126,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		return getAllVendors();
 	})
 
-	// GET /principal/vendor/:venId — single vendor
+	// GET /principal/address/:venId — single address
 	.get(
-		"/vendor/:venId",
+		"/address/:venId",
 		async ({ params: { venId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -143,9 +143,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// POST /principal/vendor — create vendor
+	// POST /principal/address — create address for a principal
 	.post(
-		"/vendor",
+		"/address",
 		async ({ body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -164,9 +164,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// PUT /principal/vendor/:venId — update vendor
+	// PUT /principal/address/:venId — update address
 	.put(
-		"/vendor/:venId",
+		"/address/:venId",
 		async ({ params: { venId }, body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -185,9 +185,9 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		},
 	)
 
-	// DELETE /principal/vendor/:venId — delete vendor
+	// DELETE /principal/address/:venId — delete address
 	.delete(
-		"/vendor/:venId",
+		"/address/:venId",
 		async ({ params: { venId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -203,7 +203,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /principal/joined — ProductClass + Vendor on User5 = VendId
+	// GET /principal — Principal IDs + Address on User5 = VendId
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");

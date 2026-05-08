@@ -26,8 +26,8 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── SlsPrc (header) routes ───────────────────────────────────────
 
-	// GET /price/sls-prc — list all price headers
-	.get("/sls-prc", async ({ rateLimit, limited, ability, user }) => {
+	// GET /price/ids — list all price headers
+	.get("/ids", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
@@ -35,16 +35,10 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		return getAllSlsPrc();
 	})
 
-	// GET /price/sls-prc/:slsPrcId — single price header
+	// GET /price/ids/:slsPrcId — single price header
 	.get(
-		"/sls-prc/:slsPrcId",
-		async ({
-			params: { slsPrcId },
-			rateLimit,
-			limited,
-			ability,
-			user,
-		}) => {
+		"/ids/:slsPrcId",
+		async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
@@ -58,9 +52,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		},
 	)
 
-	// POST /price/sls-prc — create price header
+	// POST /price/ids — create price header
 	.post(
-		"/sls-prc",
+		"/ids",
 		async ({ body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -77,9 +71,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		},
 	)
 
-	// PUT /price/sls-prc/:slsPrcId — update price header
+	// PUT /price/ids/:slsPrcId — update price header
 	.put(
-		"/sls-prc/:slsPrcId",
+		"/ids/:slsPrcId",
 		async ({
 			params: { slsPrcId },
 			body,
@@ -103,16 +97,10 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		},
 	)
 
-	// DELETE /price/sls-prc/:slsPrcId — delete price header
+	// DELETE /price/ids/:slsPrcId — delete price header
 	.delete(
-		"/sls-prc/:slsPrcId",
-		async ({
-			params: { slsPrcId },
-			rateLimit,
-			limited,
-			ability,
-			user,
-		}) => {
+		"/ids/:slsPrcId",
+		async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
@@ -127,8 +115,8 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── SlsPrcDet (detail) routes ────────────────────────────────────
 
-	// GET /price/sls-prc-det — list all details
-	.get("/sls-prc-det", async ({ rateLimit, limited, ability, user }) => {
+	// GET /price/value — list all values
+	.get("/value", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
@@ -136,16 +124,10 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		return getAllSlsPrcDet();
 	})
 
-	// GET /price/sls-prc-det/:slsPrcId — details by header
+	// GET /price/value/:slsPrcId — details by header
 	.get(
-		"/sls-prc-det/:slsPrcId",
-		async ({
-			params: { slsPrcId },
-			rateLimit,
-			limited,
-			ability,
-			user,
-		}) => {
+		"/value/:slsPrcId",
+		async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
@@ -157,9 +139,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		},
 	)
 
-	// POST /price/sls-prc-det — create detail
+	// POST /price/value — create detail
 	.post(
-		"/sls-prc-det",
+		"/value",
 		async ({ body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
@@ -178,7 +160,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /price — SlsPrc + SlsPrcDet on SlsPrcID
+	// GET /price — IDs + Values on SlsPrcID
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");

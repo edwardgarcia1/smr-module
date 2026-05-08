@@ -78,14 +78,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// PUT /item/inventory/:invtId — update inventory item
 	.put(
 		"/inventory/:invtId",
-		async ({
-			params: { invtId },
-			body,
-			rateLimit,
-			limited,
-			ability,
-			user,
-		}) => {
+		async ({ params: { invtId }, body, rateLimit, limited, ability, user }) => {
 			if (limited) throw new BadRequestError("Rate limit exceeded");
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
@@ -145,9 +138,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 
 			const comp = await getComponentById(kitId, cmpnentId);
 			if (!comp)
-				throw new NotFoundError(
-					`Component ${kitId}/${cmpnentId} not found`,
-				);
+				throw new NotFoundError(`Component ${kitId}/${cmpnentId} not found`);
 			return comp;
 		},
 		{
@@ -249,7 +240,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /item/joined — Inventory + Component on InvtID = KitID
+	// GET /item — Inventory + Component on InvtID = KitID
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
