@@ -33,6 +33,11 @@ export type NewComponent = {
 
 export type ComponentUpdate = Partial<Pick<Component, "CmpnentQty">>;
 
+/** Inventory with a promo flag — used by GET /item/inventory */
+export interface InventoryWithPromo extends Inventory {
+	isPromo: number; // 1 = promo (has Components), 0 = regular
+}
+
 /** Joined result of Inventory + Component on InvtID = KitID */
 export interface InventoryWithComponent extends Inventory {
 	KitID: string;

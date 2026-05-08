@@ -9,6 +9,7 @@ import type {
 	NewComponent,
 	ComponentUpdate,
 	InventoryWithComponent,
+	InventoryWithPromo,
 } from "./item.schema";
 
 // ─── Inventory CRUD ──────────────────────────────────────────────────
@@ -46,12 +47,28 @@ export const getInventoryById = async (
 	return trimStrings(result.recordset[0] as Inventory | undefined);
 };
 
-export const getAllInventory = async (): Promise<Inventory[]> => {
+export const getAllInventory = async (
+	promoFilter: "all" | "promos" | "non_promos" = "all",
+): Promise<InventoryWithPromo[]> => {
 	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query("SELECT InvtID, ClassID, ProdMgrID, Descr FROM Inventory");
-	return trimStrings(result.recordset as Inventory[]);
+	const baseSelect = `SELECT i.InvtID, i.ClassID, i.ProdMgrID, i.Descr`;
+
+	const query =
+		promoFilter === "all"
+			? `${baseSelect},
+			   CASE WHEN EXISTS (SELECT 1 FROM Component c WHERE c.KitID = i.InvtID) THEN 1 ELSE 0 END AS isPromo
+			 FROM Inventory i`
+			: promoFilter === "promos"
+				? `${baseSelect},
+				   1 AS isPromo
+				 FROM Inventory i
+				 WHERE EXISTS (SELECT 1 FROM Component c WHERE c.KitID = i.InvtID)`
+				: /* "non_promos" */ `${baseSelect},
+				   0 AS isPromo
+				 FROM Inventory i
+				 WHERE NOT EXISTS (SELECT 1 FROM Component c WHERE c.KitID = i.InvtID)`;
+	const result = await pool.request().query(query);
+	return trimStrings(result.recordset as InventoryWithPromo[]);
 };
 
 export const updateInventory = async (

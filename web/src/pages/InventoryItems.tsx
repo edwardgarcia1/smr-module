@@ -1,476 +1,327 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
 	Box,
-	Table,
-	TableBody,
-	TableCell,
-	TableContainer,
-	TableHead,
-	TableRow,
 	Paper,
-	Chip,
-	TablePagination,
-	Checkbox,
-	TableSortLabel,
-	Skeleton,
 	Alert,
 	TextField,
 	InputAdornment,
+	IconButton,
+	Typography,
+	Radio,
+	RadioGroup,
+	FormControlLabel,
+	FormControl,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import {
+	DataGrid,
+	ColumnsPanelTrigger,
+	FilterPanelTrigger,
+	type GridColDef,
+	type GridPaginationModel,
+} from "@mui/x-data-grid";
+import apiRequest from "../services/api";
 
-interface InventoryItem {
-	id: number;
-	description: string;
-	code: string;
-	supplier: string;
-	currentLevel: number;
-	inputUoM: string;
-	priceClass: string;
+// ── Types matching item.schema.ts ──────────────────────────────────────
+
+interface Inventory {
+	InvtID: string;
+	ClassID: string | null;
+	ProdMgrID: string | null;
+	Descr: string | null;
+	isPromo: number; // 1 = promo (has Components), 0 = regular; used internally
 }
 
-const placeholderData: InventoryItem[] = [
-	{
-		id: 1,
-		description: "BB - Zesto Fruit Soda Calamansi 330ml x 24cs",
-		code: "ZES030",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "A",
-	},
-	{
-		id: 2,
-		description: "BB - Zesto Fruit Soda Calamansi 500ml x 12cs FG",
-		code: "ZES039",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "B",
-	},
-	{
-		id: 3,
-		description: "BB - Zesto Grape Drink 330ml x 24cs",
-		code: "ZES051",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "B",
-	},
-	{
-		id: 4,
-		description: "BB - Zesto Light Root Beer 330ml x 24cs",
-		code: "ZES032",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "A",
-	},
-	{
-		id: 5,
-		description: "BB - Zesto Orange Juice 250ml x 24cs",
-		code: "ZES045",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "A",
-	},
-	{
-		id: 6,
-		description: "BB - Zesto Root Beer 330ml x 24cs",
-		code: "ZES033",
-		supplier: "ZESTO CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "A",
-	},
-	{
-		id: 7,
-		description: "Biogesic Paracetamol 500mg x 100s",
-		code: "ZPC001",
-		supplier: "ZUELLIG PHARMA CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "box",
-		priceClass: "A",
-	},
-	{
-		id: 8,
-		description: "Decolgen Tablet x 20s",
-		code: "ZPC003",
-		supplier: "ZUELLIG PHARMA CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "box",
-		priceClass: "B",
-	},
-	{
-		id: 9,
-		description: "Neozep Forte Tablet x 20s",
-		code: "ZPC002",
-		supplier: "ZUELLIG PHARMA CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "box",
-		priceClass: "A",
-	},
-	{
-		id: 10,
-		description: "Prime Cooking Oil 1L x 12s",
-		code: "PGC002",
-		supplier: "PRIME GLOBAL CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "cs",
-		priceClass: "A",
-	},
-	{
-		id: 11,
-		description: "Prime Rice Premium 25kg",
-		code: "PGC001",
-		supplier: "PRIME GLOBAL CORPORATION",
-		currentLevel: 0.00,
-		inputUoM: "sack",
-		priceClass: "A",
-	},
-];
+// ── Constants ─────────────────────────────────────────────────────────
+// Community edition limited to 100 rows per page
+const DEFAULT_PAGE_SIZE = 100;
 
-type Order = "asc" | "desc";
-type OrderBy =
-	| "id"
-	| "description"
-	| "code"
-	| "supplier"
-	| "currentLevel"
-	| "inputUoM"
-	| "priceClass";
+type PromoFilter = "all" | "promos" | "non_promos";
+
+// ── Component ─────────────────────────────────────────────────────────
 
 const InventoryItems: React.FC = () => {
-	const [items, setItems] = useState<InventoryItem[]>(placeholderData);
-	const [loading, setLoading] = useState(false);
+	const [rows, setRows] = useState<Inventory[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
-	const [rowsPerPage, setRowsPerPage] = useState(10);
-	const [order, setOrder] = useState<Order>("asc");
-	const [orderBy, setOrderBy] = useState<OrderBy>("id");
-	const [selected, setSelected] = useState<readonly number[]>([]);
+	const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [promoFilter, setPromoFilter] = useState<PromoFilter>("all");
+	const searchInputRef = useRef<HTMLInputElement>(null);
 
-	const handleRequestSort = (property: OrderBy) => {
-		const isAsc = orderBy === property && order === "asc";
-		setOrder(isAsc ? "desc" : "asc");
-		setOrderBy(property);
-	};
-
-	const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-		if (event.target.checked) {
-			const newSelecteds = items.map((n) => n.id);
-			setSelected(newSelecteds);
-			return;
-		}
-		setSelected([]);
-	};
-
-	const handleClick = (_event: React.MouseEvent<unknown>, id: number) => {
-		const selectedIndex = selected.indexOf(id);
-		let newSelected: readonly number[] = [];
-
-		if (selectedIndex === -1) {
-			newSelected = newSelected.concat(selected, id);
-		} else if (selectedIndex === 0) {
-			newSelected = newSelected.concat(selected.slice(1));
-		} else if (selectedIndex === selected.length - 1) {
-			newSelected = newSelected.concat(selected.slice(0, -1));
-		} else if (selectedIndex > 0) {
-			newSelected = newSelected.concat(
-				selected.slice(0, selectedIndex),
-				selected.slice(selectedIndex + 1),
-			);
-		}
-
-		setSelected(newSelected);
-	};
-
-	const handleChangePage = (_event: unknown, newPage: number) => {
-		setPage(newPage);
-	};
-
-	const handleChangeRowsPerPage = (
-		event: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		setRowsPerPage(parseInt(event.target.value, 10));
+	// Commit search on Enter key or button click, reset to page 0
+	const handleSearch = useCallback(() => {
+		const value = searchInputRef.current?.value ?? "";
+		setSearchQuery(value);
 		setPage(0);
-	};
+	}, []);
 
-	const isSelected = (id: number) => selected.indexOf(id) !== -1;
-
-	const emptyRows =
-		page > 0 ? Math.max(0, (1 + page) * rowsPerPage - items.length) : 0;
-
-	const filteredItems = useMemo(() => {
-		if (!searchQuery.trim()) return items;
-
-		const query = searchQuery.toLowerCase().trim();
-
-		return items.filter((item) => {
-			return (
-				item.id.toString().includes(query) ||
-				item.description.toLowerCase().includes(query) ||
-				item.code.toLowerCase().includes(query) ||
-				item.supplier.toLowerCase().includes(query) ||
-				item.currentLevel.toString().includes(query) ||
-				item.inputUoM.toLowerCase().includes(query) ||
-				item.priceClass.toLowerCase().includes(query)
-			);
-		});
-	}, [items, searchQuery]);
-
-	const sortedItems = useMemo(() => {
-		return [...filteredItems].sort((a, b) => {
-			const aValue = a[orderBy];
-			const bValue = b[orderBy];
-
-			// Normalize strings to lowercase for case-insensitive sorting
-			const aStr = typeof aValue === "string" ? aValue.toLowerCase() : aValue;
-			const bStr = typeof bValue === "string" ? bValue.toLowerCase() : bValue;
-
-			if (aStr < bStr) {
-				return order === "asc" ? -1 : 1;
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			if (e.key === "Enter") {
+				handleSearch();
 			}
-			if (aStr > bStr) {
-				return order === "asc" ? 1 : -1;
-			}
-			return 0;
-		});
-	}, [filteredItems, order, orderBy]);
-
-	const paginatedItems = sortedItems.slice(
-		page * rowsPerPage,
-		page * rowsPerPage + rowsPerPage,
+		},
+		[handleSearch],
 	);
 
-	const getPriceClassColor = (priceClass: string) => {
-		switch (priceClass.toUpperCase()) {
-			case "A":
-				return "success";
-			case "B":
-				return "info";
-			case "C":
-				return "warning";
-			default:
-				return "default";
-		}
+	// Fetch inventory items, toggling promoFilter via query param
+	useEffect(() => {
+		let cancelled = false;
+
+		const fetchData = async () => {
+			setLoading(true);
+			setError(null);
+			try {
+				const params = new URLSearchParams();
+				if (promoFilter !== "all") {
+					params.set("promoFilter", promoFilter);
+				}
+				const data = await apiRequest<Inventory[]>(
+					`/item/inventory${params.toString() ? `?${params}` : ""}`,
+				);
+				if (!cancelled) {
+					setRows(data);
+				}
+			} catch (err: unknown) {
+				if (!cancelled) {
+					setError(
+						err instanceof Error ? err.message : "Failed to fetch inventory items",
+					);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
+		};
+
+		fetchData();
+		return () => {
+			cancelled = true;
+		};
+	}, [promoFilter]);
+
+	// Client-side search filter
+	const filteredRows = React.useMemo(() => {
+		if (!searchQuery.trim()) return rows;
+
+		const q = searchQuery.toLowerCase().trim();
+		return rows.filter((item) => {
+			return (
+				item.InvtID.toLowerCase().includes(q) ||
+				(item.Descr ?? "").toLowerCase().includes(q) ||
+				(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
+				(item.ClassID ?? "").toLowerCase().includes(q)
+			);
+		});
+	}, [rows, searchQuery]);
+
+	const handlePaginationModelChange = (newModel: GridPaginationModel) => {
+		setPage(newModel.page);
+		setPageSize(newModel.pageSize);
 	};
 
-	const headCells = [
-		{ id: "select" as const, disablePadding: true, label: "" },
-		{ id: "description" as const, disablePadding: false, label: "Description" },
-		{ id: "code" as const, disablePadding: false, label: "Code" },
-		{ id: "supplier" as const, disablePadding: false, label: "Supplier" },
-		{ id: "currentLevel" as const, disablePadding: false, label: "Current Level" },
-		{ id: "inputUoM" as const, disablePadding: false, label: "Input UoM" },
-		{ id: "priceClass" as const, disablePadding: false, label: "Price Class" },
+	const columns: GridColDef[] = [
+		{
+			field: "InvtID",
+			headerName: "Inventory ID",
+			width: 150,
+		},
+		{
+			field: "Descr",
+			headerName: "Description",
+			minWidth: 250,
+			flex: 1,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
+			field: "ProdMgrID",
+			headerName: "Product Manager",
+			width: 150,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
+			field: "ClassID",
+			headerName: "Price Class",
+			width: 150,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
 	];
 
+	// ─── Custom Toolbar ────────────────────────────────────────────────
+
+	const CustomToolbar = useCallback(() => {
+		const iconSx = {
+			minWidth: "auto",
+			textTransform: "none",
+			fontSize: "0.8125rem",
+			fontWeight: 500,
+			paddingLeft: 0.75,
+			paddingRight: 0.75,
+		};
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					px: 2,
+					py: 1,
+					borderBottom: "1px solid",
+					borderColor: "divider",
+				}}
+			>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Inventory Items
+					</Typography>
+					<FormControl component="fieldset" variant="standard">
+						<RadioGroup
+							row
+							value={promoFilter}
+							onChange={(_, value) => {
+								setPromoFilter(value as PromoFilter);
+								setPage(0);
+								setSearchQuery("");
+								if (searchInputRef.current) {
+									searchInputRef.current.value = "";
+								}
+							}}
+						>
+							<FormControlLabel
+								value="all"
+								control={<Radio size="small" />}
+								label="All"
+								disabled={loading}
+								sx={{
+									"& .MuiFormControlLabel-label": {
+										fontSize: "0.8125rem",
+										fontWeight: 500,
+									},
+								}}
+							/>
+							<FormControlLabel
+								value="promos"
+								control={<Radio size="small" />}
+								label="Promos"
+								disabled={loading}
+								sx={{
+									"& .MuiFormControlLabel-label": {
+										fontSize: "0.8125rem",
+										fontWeight: 500,
+									},
+								}}
+							/>
+							<FormControlLabel
+								value="non_promos"
+								control={<Radio size="small" />}
+								label="Non-Promos"
+								disabled={loading}
+								sx={{
+									"& .MuiFormControlLabel-label": {
+										fontSize: "0.8125rem",
+										fontWeight: 500,
+									},
+								}}
+							/>
+						</RadioGroup>
+					</FormControl>
+				</Box>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<TextField
+						inputRef={searchInputRef}
+						size="small"
+						placeholder="Search inventory... (Enter to search)"
+						defaultValue=""
+						onKeyDown={handleKeyDown}
+						slotProps={{
+							input: {
+								endAdornment: (
+									<InputAdornment position="end">
+										<IconButton
+											size="small"
+											onClick={handleSearch}
+											aria-label="search"
+										>
+											<SearchIcon />
+										</IconButton>
+									</InputAdornment>
+								),
+							},
+						}}
+						sx={{
+							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+							"& .MuiInputBase-input": { paddingY: 0 },
+							minWidth: 240,
+						}}
+					/>
+					<FilterPanelTrigger
+						size="small"
+						startIcon={<FilterListIcon />}
+						style={iconSx}
+					>
+						<Box
+							component="span"
+							sx={{ display: { xs: "none", md: "inline" } }}
+						>
+							Filters
+						</Box>
+					</FilterPanelTrigger>
+					<ColumnsPanelTrigger
+						size="small"
+						startIcon={<ViewColumnIcon />}
+						style={iconSx}
+					>
+						<Box
+							component="span"
+							sx={{ display: { xs: "none", md: "inline" } }}
+						>
+							Columns
+						</Box>
+					</ColumnsPanelTrigger>
+				</Box>
+			</Box>
+		);
+	}, [handleSearch, handleKeyDown, promoFilter, loading]);
+
 	return (
-		<>
+		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
 			{error ? (
-				<Alert severity="error" sx={{ mb: 2 }}>
+				<Alert severity="error" sx={{ m: 2 }}>
 					{error}
 				</Alert>
 			) : (
-				<Paper sx={{ width: "100%", mb: 2 }}>
-					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-						<TextField
-							fullWidth
-							variant="outlined"
-							placeholder="Search inventory items..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<SearchIcon />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{
-								"& .MuiOutlinedInput-root": {
-									borderRadius: 2,
-									height: 44,
-								},
-								"& .MuiInputBase-input": {
-									paddingY: 0,
-								},
-							}}
-						/>
-					</Box>
-					<TableContainer sx={{ maxHeight: 440 }}>
-						<Table stickyHeader aria-labelledby="tableTitle">
-							<TableHead>
-								<TableRow>
-									{headCells.map((headCell) => (
-										<TableCell
-											key={headCell.id}
-											padding={headCell.disablePadding ? "none" : "normal"}
-											sortDirection={orderBy === headCell.id ? order : false}
-											sx={{ bgcolor: "var(--sidebar-bg)", color: "var(--sidebar-text)" }}
-										>
-											{headCell.id === "select" ? (
-												loading ? (
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												) : (
-													<Checkbox
-														indeterminate={
-															selected.length > 0 &&
-															selected.length < items.length
-														}
-														checked={
-															items.length > 0 &&
-															selected.length === items.length
-														}
-														onChange={handleSelectAllClick}
-														aria-label="select all inventory items"
-														sx={{
-															color: "var(--sidebar-text)",
-															"&.Mui-checked": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-indeterminate": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-root": { color: "var(--sidebar-text)" },
-														}}
-													/>
-												)
-											) : (
-												<TableSortLabel
-													active={orderBy === headCell.id}
-													direction={orderBy === headCell.id ? order : "asc"}
-													onClick={() => handleRequestSort(headCell.id)}
-													sx={{
-														"&.MuiTableSortLabel-active": { color: "var(--sidebar-text) !important" },
-														"& .MuiTableSortLabel-icon": { color: "var(--sidebar-text) !important" },
-														color: "var(--sidebar-text)",
-													}}
-												>
-													{headCell.label}
-												</TableSortLabel>
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{loading
-									? [...Array(rowsPerPage)].map((_, index) => (
-											<TableRow key={`skeleton-${index}`}>
-												<TableCell padding="none">
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={150} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={120} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={60} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={60} />
-												</TableCell>
-											</TableRow>
-										))
-									: paginatedItems.map((item, index) => {
-											const isItemSelected = isSelected(item.id);
-											const labelId = `enhanced-table-checkbox-${index}`;
-											return (
-												<TableRow
-													hover
-													onClick={(event) => handleClick(event, item.id)}
-													role="checkbox"
-													aria-checked={isItemSelected}
-													tabIndex={-1}
-													key={item.id}
-													selected={isItemSelected}
-													sx={{ cursor: "pointer" }}
-												>
-													<TableCell padding="none">
-														<Checkbox
-															color="primary"
-															checked={isItemSelected}
-															aria-labelledby={labelId}
-														/>
-													</TableCell>
-													<TableCell
-														component="th"
-														id={labelId}
-														scope="row"
-														padding="none"
-													>
-														{item.description}
-													</TableCell>
-													<TableCell>{item.code}</TableCell>
-													<TableCell>{item.supplier}</TableCell>
-													<TableCell>
-														{item.currentLevel.toLocaleString()}
-													</TableCell>
-													<TableCell>{item.inputUoM}</TableCell>
-													<TableCell>
-														<Chip
-															label={item.priceClass.toUpperCase()}
-															color={getPriceClassColor(item.priceClass)}
-															size="small"
-														/>
-													</TableCell>
-												</TableRow>
-											);
-										})}
-								{!loading && emptyRows > 0 && (
-									<TableRow style={{ height: 53 * emptyRows }}>
-										<TableCell colSpan={7} />
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
-					<TablePagination
-						component="div"
-						count={items.length}
-						rowsPerPage={rowsPerPage}
-						page={page}
-						onPageChange={handleChangePage}
-						onRowsPerPageChange={handleChangeRowsPerPage}
-						labelRowsPerPage="Rows:"
-						sx={{
-							width: "100%",
-							display: "flex",
-							flexDirection: { xs: "column", sm: "row" },
-							alignItems: "center",
-							gap: 1,
-							"& .MuiTablePagination-toolbar": {
-								flexWrap: "wrap",
-								justifyContent: { xs: "center", sm: "flex-end" },
-							},
-							"& .MuiTablePagination-spacer": {
-								display: "none",
-							},
-						}}
-					/>
-				</Paper>
+				<DataGrid
+					rows={filteredRows}
+					columns={columns}
+					getRowId={(row) => row.InvtID}
+					paginationModel={{ page, pageSize }}
+					onPaginationModelChange={handlePaginationModelChange}
+					paginationMode="client"
+					rowCount={filteredRows.length}
+					loading={loading}
+					pageSizeOptions={[25, 50, 100]}
+					disableColumnSorting
+					slots={{ toolbar: CustomToolbar }}
+					showToolbar
+					slotProps={{
+						loadingOverlay: {
+							variant: "skeleton",
+						},
+					}}
+					sx={{
+						height: 600,
+						"& .MuiDataGrid-cell:focus": {
+							outline: "none",
+						},
+					}}
+				/>
 			)}
-		</>
+		</Paper>
 	);
 };
 

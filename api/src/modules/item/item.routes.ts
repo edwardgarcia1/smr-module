@@ -30,13 +30,27 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// ── Inventory routes ─────────────────────────────────────────────
 
 	// GET /item/inventory — list all inventory
-	.get("/inventory", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	.get(
+		"/inventory",
+		async ({ query: { promoFilter }, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
 
-		return getAllInventory();
-	})
+			return getAllInventory(
+				(promoFilter ?? "all") as "all" | "promos" | "non_promos",
+			);
+		},
+		{
+			query: t.Object({
+				promoFilter: t.Optional(
+					t.String({
+						pattern: "^(all|promos|non_promos)$",
+					}),
+				),
+			}),
+		},
+	)
 
 	// GET /item/inventory/:invtId — single inventory item
 	.get(
