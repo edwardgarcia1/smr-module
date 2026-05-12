@@ -179,8 +179,10 @@ const Prices: React.FC = () => {
 			<Box
 				sx={{
 					display: "flex",
+					flexDirection: { xs: "column", md: "row" },
 					justifyContent: "space-between",
-					alignItems: "center",
+					alignItems: { xs: "stretch", md: "center" },
+					gap: { xs: 1, md: 0 },
 					px: 2,
 					py: 1,
 					borderBottom: "1px solid",
@@ -190,13 +192,21 @@ const Prices: React.FC = () => {
 				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
 					Prices
 				</Typography>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 1,
+						width: { xs: "100%", md: "auto" },
+					}}
+				>
 					<TextField
 						inputRef={searchInputRef}
 						size="small"
 						placeholder="Search prices... (Enter to search)"
 						defaultValue=""
 						onKeyDown={handleKeyDown}
+						fullWidth
 						slotProps={{
 							input: {
 								endAdornment: (
@@ -215,7 +225,7 @@ const Prices: React.FC = () => {
 						sx={{
 							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
 							"& .MuiInputBase-input": { paddingY: 0 },
-							minWidth: 240,
+							minWidth: { xs: 0, md: 240 },
 						}}
 					/>
 					<FilterPanelTrigger
