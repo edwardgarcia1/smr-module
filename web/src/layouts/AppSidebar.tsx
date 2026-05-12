@@ -30,6 +30,7 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
 import MoneyIcon from "@mui/icons-material/Money";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import { Can } from "@casl/react";
 import { useAbility } from "../config/AbilityProvider";
 import { useAuthStore } from "../store/useAuthStore";
@@ -257,6 +258,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</ListItemIcon>
 						<ListItemText
 							primary="Purchase Orders"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
+				<Can I="read" a="sales" ability={ability}>
+					<ListItemButton
+						selected={isActive("/sales-orders")}
+						onClick={() => handleNav("/sales-orders")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<ReceiptLongIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Sales Orders"
 							sx={{
 								fontSize: 13,
 								display: collapsed ? "none" : "block",

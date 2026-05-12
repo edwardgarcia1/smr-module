@@ -147,9 +147,12 @@ function buildFilterClause(filter?: SalesFilter): {
 	const parts: string[] = [];
 	const params: Record<string, string> = {};
 
-	if (filter.siteID) {
-		parts.push("sh.SiteID = @siteID");
-		params.siteID = filter.siteID;
+	if (filter.siteID && filter.siteID.length > 0) {
+		const placeholders = filter.siteID.map((_, i) => `@siteID${i}`);
+		parts.push(`sh.SiteID IN (${placeholders.join(", ")})`);
+		filter.siteID.forEach((id, i) => {
+			params[`siteID${i}`] = id;
+		});
 	}
 	if (filter.priceClassID) {
 		parts.push("c.PriceClassID = @priceClassID");

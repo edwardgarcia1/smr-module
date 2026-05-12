@@ -25,6 +25,7 @@ import { LinearProgress, Box } from "@mui/material";
 	const Profile = lazy(() => import("./pages/Profile"));
 	const PurchasingRequirements = lazy(() => import("./pages/PurchasingRequirements"));
 	const Prices = lazy(() => import("./pages/Prices"));
+	const SalesOrders = lazy(() => import("./pages/SalesOrders"));
 
 // 2. Mapping pathnames to tabs keeps logic data-driven and cleaner
 const TAB_MAP: Record<string, string> = {
@@ -37,6 +38,7 @@ const TAB_MAP: Record<string, string> = {
 	"/profile": "Profile",
 	"/purchasing-requirements": "Purchasing Requirements",
 	"/prices": "Prices",
+	"/sales-orders": "Sales Orders",
 };
 
 const AuthenticatedLayout: React.FC = () => {
@@ -181,6 +183,14 @@ const AppRoutes: React.FC = () => {
 					element={
 						<AppSuspense>
 							<Prices />
+						</AppSuspense>
+					}
+				/>
+				<Route
+					path="/sales-orders"
+					element={
+						<AppSuspense>
+							<SalesOrders />
 						</AppSuspense>
 					}
 				/>

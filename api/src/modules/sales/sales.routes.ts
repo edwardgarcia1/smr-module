@@ -75,13 +75,18 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 			const page = clamp(Number(query.page) || 1, 1, Infinity);
 			const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
 			const dateRanges = parseDateRanges(query.dateRange);
+			const siteIDs = query.siteID
+				? Array.isArray(query.siteID)
+					? query.siteID
+					: [query.siteID]
+				: undefined;
 
 			return getSales(
 				page,
 				limit,
 				dateRanges.length > 0 ? dateRanges : undefined,
 				{
-					siteID: query.siteID || undefined,
+					siteID: siteIDs,
 					priceClassID: query.priceClassID || undefined,
 					classID: query.classID || undefined,
 				},
@@ -94,7 +99,9 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 				dateRange: t.Optional(
 					t.Union([t.String(), t.Array(t.String())]),
 				),
-				siteID: t.Optional(t.String()),
+				siteID: t.Optional(
+					t.Union([t.String(), t.Array(t.String())]),
+				),
 				priceClassID: t.Optional(t.String()),
 				classID: t.Optional(t.String()),
 			}),

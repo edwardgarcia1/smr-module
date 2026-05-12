@@ -18,11 +18,13 @@ export const defineAbilitiesFor = (user: User | null) => {
 		can('manage', 'settings');
 		can('read', 'principals');
 		can('read', 'prices');
+		can('read', 'sales');
 	} else {
 		// Regular user
 		can('read', 'settings');
 		can('read', 'principals');
 		can('read', 'prices');
+		can('read', 'sales');
 	}
 
   return build();
