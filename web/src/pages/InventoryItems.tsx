@@ -274,15 +274,24 @@ const InventoryItems: React.FC = () => {
 			<Box
 				sx={{
 					display: "flex",
+					flexDirection: { xs: "column", md: "row" },
 					justifyContent: "space-between",
-					alignItems: "center",
+					alignItems: { xs: "stretch", md: "center" },
+					gap: { xs: 1, md: 0 },
 					px: 2,
 					py: 1,
 					borderBottom: "1px solid",
 					borderColor: "divider",
 				}}
 			>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+				<Box
+					sx={{
+						display: "flex",
+						flexDirection: { xs: "column", sm: "row" },
+						alignItems: { xs: "flex-start", sm: "center" },
+						gap: { xs: 0.5, sm: 2 },
+					}}
+				>
 					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
 						Inventory Items
 					</Typography>
@@ -338,13 +347,21 @@ const InventoryItems: React.FC = () => {
 						</RadioGroup>
 					</FormControl>
 				</Box>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 1,
+						width: { xs: "100%", md: "auto" },
+					}}
+				>
 					<TextField
 						inputRef={searchInputRef}
 						size="small"
 						placeholder="Search inventory... (Enter to search)"
 						defaultValue=""
 						onKeyDown={handleKeyDown}
+						fullWidth
 						slotProps={{
 							input: {
 								endAdornment: (
@@ -371,7 +388,7 @@ const InventoryItems: React.FC = () => {
 						sx={{
 							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
 							"& .MuiInputBase-input": { paddingY: 0 },
-							minWidth: 240,
+							minWidth: { xs: 0, md: 240 },
 						}}
 					/>
 					<FilterPanelTrigger
