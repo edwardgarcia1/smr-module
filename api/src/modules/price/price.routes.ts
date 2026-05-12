@@ -9,6 +9,7 @@ import {
 	getSlsPrcPaginated,
 	getSlsPrcDetPaginated,
 	getSlsPrcWithDetsPaginated,
+	getDistinctCatalogNbr,
 	MAX_LIMIT,
 	DEFAULT_LIMIT,
 } from "./price.service";
@@ -210,5 +211,17 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				limit: t.Optional(t.String()),
 				search: t.Optional(t.String()),
 			}),
+		},
+	)
+
+	// GET /price/class — distinct CatalogNbr values
+	.get(
+		"/class",
+		async ({ rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
+
+			return getDistinctCatalogNbr();
 		},
 	);

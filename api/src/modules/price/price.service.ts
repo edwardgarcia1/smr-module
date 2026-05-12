@@ -158,6 +158,26 @@ export const getSlsPrcWithDets = async (): Promise<SlsPrcWithDet[]> => {
 
 export { MAX_LIMIT, DEFAULT_LIMIT };
 
+// ─── Distinct CatalogNbr ────────────────────────────────────────────
+
+/**
+ * Fetch unique CatalogNbr values from SlsPrc.
+ * Optimized: single column, DISTINCT, no joins.
+ */
+export const getDistinctCatalogNbr = async (): Promise<string[]> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.query(`
+      SELECT DISTINCT CatalogNbr
+      FROM SlsPrc
+      WHERE CatalogNbr IS NOT NULL AND CatalogNbr != ''
+      ORDER BY CatalogNbr
+    `);
+	const rows = result.recordset as Array<{ CatalogNbr: string }>;
+	return trimStrings(rows.map((r) => r.CatalogNbr));
+};
+
 // ─── Paginated queries ─────────────────────────────────────────────────
 
 /**

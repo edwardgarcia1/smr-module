@@ -107,7 +107,8 @@ const SalesOrders: React.FC = () => {
 	// Filter state
 	const [siteID, setSiteID] = useState<string | null>(null);
 	const [siteOptions, setSiteOptions] = useState<SiteOption[]>([]);
-	const [priceClassID, setPriceClassID] = useState("");
+	const [priceClassID, setPriceClassID] = useState<string | null>(null);
+	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
 	const [classID, setClassID] = useState<string | null>(null);
 	const [classIDOptions, setClassIDOptions] = useState<{ ClassID: string; Descr: string }[]>([]);
 	const [dateRanges, setDateRanges] = useState<
@@ -117,7 +118,7 @@ const SalesOrders: React.FC = () => {
 
 	// Refs to read latest filter values inside fetchData without triggering re-creation
 	const siteIDRef = useRef(siteID);
-	const priceClassIDRef = useRef(priceClassID);
+	const priceClassIDRef = useRef<string | null>(priceClassID);
 	const classIDRef = useRef(classID);
 	const dateRangesRef = useRef(dateRanges);
 	useEffect(() => { siteIDRef.current = siteID; }, [siteID]);
@@ -148,7 +149,7 @@ const SalesOrders: React.FC = () => {
 			}
 
 			if (sID) params.set("siteID", sID);
-			if (pcID.trim()) params.set("priceClassID", pcID.trim());
+			if (pcID) params.set("priceClassID", pcID);
 			if (cID) params.set("classID", cID);
 
 			const res = await apiRequest<PaginatedResponse<SalesRecord>>(`/sales?${params}`);
@@ -182,7 +183,7 @@ const SalesOrders: React.FC = () => {
 
 	const handleClearAll = useCallback(() => {
 		setSiteID(null);
-		setPriceClassID("");
+		setPriceClassID(null);
 		setClassID(null);
 		setDateRanges([{ from: null, to: null }]);
 		setPage(0);
@@ -197,13 +198,15 @@ const SalesOrders: React.FC = () => {
 
 		const fetchOptions = async () => {
 			try {
-				const [sites, classes] = await Promise.all([
+				const [sites, classes, priceClasses] = await Promise.all([
 					apiRequest<SiteOption[]>("/inventory"),
 					apiRequest<{ ClassID: string; Descr: string }[]>("/principal/ids"),
+					apiRequest<string[]>("/price/class"),
 				]);
 				if (!cancelled) {
 					setSiteOptions(sites);
 					setClassIDOptions(classes);
+					setPriceClassOptions(priceClasses);
 				}
 			} catch {
 				// non-critical; filters just won't have suggestions
@@ -436,12 +439,20 @@ const SalesOrders: React.FC = () => {
 							/>
 						)}
 					/>
-					<TextField
+					<Autocomplete
 						size="small"
-						placeholder="Price Class"
+						options={priceClassOptions}
 						value={priceClassID}
-						onChange={(e) => setPriceClassID(e.target.value)}
-						sx={{ minWidth: 110, maxWidth: 140, ...inputSx }}
+						onChange={(_, newVal) =>
+							setPriceClassID(newVal)
+						}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								placeholder="Price Class"
+								sx={{ minWidth: 200, maxWidth: 280 }}
+							/>
+						)}
 					/>
 					<Autocomplete
 						size="small"
@@ -575,7 +586,7 @@ const SalesOrders: React.FC = () => {
 				</Box>
 			</Box>
 		);
-	}, [siteID, siteOptions, priceClassID, classID, classIDOptions, dateRanges, handleUpdateDateRange, handleRemoveDateRange, handleAddDateRange, handleClearDateRanges, handleApply]);
+	}, [siteID, siteOptions, priceClassID, priceClassOptions, classID, classIDOptions, dateRanges, handleUpdateDateRange, handleRemoveDateRange, handleAddDateRange, handleClearDateRanges, handleApply]);
 
 	// ─── Render ─────────────────────────────────────────────────────────
 
