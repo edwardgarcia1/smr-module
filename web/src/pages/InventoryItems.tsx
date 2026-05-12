@@ -42,6 +42,7 @@ interface JoinedInventoryRow {
 	QtyOnHand: number | null;
 	QtyAvail: number | null;
 	TotCost: number | null;
+	LUpd_DateTime: string | null;
 }
 
 /** Aggregated row displayed in the grid — one per (InvtID, SiteID) */
@@ -56,6 +57,7 @@ interface InventoryRow {
 	QtyOnPO: number;
 	QtyOnHand: number;
 	QtyAvail: number;
+	LUpd_DateTime: string | null;
 }
 
 /** Group joined rows by (InvtID, SiteID) — one row per site */
@@ -77,8 +79,12 @@ function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
 				QtyOnPO: row.QtyOnPO ?? 0,
 				QtyOnHand: row.QtyOnHand ?? 0,
 				QtyAvail: row.QtyAvail ?? 0,
+				LUpd_DateTime: row.LUpd_DateTime ?? null,
 			};
 			map.set(key, agg);
+		} else if (row.LUpd_DateTime && !agg.LUpd_DateTime) {
+			// Prefer first non-null LUpd_DateTime across joined rows
+			agg.LUpd_DateTime = row.LUpd_DateTime;
 		}
 
 		// Promo = has at least one Component row for this InvtID
@@ -184,7 +190,21 @@ const InventoryItems: React.FC = () => {
 				(item.SiteID ?? "").toLowerCase().includes(q) ||
 				(item.Descr ?? "").toLowerCase().includes(q) ||
 				(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
-				(item.ClassID ?? "").toLowerCase().includes(q)
+				(item.ClassID ?? "").toLowerCase().includes(q) ||
+				(item.LUpd_DateTime ?? "").toLowerCase().includes(q) ||
+				(item.LUpd_DateTime
+					? new Date(item.LUpd_DateTime)
+							.toLocaleDateString(undefined, {
+								year: "numeric",
+								month: "2-digit",
+								day: "2-digit",
+								hour: "2-digit",
+								minute: "2-digit",
+								second: "2-digit",
+							})
+							.toLowerCase()
+							.includes(q)
+					: false)
 			);
 		});
 	}, [rows, searchQuery]);
@@ -246,16 +266,23 @@ const InventoryItems: React.FC = () => {
 				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
 		},
 		{
-			field: "ProdMgrID",
-			headerName: "Product Manager",
-			width: 150,
-			valueFormatter: (value: string | null) => value ?? "-",
-		},
-		{
-			field: "ClassID",
-			headerName: "Price Class",
-			width: 150,
-			valueFormatter: (value: string | null) => value ?? "-",
+			field: "LUpd_DateTime",
+			headerName: "Last Update",
+			width: 190,
+			type: "dateTime",
+			valueGetter: (value: string | null) =>
+				value ? new Date(value) : null,
+			valueFormatter: (value: Date | null) => {
+				if (!value) return "-";
+				return value.toLocaleDateString(undefined, {
+					year: "numeric",
+					month: "2-digit",
+					day: "2-digit",
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				});
+			},
 		},
 	];
 
