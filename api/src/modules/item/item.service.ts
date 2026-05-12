@@ -10,6 +10,11 @@ import type {
 	ComponentUpdate,
 	InventoryWithComponent,
 	InventoryWithPromo,
+	ItemSite,
+	NewItemSite,
+	ItemSiteUpdate,
+	InventoryWithItemSite,
+	InventoryWithComponentsAndItemSites,
 } from "./item.schema";
 
 // ─── Inventory CRUD ──────────────────────────────────────────────────
@@ -206,6 +211,136 @@ export const deleteComponent = async (
 	}
 };
 
+// ─── ItemSite CRUD ────────────────────────────────────────────────────
+
+const ITEMSITE_COLS =
+	"InvtID, SiteID, QtyCustOrd, QtyAlloc, QtyShipNotInv, QtyAllocIN, QtyOnPO, QtyAllocPORet, QtyAvail, QtyOnHand, TotCost, LUpd_DateTime";
+
+const ITEMSITE_INSERT_COLS =
+	"InvtID, SiteID, QtyCustOrd, QtyAlloc, QtyShipNotInv, QtyAllocIN, QtyOnPO, QtyAllocPORet, QtyAvail, QtyOnHand, TotCost";
+
+export const createItemSite = async (
+	itemSite: NewItemSite,
+): Promise<ItemSite> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("InvtID", itemSite.InvtID)
+		.input("SiteID", itemSite.SiteID)
+		.input("QtyCustOrd", itemSite.QtyCustOrd)
+		.input("QtyAlloc", itemSite.QtyAlloc)
+		.input("QtyShipNotInv", itemSite.QtyShipNotInv)
+		.input("QtyAllocIN", itemSite.QtyAllocIN)
+		.input("QtyOnPO", itemSite.QtyOnPO)
+		.input("QtyAllocPORet", itemSite.QtyAllocPORet)
+		.input("QtyAvail", itemSite.QtyAvail)
+		.input("QtyOnHand", itemSite.QtyOnHand)
+		.input("TotCost", itemSite.TotCost).query(`
+      INSERT INTO ItemSite (${ITEMSITE_INSERT_COLS})
+      OUTPUT INSERTED.${ITEMSITE_COLS}
+      VALUES (@InvtID, @SiteID, @QtyCustOrd, @QtyAlloc, @QtyShipNotInv, @QtyAllocIN, @QtyOnPO, @QtyAllocPORet, @QtyAvail, @QtyOnHand, @TotCost)
+    `);
+
+	const created = result.recordset[0];
+	if (!created) throw new Error("Failed to create ItemSite");
+	return created as ItemSite;
+};
+
+export const getAllItemSites = async (): Promise<ItemSite[]> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.query(`SELECT ${ITEMSITE_COLS} FROM ItemSite`);
+	return trimStrings(result.recordset as ItemSite[]);
+};
+
+export const getItemSiteById = async (
+	invtId: string,
+	siteId: string,
+): Promise<ItemSite | undefined> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("InvtID", invtId)
+		.input("SiteID", siteId)
+		.query(
+			`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID AND SiteID = @SiteID`,
+		);
+	return trimStrings(result.recordset[0] as ItemSite | undefined);
+};
+
+export const getItemSitesByInvtId = async (
+	invtId: string,
+): Promise<ItemSite[]> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("InvtID", invtId)
+		.query(
+			`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID`,
+		);
+	return trimStrings(result.recordset as ItemSite[]);
+};
+
+export const updateItemSite = async (
+	invtId: string,
+	siteId: string,
+	updates: ItemSiteUpdate,
+): Promise<ItemSite> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("InvtID", invtId)
+		.input("SiteID", siteId)
+		.input("QtyCustOrd", updates.QtyCustOrd ?? null)
+		.input("QtyAlloc", updates.QtyAlloc ?? null)
+		.input("QtyShipNotInv", updates.QtyShipNotInv ?? null)
+		.input("QtyAllocIN", updates.QtyAllocIN ?? null)
+		.input("QtyOnPO", updates.QtyOnPO ?? null)
+		.input("QtyAllocPORet", updates.QtyAllocPORet ?? null)
+		.input("QtyAvail", updates.QtyAvail ?? null)
+		.input("QtyOnHand", updates.QtyOnHand ?? null)
+		.input("TotCost", updates.TotCost ?? null).query(`
+      UPDATE ItemSite
+      SET
+        QtyCustOrd = @QtyCustOrd,
+        QtyAlloc = @QtyAlloc,
+        QtyShipNotInv = @QtyShipNotInv,
+        QtyAllocIN = @QtyAllocIN,
+        QtyOnPO = @QtyOnPO,
+        QtyAllocPORet = @QtyAllocPORet,
+        QtyAvail = @QtyAvail,
+        QtyOnHand = @QtyOnHand,
+        TotCost = @TotCost,
+        LUpd_DateTime = GETDATE()
+      OUTPUT INSERTED.${ITEMSITE_COLS}
+      WHERE InvtID = @InvtID AND SiteID = @SiteID
+    `);
+
+	if (result.rowsAffected[0] === 0) {
+		throw new NotFoundError(`ItemSite ${invtId}/${siteId} not found`);
+	}
+	return trimStrings(result.recordset[0] as ItemSite);
+};
+
+export const deleteItemSite = async (
+	invtId: string,
+	siteId: string,
+): Promise<void> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("InvtID", invtId)
+		.input("SiteID", siteId)
+		.query(
+			"DELETE FROM ItemSite OUTPUT DELETED.InvtID WHERE InvtID = @InvtID AND SiteID = @SiteID",
+		);
+
+	if (result.rowsAffected[0] === 0) {
+		throw new NotFoundError(`ItemSite ${invtId}/${siteId} not found`);
+	}
+};
+
 // ─── Joined query ────────────────────────────────────────────────────
 
 export const getInventoryWithComponents = async (): Promise<
@@ -221,4 +356,38 @@ export const getInventoryWithComponents = async (): Promise<
       ORDER BY i.InvtID, c.CmpnentID
     `);
 	return trimStrings(result.recordset as InventoryWithComponent[]);
+};
+
+export const getInventoryWithItemSites = async (): Promise<
+	InventoryWithItemSite[]
+> => {
+	const pool = await getDb();
+	const result = await pool.request().query(`
+      SELECT
+        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
+        s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
+        s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime
+      FROM Inventory i
+      LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
+      ORDER BY i.InvtID, s.SiteID
+    `);
+	return trimStrings(result.recordset as InventoryWithItemSite[]);
+};
+
+export const getInventoryWithComponentsAndItemSites = async (): Promise<
+	InventoryWithComponentsAndItemSites[]
+> => {
+	const pool = await getDb();
+	const result = await pool.request().query(`
+      SELECT
+        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
+        c.KitID, c.CmpnentID, c.CmpnentQty,
+        s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
+        s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime
+      FROM Inventory i
+      LEFT JOIN Component c ON i.InvtID = c.KitID
+      LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
+      ORDER BY i.InvtID, c.CmpnentID, s.SiteID
+    `);
+	return trimStrings(result.recordset as InventoryWithComponentsAndItemSites[]);
 };

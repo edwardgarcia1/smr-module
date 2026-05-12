@@ -12,6 +12,13 @@ import {
 	updateComponent,
 	deleteComponent,
 	getInventoryWithComponents,
+	createItemSite,
+	getAllItemSites,
+	getItemSiteById,
+	getItemSitesByInvtId,
+	updateItemSite,
+	deleteItemSite,
+	getInventoryWithComponentsAndItemSites,
 } from "./item.service";
 import { authGuard } from "../../middlewares/auth";
 import { rateLimitMiddleware } from "../../middlewares/rateLimit";
@@ -252,13 +259,149 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		},
 	)
 
+	// ── ItemSite routes ───────────────────────────────────────────────
+
+	// GET /item/site — list all ItemSite records
+	.get("/site", async ({ rateLimit, limited, ability, user }) => {
+		if (limited) throw new BadRequestError("Rate limit exceeded");
+		if (!user) throw new UnauthorizedError("Authentication required");
+		checkPermission(ability, "read", "Site");
+		return getAllItemSites();
+	})
+
+	// GET /item/site/:invtId/:siteId — single ItemSite record
+	.get(
+		"/site/:invtId/:siteId",
+		async ({
+			params: { invtId, siteId },
+			rateLimit,
+			limited,
+			ability,
+			user,
+		}) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
+
+			const itemSite = await getItemSiteById(invtId, siteId);
+			if (!itemSite)
+				throw new NotFoundError(`ItemSite ${invtId}/${siteId} not found`);
+			return itemSite;
+		},
+		{
+			params: t.Object({
+				invtId: t.String(),
+				siteId: t.String(),
+			}),
+		},
+	)
+
+	// GET /item/site/:invtId — ItemSites by InvtID
+	.get(
+		"/site/:invtId",
+		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
+			return getItemSitesByInvtId(invtId);
+		},
+		{
+			params: t.Object({ invtId: t.String() }),
+		},
+	)
+
+	// POST /item/site — create ItemSite
+	.post(
+		"/site",
+		async ({ body, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "create", "Site");
+			return createItemSite(body);
+		},
+		{
+			body: t.Object({
+				InvtID: t.String({ maxLength: 30 }),
+				SiteID: t.String({ maxLength: 10 }),
+				QtyCustOrd: t.Number(),
+				QtyAlloc: t.Number(),
+				QtyShipNotInv: t.Number(),
+				QtyAllocIN: t.Number(),
+				QtyOnPO: t.Number(),
+				QtyAllocPORet: t.Number(),
+				QtyAvail: t.Number(),
+				QtyOnHand: t.Number(),
+				TotCost: t.Number(),
+			}),
+		},
+	)
+
+	// PUT /item/site/:invtId/:siteId — update ItemSite
+	.put(
+		"/site/:invtId/:siteId",
+		async ({
+			params: { invtId, siteId },
+			body,
+			rateLimit,
+			limited,
+			ability,
+			user,
+		}) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "update", "Site");
+			return updateItemSite(invtId, siteId, body);
+		},
+		{
+			params: t.Object({
+				invtId: t.String(),
+				siteId: t.String(),
+			}),
+			body: t.Object({
+				QtyCustOrd: t.Optional(t.Number()),
+				QtyAlloc: t.Optional(t.Number()),
+				QtyShipNotInv: t.Optional(t.Number()),
+				QtyAllocIN: t.Optional(t.Number()),
+				QtyOnPO: t.Optional(t.Number()),
+				QtyAllocPORet: t.Optional(t.Number()),
+				QtyAvail: t.Optional(t.Number()),
+				QtyOnHand: t.Optional(t.Number()),
+				TotCost: t.Optional(t.Number()),
+			}),
+		},
+	)
+
+	// DELETE /item/site/:invtId/:siteId — delete ItemSite
+	.delete(
+		"/site/:invtId/:siteId",
+		async ({
+			params: { invtId, siteId },
+			rateLimit,
+			limited,
+			ability,
+			user,
+		}) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "delete", "Site");
+			await deleteItemSite(invtId, siteId);
+			return { message: `ItemSite ${invtId}/${siteId} deleted` };
+		},
+		{
+			params: t.Object({
+				invtId: t.String(),
+				siteId: t.String(),
+			}),
+		},
+	)
+
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /item — Inventory + Component on InvtID = KitID
+	// GET /item — Inventory + Component + ItemSite on InvtID
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
-		return getInventoryWithComponents();
+		return getInventoryWithComponentsAndItemSites();
 	});

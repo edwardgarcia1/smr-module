@@ -13,6 +13,7 @@ import {
 	FormControl,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import {
@@ -26,12 +27,67 @@ import apiRequest from "../services/api";
 
 // ── Types matching item.schema.ts ──────────────────────────────────────
 
-interface Inventory {
+/** Raw row from GET /item — Inventory + Component + ItemSite joined */
+interface JoinedInventoryRow {
 	InvtID: string;
 	ClassID: string | null;
 	ProdMgrID: string | null;
 	Descr: string | null;
-	isPromo: number; // 1 = promo (has Components), 0 = regular; used internally
+	KitID: string | null;
+	CmpnentID: string | null;
+	CmpnentQty: number | null;
+	SiteID: string | null;
+	QtyAlloc: number | null;
+	QtyOnPO: number | null;
+	QtyOnHand: number | null;
+	QtyAvail: number | null;
+	TotCost: number | null;
+}
+
+/** Aggregated row displayed in the grid — one per (InvtID, SiteID) */
+interface InventoryRow {
+	InvtID: string;
+	ClassID: string | null;
+	ProdMgrID: string | null;
+	Descr: string | null;
+	isPromo: number; // 1 = has Components, 0 = no Components
+	SiteID: string | null;
+	QtyAlloc: number;
+	QtyOnPO: number;
+	QtyOnHand: number;
+	QtyAvail: number;
+}
+
+/** Group joined rows by (InvtID, SiteID) — one row per site */
+function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
+	const map = new Map<string, InventoryRow>();
+
+	for (const row of rows) {
+		const key = `${row.InvtID}|${row.SiteID ?? ""}`;
+		let agg = map.get(key);
+		if (!agg) {
+			agg = {
+				InvtID: row.InvtID,
+				ClassID: row.ClassID,
+				ProdMgrID: row.ProdMgrID,
+				Descr: row.Descr,
+				isPromo: 0,
+				SiteID: row.SiteID,
+				QtyAlloc: row.QtyAlloc ?? 0,
+				QtyOnPO: row.QtyOnPO ?? 0,
+				QtyOnHand: row.QtyOnHand ?? 0,
+				QtyAvail: row.QtyAvail ?? 0,
+			};
+			map.set(key, agg);
+		}
+
+		// Promo = has at least one Component row for this InvtID
+		if (row.KitID !== null) {
+			agg.isPromo = 1;
+		}
+	}
+
+	return Array.from(map.values());
 }
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -43,7 +99,7 @@ type PromoFilter = "all" | "promos" | "non_promos";
 // ── Component ─────────────────────────────────────────────────────────
 
 const InventoryItems: React.FC = () => {
-	const [rows, setRows] = useState<Inventory[]>([]);
+	const [rows, setRows] = useState<InventoryRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
@@ -68,7 +124,15 @@ const InventoryItems: React.FC = () => {
 		[handleSearch],
 	);
 
-	// Fetch inventory items, toggling promoFilter via query param
+	const clearSearch = useCallback(() => {
+		setSearchQuery("");
+		setPage(0);
+		if (searchInputRef.current) {
+			searchInputRef.current.value = "";
+		}
+	}, []);
+
+	// Fetch joined Inventory + Component + ItemSite data, then aggregate
 	useEffect(() => {
 		let cancelled = false;
 
@@ -76,15 +140,19 @@ const InventoryItems: React.FC = () => {
 			setLoading(true);
 			setError(null);
 			try {
-				const params = new URLSearchParams();
-				if (promoFilter !== "all") {
-					params.set("promoFilter", promoFilter);
-				}
-				const data = await apiRequest<Inventory[]>(
-					`/item/inventory${params.toString() ? `?${params}` : ""}`,
-				);
+				const data = await apiRequest<JoinedInventoryRow[]>("/item");
 				if (!cancelled) {
-					setRows(data);
+					const aggregated = aggregateJoinedRows(data);
+
+					// Apply promo filter on client side
+					const filtered =
+						promoFilter === "all"
+							? aggregated
+							: aggregated.filter((r) =>
+									promoFilter === "promos" ? r.isPromo === 1 : r.isPromo === 0,
+								);
+
+					setRows(filtered);
 				}
 			} catch (err: unknown) {
 				if (!cancelled) {
@@ -113,6 +181,7 @@ const InventoryItems: React.FC = () => {
 		return rows.filter((item) => {
 			return (
 				item.InvtID.toLowerCase().includes(q) ||
+				(item.SiteID ?? "").toLowerCase().includes(q) ||
 				(item.Descr ?? "").toLowerCase().includes(q) ||
 				(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
 				(item.ClassID ?? "").toLowerCase().includes(q)
@@ -132,11 +201,49 @@ const InventoryItems: React.FC = () => {
 			width: 150,
 		},
 		{
+			field: "SiteID",
+			headerName: "Site",
+			width: 100,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
 			field: "Descr",
 			headerName: "Description",
 			minWidth: 250,
 			flex: 1,
 			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
+			field: "QtyAlloc",
+			headerName: "Unreleased",
+			width: 120,
+			type: "number",
+			valueFormatter: (value: number) =>
+				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+		},
+		{
+			field: "QtyOnPO",
+			headerName: "Incoming",
+			width: 120,
+			type: "number",
+			valueFormatter: (value: number) =>
+				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+		},
+		{
+			field: "QtyOnHand",
+			headerName: "On Hand",
+			width: 120,
+			type: "number",
+			valueFormatter: (value: number) =>
+				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+		},
+		{
+			field: "QtyAvail",
+			headerName: "Available",
+			width: 120,
+			type: "number",
+			valueFormatter: (value: number) =>
+				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
 		},
 		{
 			field: "ProdMgrID",
@@ -244,6 +351,14 @@ const InventoryItems: React.FC = () => {
 									<InputAdornment position="end">
 										<IconButton
 											size="small"
+											onClick={clearSearch}
+											aria-label="clear search"
+											sx={{ mr: 0.25 }}
+										>
+											<CloseIcon fontSize="small" />
+										</IconButton>
+										<IconButton
+											size="small"
 											onClick={handleSearch}
 											aria-label="search"
 										>
@@ -286,7 +401,7 @@ const InventoryItems: React.FC = () => {
 				</Box>
 			</Box>
 		);
-	}, [handleSearch, handleKeyDown, promoFilter, loading]);
+	}, [handleSearch, handleKeyDown, clearSearch, promoFilter, loading]);
 
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
@@ -298,7 +413,7 @@ const InventoryItems: React.FC = () => {
 				<DataGrid
 					rows={filteredRows}
 					columns={columns}
-					getRowId={(row) => row.InvtID}
+					getRowId={(row) => `${row.InvtID}|${row.SiteID ?? ""}`}
 					paginationModel={{ page, pageSize }}
 					onPaginationModelChange={handlePaginationModelChange}
 					paginationMode="client"
