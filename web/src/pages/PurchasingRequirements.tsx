@@ -23,6 +23,7 @@ import {
 	Checkbox,
 	Chip,
 	CircularProgress,
+	Divider,
 	useTheme,
 } from "@mui/material";
 import { useThemeMode } from "../providers/AppProvider";
@@ -1368,16 +1369,19 @@ const PurchasingRequirements: React.FC = () => {
 					</Grid>
 				</Box>
 
-				{/* Right column - DateRange card (40%) */}
+				{/* Vertical divider between filter columns */}
+				<Divider
+					orientation="vertical"
+					flexItem
+					sx={{ display: { xs: "none", md: "block" }, alignSelf: "stretch" }}
+				/>
+
+				{/* Right column - DateRange (40%) */}
 				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
-					<Paper
+					<Box
 						sx={{
-							p: 2,
 							height: 290,
 							overflowY: "auto",
-							borderRadius: 2,
-							border: "1px solid",
-							borderColor: "divider",
 						}}
 					>
 						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
@@ -1440,7 +1444,7 @@ const PurchasingRequirements: React.FC = () => {
 								</Button>
 							</Box>
 						</LocalizationProvider>
-					</Paper>
+					</Box>
 				</Box>
 
 				{/* Apply Button - full width */}
