@@ -154,9 +154,12 @@ function buildFilterClause(filter?: SalesFilter): {
 			params[`siteID${i}`] = id;
 		});
 	}
-	if (filter.priceClassID) {
-		parts.push("c.PriceClassID = @priceClassID");
-		params.priceClassID = filter.priceClassID;
+	if (filter.priceClassID && filter.priceClassID.length > 0) {
+		const placeholders = filter.priceClassID.map((_, i) => `@priceClassID${i}`);
+		parts.push(`c.PriceClassID IN (${placeholders.join(", ")})`);
+		filter.priceClassID.forEach((id, i) => {
+			params[`priceClassID${i}`] = id;
+		});
 	}
 	if (filter.classID) {
 		parts.push("i.ClassID = @classID");

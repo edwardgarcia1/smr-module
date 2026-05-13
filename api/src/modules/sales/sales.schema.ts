@@ -9,7 +9,7 @@ export interface DateRange {
 /** Optional filters for sales query */
 export interface SalesFilter {
 	siteID?: string[];
-	priceClassID?: string;
+	priceClassID?: string[];
 	classID?: string;
 }
 

@@ -54,7 +54,7 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 	 *   limit      (number, default 500, max 10000)
 	 *   dateRange  (repeatable) — "YYYY-MM-DD,YYYY-MM-DD"
 	 *   siteID     (string, optional) — filter by SiteID
-	 *   priceClassID (string, optional) — filter by PriceClassID
+	 *   priceClassID (repeatable) — filter by PriceClassID (OR)
 	 *   classID    (string, optional) — filter by ClassID
 	 *
 	 * Examples:
@@ -62,8 +62,8 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 	 *   GET /sales?page=1&limit=200
 	 *   GET /sales?dateRange=2026-01-01,2026-02-26&page=1&limit=500
 	 *   GET /sales?dateRange=2026-01-01,2026-02-26&dateRange=2026-04-03,2026-06-12
-	 *   GET /sales?siteID=MAIN&classID=ABC
-	 *   GET /sales?priceClassID=WHOLESALE&page=1&limit=100
+	 *   GET /sales?siteID=MAIN&siteID=3MPMT&classID=ABC
+	 *   GET /sales?priceClassID=WHOLESALE&priceClassID=RETAIL&page=1&limit=100
 	 */
 	.get(
 		"/",
@@ -81,13 +81,19 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 					: [query.siteID]
 				: undefined;
 
+			const priceClassIDs = query.priceClassID
+				? Array.isArray(query.priceClassID)
+					? query.priceClassID
+					: [query.priceClassID]
+				: undefined;
+
 			return getSales(
 				page,
 				limit,
 				dateRanges.length > 0 ? dateRanges : undefined,
 				{
 					siteID: siteIDs,
-					priceClassID: query.priceClassID || undefined,
+					priceClassID: priceClassIDs,
 					classID: query.classID || undefined,
 				},
 			);
@@ -102,7 +108,9 @@ export const salesRoutes = new Elysia({ prefix: "/sales" })
 				siteID: t.Optional(
 					t.Union([t.String(), t.Array(t.String())]),
 				),
-				priceClassID: t.Optional(t.String()),
+				priceClassID: t.Optional(
+					t.Union([t.String(), t.Array(t.String())]),
+				),
 				classID: t.Optional(t.String()),
 			}),
 		},
