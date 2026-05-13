@@ -20,8 +20,8 @@ import {
 	DialogActions,
 	Alert,
 	Tooltip,
-	Chip,
 	Checkbox,
+	Chip,
 	CircularProgress,
 	useTheme,
 } from "@mui/material";
@@ -58,14 +58,12 @@ import apiRequest from "../services/api";
 type Frequency = "weekly" | "monthly";
 
 interface Principal {
-	id: number;
-	name: string;
+	ClassID: string;
+	Descr: string;
+	User5: string;
 }
 
-interface PrincipalOption {
-	principal: Principal;
-	category: "immediate" | "secondary" | "monitoring";
-}
+type Category = "immediate" | "secondary" | "monitoring";
 
 interface StorageLocation {
 	id: string;
@@ -74,8 +72,8 @@ interface StorageLocation {
 
 interface ProductRow {
 	id: number;
-	principalId: number;
-	principalCategory: "immediate" | "secondary" | "monitoring";
+	principalId: string;
+	principalCategory: Category;
 	storageIds: number[];
 	priceClass: string;
 	code: string;
@@ -100,20 +98,13 @@ const defaultStorageLocations: StorageLocation[] = [
 	{ id: "3", name: "Distribution Center" },
 ];
 
-const placeholderPrincipals: Principal[] = [
-	{ id: 1, name: "ZESTO CORPORATION" },
-	{ id: 2, name: "PRIME GLOBAL CORPORATION" },
-	{ id: 3, name: "ZUELLIG PHARMA CORPORATION" },
-	{ id: 4, name: "MULTIRICH FOODS CORPORATION" },
-	{ id: 5, name: "W.L. FOOD PRODUCTS" },
-	{ id: 6, name: "JIA2 CORPORATION" },
-];
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const placeholderProducts: ProductRow[] = [
 	// ── ZESTO CORPORATION (principal 1) ──
 	{
 		id: 1,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "A",
@@ -132,7 +123,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 2,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "immediate",
 		storageIds: [1, 2],
 		priceClass: "B",
@@ -151,7 +142,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 3,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "B",
@@ -170,7 +161,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 4,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "immediate",
 		storageIds: [2],
 		priceClass: "A",
@@ -190,7 +181,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── PRIME GLOBAL CORPORATION (principal 2) ──
 	{
 		id: 5,
-		principalId: 2,
+		principalId: "PGC",
 		principalCategory: "immediate",
 		storageIds: [1, 3],
 		priceClass: "A",
@@ -209,7 +200,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 6,
-		principalId: 2,
+		principalId: "PGC",
 		principalCategory: "immediate",
 		storageIds: [1],
 		priceClass: "A",
@@ -228,7 +219,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 7,
-		principalId: 2,
+		principalId: "PGC",
 		principalCategory: "immediate",
 		storageIds: [3],
 		priceClass: "C",
@@ -248,7 +239,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── ZUELLIG PHARMA CORPORATION (principal 3) ──
 	{
 		id: 8,
-		principalId: 3,
+		principalId: "ZPC",
 		principalCategory: "secondary",
 		storageIds: [1],
 		priceClass: "A",
@@ -267,7 +258,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 9,
-		principalId: 3,
+		principalId: "ZPC",
 		principalCategory: "secondary",
 		storageIds: [1, 2],
 		priceClass: "B",
@@ -286,7 +277,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 10,
-		principalId: 3,
+		principalId: "ZPC",
 		principalCategory: "secondary",
 		storageIds: [1],
 		priceClass: "A",
@@ -306,7 +297,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── MULTIRICH FOODS CORPORATION (principal 4) ──
 	{
 		id: 11,
-		principalId: 4,
+		principalId: "MFC",
 		principalCategory: "secondary",
 		storageIds: [2],
 		priceClass: "C",
@@ -325,7 +316,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 12,
-		principalId: 4,
+		principalId: "MFC",
 		principalCategory: "secondary",
 		storageIds: [2, 3],
 		priceClass: "B",
@@ -345,7 +336,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── W.L. FOOD PRODUCTS (principal 5) ──
 	{
 		id: 13,
-		principalId: 5,
+		principalId: "WLF",
 		principalCategory: "monitoring",
 		storageIds: [3],
 		priceClass: "C",
@@ -364,7 +355,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 14,
-		principalId: 5,
+		principalId: "WLF",
 		principalCategory: "monitoring",
 		storageIds: [1, 3],
 		priceClass: "A",
@@ -384,7 +375,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── JIA2 CORPORATION (principal 6) ──
 	{
 		id: 15,
-		principalId: 6,
+		principalId: "JIA",
 		principalCategory: "monitoring",
 		storageIds: [1, 2, 3],
 		priceClass: "B",
@@ -403,7 +394,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 16,
-		principalId: 6,
+		principalId: "JIA",
 		principalCategory: "monitoring",
 		storageIds: [2],
 		priceClass: "C",
@@ -423,7 +414,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── ZESTO CORPORATION (principal 1) - SECONDARY ──
 	{
 		id: 17,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "secondary",
 		storageIds: [1, 3],
 		priceClass: "B",
@@ -442,7 +433,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 18,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "secondary",
 		storageIds: [2],
 		priceClass: "A",
@@ -461,7 +452,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 19,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "secondary",
 		storageIds: [1, 2],
 		priceClass: "C",
@@ -481,7 +472,7 @@ const placeholderProducts: ProductRow[] = [
 	// ── ZESTO CORPORATION (principal 1) - MONITORING ──
 	{
 		id: 20,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "monitoring",
 		storageIds: [3],
 		priceClass: "B",
@@ -500,7 +491,7 @@ const placeholderProducts: ProductRow[] = [
 	},
 	{
 		id: 21,
-		principalId: 1,
+		principalId: "ZES",
 		principalCategory: "monitoring",
 		storageIds: [1],
 		priceClass: "A",
@@ -574,7 +565,8 @@ function fillDemandData(
 const FORM_STORAGE_KEY = "pr-form-state-v4";
 
 interface PersistedFormState {
-	selectedPrincipal: PrincipalOption | null;
+	selectedPrincipal: Principal | null;
+	selectedCategories: Category[];
 	selectedStorage: StorageLocation[];
 	selectedPriceClasses: string[];
 	storageLocations: StorageLocation[];
@@ -646,34 +638,17 @@ const PurchasingRequirements: React.FC = () => {
 		[darkMode],
 	);
 
-	// Principal
-	const [selectedPrincipal, setSelectedPrincipal] =
-		useState<PrincipalOption | null>(persistedForm?.selectedPrincipal ?? null);
-	const principalCategories: Record<number, string[]> = {
-		1: ["immediate", "secondary", "monitoring"],
-		2: ["immediate"],
-		3: ["secondary"],
-		4: ["secondary"],
-		5: ["monitoring"],
-		6: ["monitoring"],
-	};
-	const principalOptions: PrincipalOption[] = placeholderPrincipals
-		.flatMap((p) =>
-			(principalCategories[p.id] || []).map((cat) => ({
-				principal: p,
-				category: cat as "immediate" | "secondary" | "monitoring",
-			})),
-		)
-		.sort((a, b) => {
-			const catOrder: Record<string, number> = {
-				immediate: 0,
-				secondary: 1,
-				monitoring: 2,
-			};
-			const catDiff = catOrder[a.category] - catOrder[b.category];
-			if (catDiff !== 0) return catDiff;
-			return a.principal.name.localeCompare(b.principal.name);
-		});
+	// Principal (single select from API)
+	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
+		persistedForm?.selectedPrincipal ?? null,
+	);
+	// Category (multi-select)
+	const categoryOptions: Category[] = ["immediate", "secondary", "monitoring"];
+	const [selectedCategories, setSelectedCategories] = useState<Category[]>(
+		persistedForm?.selectedCategories ?? [],
+	);
+	// Fetched principals list
+	const [principals, setPrincipals] = useState<Principal[]>([]);
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
@@ -724,15 +699,17 @@ const PurchasingRequirements: React.FC = () => {
 		let cancelled = false;
 		const fetchOptions = async () => {
 			try {
-				const [sites, classes] = await Promise.all([
+				const [sites, classes, principalList] = await Promise.all([
 					apiRequest<{ SiteId: string; Name: string }[]>("/inventory"),
 					apiRequest<string[]>("/price/class"),
+					apiRequest<Principal[]>("/principal/ids"),
 				]);
 				if (!cancelled) {
 					setStorageLocations(
 						sites.map((s) => ({ id: s.SiteId, name: s.Name })),
 					);
 					setPriceClassOptions(classes);
+					setPrincipals(principalList);
 				}
 			} catch {
 				// non-critical; filters just won't have suggestions
@@ -813,15 +790,17 @@ const PurchasingRequirements: React.FC = () => {
 		);
 
 		// Filter products by Principal, Category, Storage, and Price Class
-		const selectedPrincipalIds = new Set([selectedPrincipal.principal.id]);
 		let filtered = placeholderProducts.filter(
-			(p) =>
-				selectedPrincipalIds.has(p.principalId) &&
-				p.principalCategory === selectedPrincipal.category,
+			(p) => p.principalId === selectedPrincipal.ClassID,
 		);
 
+		if (selectedCategories.length > 0) {
+			const catSet = new Set(selectedCategories);
+			filtered = filtered.filter((p) => catSet.has(p.principalCategory));
+		}
+
 		if (selectedStorage.length > 0) {
-			const storageIds = new Set(selectedStorage.map((s) => s.id));
+			const storageIds = new Set(selectedStorage.map((s) => Number(s.id)));
 			filtered = filtered.filter((p) =>
 				p.storageIds.some((sid) => storageIds.has(sid)),
 			);
@@ -862,6 +841,7 @@ const PurchasingRequirements: React.FC = () => {
 		setIsApplying(false);
 	}, [
 		selectedPrincipal,
+		selectedCategories,
 		selectedStorage,
 		selectedPriceClasses,
 		dateRanges,
@@ -1059,6 +1039,7 @@ const PurchasingRequirements: React.FC = () => {
 
 	const handleClearAll = useCallback(() => {
 		setSelectedPrincipal(null);
+		setSelectedCategories([]);
 		setSelectedStorage([]);
 		setSelectedPriceClasses([]);
 		setDateRanges([{ from: null, to: null }]);
@@ -1084,108 +1065,147 @@ const PurchasingRequirements: React.FC = () => {
 				{/* Left column - filters (60%) */}
 				<Box sx={{ flex: "3 1 0%", minWidth: 300 }}>
 					<Grid container spacing={3}>
-						{/* Principal - full width */}
-						<Grid size={{ xs: 12 }}>
+						{/* Principal - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
 									Select Principal
 								</FormLabel>
 								<Autocomplete
 									size="small"
-									options={principalOptions}
+									options={principals}
 									value={selectedPrincipal}
 									onChange={(_, newVal) => setSelectedPrincipal(newVal)}
-									getOptionLabel={(option) => option.principal.name}
-									groupBy={(option) => {
-										const labels: Record<string, string> = {
-											immediate: "Immediate Purchase Requirements",
-											secondary: "Secondary Purchase Requirements",
+									getOptionLabel={(option) => option.Descr}
+									isOptionEqualToValue={(option, val) =>
+										option.ClassID === val.ClassID
+									}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											placeholder="Search or select principal"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+						</Grid>
+						{/* Category - half width */}
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl fullWidth>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Category
+								</FormLabel>
+								<Autocomplete
+									multiple
+									size="small"
+									options={categoryOptions}
+									value={selectedCategories}
+									onChange={(_, newVal) => setSelectedCategories(newVal)}
+									getOptionLabel={(option) => {
+										const labels: Record<Category, string> = {
+											immediate: "Immediate",
+											secondary: "Secondary",
 											monitoring: "Monitoring",
 										};
-										return labels[option.category] || option.category;
+										return labels[option];
 									}}
-									isOptionEqualToValue={(option, val) =>
-										option.principal.id === val.principal.id &&
-										option.category === val.category
-									}
-									renderOption={(props, option) => {
-										const { key, ...rest } = props;
-										return (
-											<li key={key} {...rest}>
-												{option.principal.name}
-											</li>
-										);
-									}}
-									renderValue={(value) => {
-										const chipColors: Record<string, string> = {
+									disableCloseOnSelect
+									renderValue={(value, getItemProps) => {
+										const labels: Record<Category, string> = {
+											immediate: "Immediate",
+											secondary: "Secondary",
+											monitoring: "Monitoring",
+										};
+										const chipColors: Record<Category, string> = {
 											immediate: "#d32f2f",
 											secondary: "#ed6c02",
 											monitoring: "#0288d1",
 										};
+										const items = Array.isArray(value) ? value : [];
 										return (
-											<Chip
-												label={value.principal.name}
-												size="small"
+											<Box
 												sx={{
-													backgroundColor:
-														chipColors[value.category] || "#757575",
-													color: "#fff",
-													fontWeight: 500,
-													height: 24,
-													"& .MuiChip-label": { px: 1 },
+													display: "flex",
+													flexWrap: "wrap",
+													gap: 0.5,
+													py: 0.25,
 												}}
-											/>
+											>
+												{items.map((item, index) => {
+													const option = item as Category;
+													const { key, onDelete } = getItemProps({
+														index,
+													});
+													return (
+														<Chip
+															key={key}
+															label={labels[option]}
+															size="small"
+															onDelete={onDelete}
+															sx={{
+																backgroundColor: chipColors[option],
+																color: "#fff",
+																fontWeight: 500,
+																height: 24,
+																"& .MuiChip-label": { px: 1 },
+																"& .MuiChip-deleteIcon": {
+																	color: "rgba(255,255,255,0.7)",
+																	"&:hover": { color: "#fff" },
+																},
+															}}
+														/>
+													);
+												})}
+											</Box>
+										);
+									}}
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										const chipColors: Record<Category, string> = {
+											immediate: "#d32f2f",
+											secondary: "#ed6c02",
+											monitoring: "#0288d1",
+										};
+										const labels: Record<Category, string> = {
+											immediate: "Immediate",
+											secondary: "Secondary",
+											monitoring: "Monitoring",
+										};
+										return (
+											<li
+												key={key}
+												{...rest}
+												style={{
+													...rest.style,
+													borderLeft: `4px solid ${chipColors[option]}`,
+													paddingLeft: 12,
+												}}
+											>
+												<Checkbox
+													icon={
+														<CheckBoxOutlineBlankIcon fontSize="small" />
+													}
+													checkedIcon={
+														<CheckBoxIcon fontSize="small" />
+													}
+													checked={selected}
+												/>
+												{labels[option]}
+											</li>
 										);
 									}}
 									renderInput={(params) => (
 										<TextField
 											{...params}
-											placeholder="Search or select principal"
-											sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+											placeholder="Select categories"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
 										/>
 									)}
-									renderGroup={(params) => {
-										const groupColor: Record<
-											string,
-											{ bg: string; text: string }
-										> = {
-											"Immediate Purchase Requirements": {
-												bg: "#d32f2f",
-												text: "#ffffff",
-											},
-											"Secondary Purchase Requirements": {
-												bg: "#ed6c02",
-												text: "#ffffff",
-											},
-											Monitoring: {
-												bg: "#0288d1",
-												text: "#ffffff",
-											},
-										};
-										const colors = groupColor[params.group] ?? {
-											bg: "var(--sidebar-bg)",
-											text: "var(--sidebar-text)",
-										};
-										return (
-											<li key={params.key}>
-												<div
-													style={{
-														fontWeight: 600,
-														fontSize: "0.75rem",
-														lineHeight: "32px",
-														padding: "0 16px",
-														backgroundColor: colors.bg,
-														color: colors.text,
-														textTransform: "uppercase",
-														letterSpacing: "0.05em",
-													}}
-												>
-													{params.group}
-												</div>
-												<ul style={{ padding: 0 }}>{params.children}</ul>
-											</li>
-										);
-									}}
 								/>
 							</FormControl>
 						</Grid>
@@ -1573,6 +1593,7 @@ const PurchasingRequirements: React.FC = () => {
 	const persistState = useMemo(
 		() => ({
 			selectedPrincipal,
+			selectedCategories,
 			selectedStorage,
 			selectedPriceClasses,
 			storageLocations,
@@ -1583,6 +1604,7 @@ const PurchasingRequirements: React.FC = () => {
 		}),
 		[
 			selectedPrincipal,
+			selectedCategories,
 			selectedStorage,
 			selectedPriceClasses,
 			storageLocations,
