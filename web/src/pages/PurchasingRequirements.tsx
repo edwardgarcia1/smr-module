@@ -51,6 +51,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
+import apiRequest from "../services/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ interface PrincipalOption {
 }
 
 interface StorageLocation {
-	id: number;
+	id: string;
 	name: string;
 }
 
@@ -94,9 +95,9 @@ interface ProductRow {
 // ─── Placeholder Data ────────────────────────────────────────────────────────
 
 const defaultStorageLocations: StorageLocation[] = [
-	{ id: 1, name: "Main Warehouse" },
-	{ id: 2, name: "Cold Storage" },
-	{ id: 3, name: "Distribution Center" },
+	{ id: "1", name: "Main Warehouse" },
+	{ id: "2", name: "Cold Storage" },
+	{ id: "3", name: "Distribution Center" },
 ];
 
 const placeholderPrincipals: Principal[] = [
@@ -570,7 +571,7 @@ function fillDemandData(
 
 // ─── Form State Persistence ───────────────────────────────────────────────────
 
-const FORM_STORAGE_KEY = "pr-form-state-v3";
+const FORM_STORAGE_KEY = "pr-form-state-v4";
 
 interface PersistedFormState {
 	selectedPrincipal: PrincipalOption | null;
@@ -681,7 +682,7 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
 	);
-	const priceClasses = ["A", "B", "C"];
+	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
 	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
 		persistedForm?.selectedPriceClasses ?? [],
 	);
@@ -717,13 +718,50 @@ const PurchasingRequirements: React.FC = () => {
 		[],
 	);
 
+	// ─── Fetch Options from API ───────────────────────────────────────────
+
+	useEffect(() => {
+		let cancelled = false;
+		const fetchOptions = async () => {
+			try {
+				const [sites, classes] = await Promise.all([
+					apiRequest<{ SiteId: string; Name: string }[]>("/inventory"),
+					apiRequest<string[]>("/price/class"),
+				]);
+				if (!cancelled) {
+					setStorageLocations(
+						sites.map((s) => ({ id: s.SiteId, name: s.Name })),
+					);
+					setPriceClassOptions(classes);
+				}
+			} catch {
+				// non-critical; filters just won't have suggestions
+			}
+		};
+		fetchOptions();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	// Computation
 	const [frequency, setFrequency] = useState<Frequency>(
 		persistedForm?.frequency ?? "monthly",
 	);
-	const [monthlyFactor, setMonthlyFactor] = useState(
-		persistedForm?.monthlyFactor ?? 1.5,
-	);
+	const [monthlyFactor, setMonthlyFactor] = useState(() => {
+		// Priority: form persistence → global user settings → hardcoded default
+		if (persistedForm?.monthlyFactor != null) return persistedForm.monthlyFactor;
+		try {
+			const saved = localStorage.getItem("userSettings");
+			if (saved) {
+				const settings = JSON.parse(saved);
+				if (settings.monthlyFactor != null) return settings.monthlyFactor;
+			}
+		} catch {
+			/* ignore */
+		}
+		return 1.5;
+	});
 	const [poRefNbr, setPoRefNbr] = useState(persistedForm?.poRefNbr ?? "");
 	const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
@@ -1198,7 +1236,7 @@ const PurchasingRequirements: React.FC = () => {
 								<Autocomplete
 									multiple
 									size="small"
-									options={priceClasses}
+									options={priceClassOptions}
 									value={selectedPriceClasses}
 									onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
 									disableCloseOnSelect
