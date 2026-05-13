@@ -11,6 +11,7 @@ import { useAuthStore } from "./store/useAuthStore";
 import { AbilityProvider } from "./config/AbilityProvider";
 import AppLayout from "./layouts/AppLayout";
 import Loading from "./pages/Loading";
+import SplashScreen from "./pages/SplashScreen";
 import { LinearProgress, Box } from "@mui/material";
 
 // 1. Lazy Load Pages for better performance (Code Splitting)
@@ -221,10 +222,16 @@ const AppRoutes: React.FC = () => {
 
 function App() {
 	const checkAuth = useAuthStore((state) => state.checkAuth);
+	const isInitialAuth = useAuthStore((state) => state.isInitialAuth);
 
 	useEffect(() => {
 		checkAuth();
 	}, [checkAuth]);
+
+	// Branded splash screen during the very first auth check on app mount
+	if (isInitialAuth) {
+		return <SplashScreen />;
+	}
 
 	return (
 		<AbilityProvider>

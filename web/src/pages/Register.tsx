@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
 	Box,
 	Button,
@@ -16,6 +16,7 @@ import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../services/auth";
 const appName = import.meta.env.VITE_APP_NAME;
 
 const Register: React.FC = () => {
@@ -32,11 +33,11 @@ const Register: React.FC = () => {
 		string | null
 	>(null);
 	const navigate = useNavigate();
-	const isMounted = useRef(true);
+	const abortRef = useRef<AbortController | null>(null);
 
 	useEffect(() => {
 		return () => {
-			isMounted.current = false;
+			abortRef.current?.abort();
 		};
 	}, []);
 
@@ -59,50 +60,27 @@ const Register: React.FC = () => {
 
 		if (password !== confirmPassword) {
 			setConfirmPasswordError("Passwords do not match");
-			setLoading(false);
 			return;
 		}
 		setConfirmPasswordError(null);
 
 		setLoading(true);
 
-		try {
-			const response = await fetch(
-				`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/auth/register`,
-				{
-					method: "POST",
-					credentials: "include",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ username, password, name }),
-				},
-			);
+		abortRef.current = new AbortController();
+		const { signal } = abortRef.current;
 
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				setError(errorData.error || errorData.message || "Registration failed");
-				setLoading(false);
-				throw new Error(
-					errorData.error || errorData.message || "Registration failed",
-				);
-			}
+		try {
+			await authService.register(username, password, name, signal);
 
 			setSuccess("Registration successful! Redirecting to login…");
 			setTimeout(() => {
-				if (isMounted.current) {
-					navigate("/login");
-				}
+				navigate("/login");
 			}, 2000);
-			console.log("SUCCESS");
 		} catch (err) {
-			if (isMounted.current) {
-				setError(err instanceof Error ? err.message : "Registration failed");
-			}
+			if (err instanceof DOMException && err.name === "AbortError") return;
+			setError(err instanceof Error ? err.message : "Registration failed");
 		} finally {
-			if (isMounted.current) {
-				setLoading(false);
-			}
+			setLoading(false);
 		}
 	};
 

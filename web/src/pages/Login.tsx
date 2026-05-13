@@ -17,6 +17,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
+import { authService } from "../services/auth";
 const appName = import.meta.env.VITE_APP_NAME;
 
 const Login: React.FC = () => {
@@ -39,24 +40,7 @@ const Login: React.FC = () => {
 		setLoading(true);
 
 		try {
-			const response = await fetch(
-				`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/auth/login`,
-				{
-					method: "POST",
-					credentials: "include",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ username, password }),
-				},
-			);
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.error || errorData.message || "Login failed");
-			}
-
-			const data = await response.json();
+			const data = await authService.login(username, password);
 			login(data.user);
 			navigate("/");
 		} catch (err) {

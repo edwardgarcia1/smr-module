@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { api } from "../services/api";
+import { authService } from "../services/auth";
+import { scheduleTokenRefresh, cancelTokenRefresh } from "../services/api";
 
 export interface User {
 	id: string;
@@ -11,6 +12,8 @@ export interface User {
 interface AuthState {
 	user: User | null;
 	isLoading: boolean;
+	/** True only during the very first checkAuth() call on app mount */
+	isInitialAuth: boolean;
 	login: (user: User) => void;
 	logout: () => Promise<void>;
 	checkAuth: () => Promise<void>;
@@ -20,12 +23,15 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
 	user: null,
 	isLoading: true,
+	isInitialAuth: true,
 	login: (user) => {
-		set({ user: user, isLoading: false });
+		set({ user, isLoading: false });
+		scheduleTokenRefresh();
 	},
 	logout: async () => {
+		cancelTokenRefresh();
 		try {
-			await api.logout();
+			await authService.logout();
 		} catch {
 			// Ignore error during logout
 		}
@@ -34,10 +40,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 	checkAuth: async () => {
 		set({ isLoading: true });
 		try {
-			const user = await api.apiRequest<User>("/auth/me", { method: "POST" });
+			const user = await authService.me();
 			set({ user, isLoading: false });
+			scheduleTokenRefresh();
 		} catch {
 			set({ user: null, isLoading: false });
+		} finally {
+			set({ isInitialAuth: false });
 		}
 	},
 	setLoading: (loading) => {

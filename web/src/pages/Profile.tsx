@@ -16,6 +16,7 @@ import PersonIcon from "@mui/icons-material/Person";
 import BadgeIcon from "@mui/icons-material/Badge";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useAuthStore } from "../store/useAuthStore";
+import { api } from "../services/api";
 
 interface UserProfile {
 	id: string;
@@ -34,29 +35,17 @@ const Profile: React.FC = () => {
 	const authUser = useAuthStore((state) => state.user);
 
 	useEffect(() => {
+		const controller = new AbortController();
+
 		const fetchProfile = async () => {
 			try {
-				const response = await fetch(
-					`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/users/profile`,
-					{
-						method: "GET",
-						credentials: "include",
-						headers: {
-							"Content-Type": "application/json",
-						},
-					},
-				);
-
-				if (!response.ok) {
-					const errorData = await response.json().catch(() => ({}));
-					throw new Error(
-						errorData.error || errorData.message || "Failed to fetch profile",
-					);
-				}
-
-				const data = await response.json();
+				const data = await api.apiRequest<UserProfile>("/users/profile", {
+					method: "GET",
+					signal: controller.signal,
+				});
 				setProfile(data);
 			} catch (err) {
+				if (err instanceof DOMException && err.name === "AbortError") return;
 				setError(
 					err instanceof Error ? err.message : "Failed to fetch profile",
 				);
@@ -66,6 +55,8 @@ const Profile: React.FC = () => {
 		};
 
 		fetchProfile();
+
+		return () => controller.abort();
 	}, []);
 
 	const profileData = profile || authUser;
