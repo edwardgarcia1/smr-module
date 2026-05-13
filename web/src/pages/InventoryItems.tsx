@@ -239,6 +239,12 @@ const InventoryItems: React.FC = () => {
 			width: 150,
 		},
 		{
+			field: "ClassID",
+			headerName: "Class ID",
+			width: 120,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
 			field: "SiteID",
 			headerName: "Site",
 			width: 100,
