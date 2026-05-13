@@ -570,6 +570,7 @@ const SalesOrders: React.FC = () => {
 						variant="outlined"
 						color="error"
 						startIcon={<ClearAllIcon />}
+						disabled={loading}
 						onClick={() => setClearDialogOpen(true)}
 						sx={{ borderRadius: 2, textTransform: "none", fontSize: "0.8125rem" }}
 					>
@@ -579,6 +580,7 @@ const SalesOrders: React.FC = () => {
 						variant="contained"
 						startIcon={<PlayArrowIcon />}
 						onClick={handleApply}
+						disabled={loading}
 						sx={{ borderRadius: 2, textTransform: "none", fontSize: "0.8125rem" }}
 					>
 						Apply Filter
@@ -606,7 +608,7 @@ const SalesOrders: React.FC = () => {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setClearDialogOpen(false)}>Cancel</Button>
-					<Button onClick={handleClearAll} variant="contained" color="error">
+					<Button onClick={handleClearAll} variant="contained" color="error" disabled={loading}>
 						Clear All
 					</Button>
 				</DialogActions>

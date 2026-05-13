@@ -113,13 +113,17 @@ const InventoryItems: React.FC = () => {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [promoFilter, setPromoFilter] = useState<PromoFilter>("all");
 	const searchInputRef = useRef<HTMLInputElement>(null);
+	const [isSearching, setIsSearching] = useState(false);
+	const searchTimeoutRef = useRef<number>(0);
 
 	// Commit search on Enter key or button click, reset to page 0
 	const handleSearch = useCallback(() => {
 		const value = searchInputRef.current?.value ?? "";
+		if (isSearching) return;
+		setIsSearching(true);
 		setSearchQuery(value);
 		setPage(0);
-	}, []);
+	}, [isSearching]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -131,6 +135,8 @@ const InventoryItems: React.FC = () => {
 	);
 
 	const clearSearch = useCallback(() => {
+		window.clearTimeout(searchTimeoutRef.current);
+		setIsSearching(false);
 		setSearchQuery("");
 		setPage(0);
 		if (searchInputRef.current) {
@@ -179,34 +185,46 @@ const InventoryItems: React.FC = () => {
 		};
 	}, [promoFilter]);
 
-	// Client-side search filter
-	const filteredRows = React.useMemo(() => {
-		if (!searchQuery.trim()) return rows;
+	// Client-side search filter (async via setTimeout so spinner can paint)
+	const [filteredRows, setFilteredRows] = useState<InventoryRow[]>([]);
 
-		const q = searchQuery.toLowerCase().trim();
-		return rows.filter((item) => {
-			return (
-				item.InvtID.toLowerCase().includes(q) ||
-				(item.SiteID ?? "").toLowerCase().includes(q) ||
-				(item.Descr ?? "").toLowerCase().includes(q) ||
-				(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
-				(item.ClassID ?? "").toLowerCase().includes(q) ||
-				(item.LUpd_DateTime ?? "").toLowerCase().includes(q) ||
-				(item.LUpd_DateTime
-					? new Date(item.LUpd_DateTime)
-							.toLocaleDateString(undefined, {
-								year: "numeric",
-								month: "2-digit",
-								day: "2-digit",
-								hour: "2-digit",
-								minute: "2-digit",
-								second: "2-digit",
-							})
-							.toLowerCase()
-							.includes(q)
-					: false)
-			);
-		});
+	useEffect(() => {
+		window.clearTimeout(searchTimeoutRef.current);
+
+		if (!searchQuery.trim()) {
+			setFilteredRows(rows);
+			setIsSearching(false);
+			return;
+		}
+
+		searchTimeoutRef.current = window.setTimeout(() => {
+			const q = searchQuery.toLowerCase().trim();
+			const result = rows.filter((item) => {
+				return (
+					item.InvtID.toLowerCase().includes(q) ||
+					(item.SiteID ?? "").toLowerCase().includes(q) ||
+					(item.Descr ?? "").toLowerCase().includes(q) ||
+					(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
+					(item.ClassID ?? "").toLowerCase().includes(q) ||
+					(item.LUpd_DateTime ?? "").toLowerCase().includes(q) ||
+					(item.LUpd_DateTime
+						? new Date(item.LUpd_DateTime)
+								.toLocaleDateString(undefined, {
+									year: "numeric",
+									month: "2-digit",
+									day: "2-digit",
+									hour: "2-digit",
+									minute: "2-digit",
+									second: "2-digit",
+								})
+								.toLowerCase()
+								.includes(q)
+						: false)
+				);
+			});
+			setFilteredRows(result);
+			setIsSearching(false);
+		}, 0);
 	}, [rows, searchQuery]);
 
 	const handlePaginationModelChange = (newModel: GridPaginationModel) => {
@@ -405,6 +423,7 @@ const InventoryItems: React.FC = () => {
 											size="small"
 											onClick={handleSearch}
 											aria-label="search"
+											disabled={isSearching}
 										>
 											<SearchIcon />
 										</IconButton>
@@ -445,7 +464,7 @@ const InventoryItems: React.FC = () => {
 				</Box>
 			</Box>
 		);
-	}, [handleSearch, handleKeyDown, clearSearch, promoFilter, loading]);
+	}, [handleSearch, handleKeyDown, clearSearch, promoFilter, loading, isSearching]);
 
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
@@ -462,7 +481,7 @@ const InventoryItems: React.FC = () => {
 					onPaginationModelChange={handlePaginationModelChange}
 					paginationMode="client"
 					rowCount={filteredRows.length}
-					loading={loading}
+					loading={loading || isSearching}
 					pageSizeOptions={[25, 50, 100]}
 					disableColumnSorting
 					slots={{ toolbar: CustomToolbar }}

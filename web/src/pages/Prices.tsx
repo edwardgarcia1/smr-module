@@ -9,6 +9,7 @@ import {
 	Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import CloseIcon from "@mui/icons-material/Close";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import {
@@ -55,13 +56,17 @@ const Prices: React.FC = () => {
 	const [rowCount, setRowCount] = useState(0);
 	const [searchQuery, setSearchQuery] = useState("");
 	const searchInputRef = useRef<HTMLInputElement>(null);
+	const [isSearching, setIsSearching] = useState(false);
+	const searchTimeoutRef = useRef<number>(0);
 
 	// Commit search on Enter key or button click, reset to page 0
 	const handleSearch = useCallback(() => {
 		const value = searchInputRef.current?.value ?? "";
+		if (isSearching) return;
+		setIsSearching(true);
 		setSearchQuery(value);
 		setPage(0);
-	}, []);
+	}, [isSearching]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -71,6 +76,16 @@ const Prices: React.FC = () => {
 		},
 		[handleSearch],
 	);
+
+	const clearSearch = useCallback(() => {
+		window.clearTimeout(searchTimeoutRef.current);
+		setIsSearching(false);
+		setSearchQuery("");
+		setPage(0);
+		if (searchInputRef.current) {
+			searchInputRef.current.value = "";
+		}
+	}, []);
 
 	// Fetch whenever page, pageSize or searchQuery changes
 	useEffect(() => {
@@ -107,6 +122,7 @@ const Prices: React.FC = () => {
 			} finally {
 				if (!cancelled) {
 					setLoading(false);
+					setIsSearching(false);
 				}
 			}
 		};
@@ -213,8 +229,17 @@ const Prices: React.FC = () => {
 									<InputAdornment position="end">
 										<IconButton
 											size="small"
+											onClick={clearSearch}
+											aria-label="clear search"
+											sx={{ mr: 0.25 }}
+										>
+											<CloseIcon fontSize="small" />
+										</IconButton>
+										<IconButton
+											size="small"
 											onClick={handleSearch}
 											aria-label="search"
+											disabled={isSearching}
 										>
 											<SearchIcon />
 										</IconButton>
@@ -255,7 +280,7 @@ const Prices: React.FC = () => {
 				</Box>
 			</Box>
 		);
-	}, [handleSearch, handleKeyDown]);
+	}, [handleSearch, handleKeyDown, clearSearch, isSearching]);
 
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
