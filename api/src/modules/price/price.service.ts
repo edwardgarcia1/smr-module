@@ -274,16 +274,28 @@ export const getSlsPrcWithDetsPaginated = async (
 	page: number,
 	limit: number,
 	search?: string,
+	priceClassID?: string,
 ): Promise<PaginatedResponse<SlsPrcWithDet>> => {
 	const pool = await getDb();
 	const offset = (page - 1) * limit;
 
+	const conditions: string[] = [];
 	const hasSearch = search != null && search.trim().length > 0;
-	const searchClause = hasSearch
-		? `WHERE h.SlsPrcID LIKE @search OR h.InvtID LIKE @search OR h.CatalogNbr LIKE @search OR i.Descr LIKE @search`
-		: "";
+	const hasPriceClass = priceClassID != null && priceClassID.trim().length > 0;
 
-	const countQuery = `SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID LEFT JOIN Inventory i ON h.InvtID = i.InvtID ${searchClause}`;
+	if (hasSearch) {
+		conditions.push(
+			`(h.SlsPrcID LIKE @search OR h.InvtID LIKE @search OR h.CatalogNbr LIKE @search OR i.Descr LIKE @search)`,
+		);
+	}
+	if (hasPriceClass) {
+		conditions.push(`h.CatalogNbr = @priceClassID`);
+	}
+
+	const whereClause =
+		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+	const countQuery = `SELECT COUNT(*) AS _total FROM SlsPrc h LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID LEFT JOIN Inventory i ON h.InvtID = i.InvtID ${whereClause}`;
 
 	const dataQuery = `
     SELECT * FROM (
@@ -294,7 +306,7 @@ export const getSlsPrcWithDetsPaginated = async (
       FROM SlsPrc h
       LEFT JOIN SlsPrcDet d ON h.SlsPrcID = d.SlsPrcID
       LEFT JOIN Inventory i ON h.InvtID = i.InvtID
-      ${searchClause}
+      ${whereClause}
     ) AS _paginated
     WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
     ORDER BY _row_num
@@ -304,11 +316,17 @@ export const getSlsPrcWithDetsPaginated = async (
 	if (hasSearch) {
 		countRequest.input("search", `%${search.trim()}%`);
 	}
+	if (hasPriceClass) {
+		countRequest.input("priceClassID", priceClassID.trim());
+	}
 	const countResult = await countRequest.query(countQuery);
 
 	const dataRequest = pool.request();
 	if (hasSearch) {
 		dataRequest.input("search", `%${search.trim()}%`);
+	}
+	if (hasPriceClass) {
+		dataRequest.input("priceClassID", priceClassID.trim());
 	}
 	dataRequest.input("_offset", offset);
 	dataRequest.input("_limit", limit);

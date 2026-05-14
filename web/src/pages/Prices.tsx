@@ -4,6 +4,7 @@ import {
 	Paper,
 	Alert,
 	TextField,
+	Autocomplete,
 	InputAdornment,
 	IconButton,
 	Typography,
@@ -59,6 +60,12 @@ const Prices: React.FC = () => {
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<number>(0);
 
+	// Price Class filter state
+	const [priceClassID, setPriceClassID] = useState<string | null>(null);
+	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
+	const priceClassIDRef = useRef<string | null>(priceClassID);
+	useEffect(() => { priceClassIDRef.current = priceClassID; }, [priceClassID]);
+
 	// Commit search on Enter key or button click, reset to page 0
 	const handleSearch = useCallback(() => {
 		const value = searchInputRef.current?.value ?? "";
@@ -102,6 +109,8 @@ const Prices: React.FC = () => {
 				if (searchQuery) {
 					params.set("search", searchQuery);
 				}
+				const pcID = priceClassIDRef.current;
+				if (pcID) params.set("priceClassID", pcID);
 				const res = await apiRequest<PaginatedResponse<SlsPrcWithDet>>(
 					`/price?${params}`,
 				);
@@ -131,7 +140,26 @@ const Prices: React.FC = () => {
 		return () => {
 			cancelled = true;
 		};
-	}, [page, pageSize, searchQuery]);
+	}, [page, pageSize, searchQuery, priceClassID]);
+
+	// Fetch price class options for the filter
+	useEffect(() => {
+		let cancelled = false;
+
+		const fetchOptions = async () => {
+			try {
+				const res = await apiRequest<string[]>("/price/class");
+				if (!cancelled) {
+					setPriceClassOptions(res);
+				}
+			} catch {
+				// non-critical; filter just won't have suggestions
+			}
+		};
+
+		fetchOptions();
+		return () => { cancelled = true; };
+	}, []);
 
 	const handlePaginationModelChange = (newModel: GridPaginationModel) => {
 		setPage(newModel.page);
@@ -157,7 +185,7 @@ const Prices: React.FC = () => {
 		},
 		{
 			field: "CatalogNbr",
-			headerName: "Catalog Number",
+			headerName: "Price Class",
 			width: 150,
 		},
 		{
@@ -253,6 +281,20 @@ const Prices: React.FC = () => {
 							minWidth: { xs: 0, md: 240 },
 						}}
 					/>
+					<Autocomplete
+						size="small"
+						options={priceClassOptions}
+						value={priceClassID}
+						onChange={(_, newVal) => setPriceClassID(newVal)}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								placeholder="Price Class"
+								sx={{ minWidth: 180, maxWidth: 240 }}
+							/>
+						)}
+						sx={{ minWidth: 180 }}
+					/>
 					<FilterPanelTrigger
 						size="small"
 						startIcon={<FilterListIcon />}
@@ -280,7 +322,7 @@ const Prices: React.FC = () => {
 				</Box>
 			</Box>
 		);
-	}, [handleSearch, handleKeyDown, clearSearch, isSearching]);
+	}, [handleSearch, handleKeyDown, clearSearch, isSearching, priceClassID, priceClassOptions, setPriceClassID]);
 
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
