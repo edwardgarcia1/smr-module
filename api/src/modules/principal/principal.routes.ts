@@ -20,6 +20,11 @@ import {
 	NotFoundError,
 	UnauthorizedError,
 } from "../../middlewares/error";
+import { withCache, invalidateCachePrefix } from "../../utils/cache";
+
+/** Cache TTL for reference data: 5 minutes */
+const REF_CACHE_TTL = 5 * 60 * 1000;
+const CACHE_PREFIX = "principal:";
 
 export const principalRoutes = new Elysia({ prefix: "/principal" })
 	.use(rateLimitMiddleware)
@@ -28,13 +33,13 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 
 	// ── ProductClass routes ──────────────────────────────────────────
 
-	// GET /principal/ids — list all principal identifiers
+	// GET /principal/ids — list all principal identifiers (cached 5 min)
 	.get("/ids", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
-		return getAllProductClasses();
+		return withCache(`${CACHE_PREFIX}ids`, REF_CACHE_TTL, getAllProductClasses);
 	})
 
 	// GET /principal/ids/:classId — single principal by classId
@@ -62,6 +67,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return createProductClass(body);
 		},
 		{
@@ -88,6 +94,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return updateProductClass(classId, body);
 		},
 		{
@@ -107,6 +114,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			await deleteProductClass(classId);
 			return { message: `ProductClass ${classId} deleted` };
 		},
@@ -117,13 +125,13 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 
 	// ── Address routes ────────────────────────────────────────────────
 
-	// GET /principal/address — list all principal address
+	// GET /principal/address — list all principal address (cached 5 min)
 	.get("/address", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
-		return getAllVendors();
+		return withCache(`${CACHE_PREFIX}address`, REF_CACHE_TTL, getAllVendors);
 	})
 
 	// GET /principal/address/:venId — single address
@@ -151,6 +159,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return createVendor(body);
 		},
 		{
@@ -172,6 +181,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return updateVendor(venId, body);
 		},
 		{
@@ -193,6 +203,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			await deleteVendor(venId);
 			return { message: `Vendor ${venId} deleted` };
 		},
@@ -203,11 +214,11 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 
 	// ── Joined route ─────────────────────────────────────────────────
 
-	// GET /principal — Principal IDs + Address on User5 = VendId
+	// GET /principal — Principal IDs + Address on User5 = VendId (cached 5 min)
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
-		return getProductClassesWithVendors();
+		return withCache(`${CACHE_PREFIX}joined`, REF_CACHE_TTL, getProductClassesWithVendors);
 	});

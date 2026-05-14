@@ -21,6 +21,11 @@ import {
 	NotFoundError,
 	UnauthorizedError,
 } from "../../middlewares/error";
+import { withCache, invalidateCachePrefix } from "../../utils/cache";
+
+/** Cache TTL for reference data: 5 minutes */
+const REF_CACHE_TTL = 5 * 60 * 1000;
+const CACHE_PREFIX = "price:";
 
 function clamp(val: number, min: number, max: number): number {
 	return Math.min(Math.max(val, min), max);
@@ -79,6 +84,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return createSlsPrc(body);
 		},
 		{
@@ -105,6 +111,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return updateSlsPrc(slsPrcId, body);
 		},
 		{
@@ -124,6 +131,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			await deleteSlsPrc(slsPrcId);
 			return { message: `SlsPrc ${slsPrcId} deleted` };
 		},
@@ -178,6 +186,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return createSlsPrcDet(body);
 		},
 		{
@@ -214,7 +223,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		},
 	)
 
-	// GET /price/class — distinct CatalogNbr values
+	// GET /price/class — distinct CatalogNbr values (cached 5 min)
 	.get(
 		"/class",
 		async ({ rateLimit, limited, ability, user }) => {
@@ -222,6 +231,6 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
-			return getDistinctCatalogNbr();
+			return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctCatalogNbr);
 		},
 	);

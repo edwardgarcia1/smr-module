@@ -828,9 +828,6 @@ const PurchasingRequirements: React.FC = () => {
 			return;
 		}
 
-		// Simulate async processing so the spinner is visible
-		await new Promise((resolve) => setTimeout(resolve, 600));
-
 		// Fill demand data using the global monthlyFactor
 		const data = fillDemandData(filtered, monthLabels, monthlyFactor);
 

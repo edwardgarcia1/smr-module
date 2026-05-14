@@ -14,19 +14,24 @@ import {
 	NotFoundError,
 	UnauthorizedError,
 } from "../../middlewares/error";
+import { withCache, invalidateCachePrefix } from "../../utils/cache";
+
+/** Cache TTL for reference data: 5 minutes */
+const REF_CACHE_TTL = 5 * 60 * 1000;
+const CACHE_PREFIX = "inventory:";
 
 export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 	.use(rateLimitMiddleware)
 	.use(authGuard)
 	.use(caslMiddleware)
 
-	// GET /inventory — list all sites
+	// GET /inventory — list all sites (cached 5 min)
 	.get("/", async ({ rateLimit, limited, ability, user }) => {
 		if (limited) throw new BadRequestError("Rate limit exceeded");
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
-		return getAllSites();
+		return withCache(`${CACHE_PREFIX}all`, REF_CACHE_TTL, getAllSites);
 	})
 
 	// GET /inventory/:siteId — get single site
@@ -54,6 +59,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return createSite(body);
 		},
 		{
@@ -72,6 +78,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			return updateSite(siteId, body);
 		},
 		{
@@ -90,6 +97,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
+			invalidateCachePrefix(CACHE_PREFIX);
 			await deleteSite(siteId);
 			return { message: `Site ${siteId} deleted` };
 		},
