@@ -12,7 +12,7 @@ import { BadRequestError, UnauthorizedError } from "../../middlewares/error";
 import { extractAndVerifyToken } from "../../shared/auth";
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
-	.use(rateLimitMiddleware)
+	.use(rateLimitMiddleware())
 	.use(jwtMiddleware)
 	.use(refreshTokenMiddleware)
 	.post(

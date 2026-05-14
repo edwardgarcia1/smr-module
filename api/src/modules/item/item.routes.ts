@@ -30,7 +30,7 @@ import {
 } from "../../middlewares/error";
 
 export const itemRoutes = new Elysia({ prefix: "/item" })
-	.use(rateLimitMiddleware)
+	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 

@@ -40,7 +40,7 @@ function clamp(val: number, min: number, max: number): number {
 }
 
 export const salesRoutes = new Elysia({ prefix: "/sales" })
-	.use(rateLimitMiddleware)
+	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 

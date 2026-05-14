@@ -21,87 +21,100 @@ const REF_CACHE_TTL = 5 * 60 * 1000;
 const CACHE_PREFIX = "inventory:";
 
 export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
-	.use(rateLimitMiddleware)
-	.use(authGuard)
-	.use(caslMiddleware)
 
-	// GET /inventory — list all sites (cached 5 min)
-	.get("/", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	// ── Cached endpoint ────────────────────────────────────────────
+	.use(
+		new Elysia()
+			.use(authGuard)
+			.use(caslMiddleware)
+			.use(rateLimitMiddleware(`${CACHE_PREFIX}all`))
 
-		return withCache(`${CACHE_PREFIX}all`, REF_CACHE_TTL, getAllSites);
-	})
+			// GET /inventory — list all sites (cached 5 min)
+			.get("/", async ({ rateLimit, limited, ability, user }) => {
+				if (limited) throw new BadRequestError("Rate limit exceeded");
+				if (!user) throw new UnauthorizedError("Authentication required");
+				checkPermission(ability, "read", "Site");
 
-	// GET /inventory/:siteId — get single site
-	.get(
-		"/:siteId",
-		async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
-
-			const site = await getSiteById(siteId);
-			if (!site) throw new NotFoundError(`Site ${siteId} not found`);
-			return site;
-		},
-		{
-			params: t.Object({ siteId: t.String() }),
-		},
-	)
-
-	// POST /inventory — create site
-	.post(
-		"/",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
-
-			invalidateCachePrefix(CACHE_PREFIX);
-			return createSite(body);
-		},
-		{
-			body: t.Object({
-				SiteId: t.String({ maxLength: 10 }),
-				Name: t.String({ maxLength: 30 }),
+				return withCache(`${CACHE_PREFIX}all`, REF_CACHE_TTL, getAllSites);
 			}),
-		},
 	)
 
-	// PUT /inventory/:siteId — update site name
-	.put(
-		"/:siteId",
-		async ({ params: { siteId }, body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+	// ── Non-cached endpoints ───────────────────────────────────────
+	.use(
+		new Elysia()
+			.use(authGuard)
+			.use(caslMiddleware)
+			.use(rateLimitMiddleware())
 
-			invalidateCachePrefix(CACHE_PREFIX);
-			return updateSite(siteId, body);
-		},
-		{
-			params: t.Object({ siteId: t.String() }),
-			body: t.Object({
-				Name: t.String({ maxLength: 30 }),
-			}),
-		},
-	)
+			// GET /inventory/:siteId — get single site
+			.get(
+				"/:siteId",
+				async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "read", "Site");
 
-	// DELETE /inventory/:siteId — delete site
-	.delete(
-		"/:siteId",
-		async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+					const site = await getSiteById(siteId);
+					if (!site) throw new NotFoundError(`Site ${siteId} not found`);
+					return site;
+				},
+				{
+					params: t.Object({ siteId: t.String() }),
+				},
+			)
 
-			invalidateCachePrefix(CACHE_PREFIX);
-			await deleteSite(siteId);
-			return { message: `Site ${siteId} deleted` };
-		},
-		{
-			params: t.Object({ siteId: t.String() }),
-		},
+			// POST /inventory — create site
+			.post(
+				"/",
+				async ({ body, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "create", "Site");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					return createSite(body);
+				},
+				{
+					body: t.Object({
+						SiteId: t.String({ maxLength: 10 }),
+						Name: t.String({ maxLength: 30 }),
+					}),
+				},
+			)
+
+			// PUT /inventory/:siteId — update site name
+			.put(
+				"/:siteId",
+				async ({ params: { siteId }, body, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "update", "Site");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					return updateSite(siteId, body);
+				},
+				{
+					params: t.Object({ siteId: t.String() }),
+					body: t.Object({
+						Name: t.String({ maxLength: 30 }),
+					}),
+				},
+			)
+
+			// DELETE /inventory/:siteId — delete site
+			.delete(
+				"/:siteId",
+				async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "delete", "Site");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					await deleteSite(siteId);
+					return { message: `Site ${siteId} deleted` };
+				},
+				{
+					params: t.Object({ siteId: t.String() }),
+				},
+			),
 	);

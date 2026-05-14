@@ -10,7 +10,7 @@ import {
 } from "../../middlewares/error";
 
 export const userRoutes = new Elysia({ prefix: "/users" })
-	.use(rateLimitMiddleware)
+	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 	.get("/", async ({ rateLimit, limited, ability, user }) => {

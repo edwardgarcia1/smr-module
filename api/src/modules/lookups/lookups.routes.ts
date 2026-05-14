@@ -8,8 +8,14 @@ import {
 	UnauthorizedError,
 } from "../../middlewares/error";
 
+/**
+ * Cache key used by the rate limiter to skip rate limiting when
+ * the lookups data is already in cache (hot).
+ */
+const CACHE_KEY = "lookups:all";
+
 export const lookupsRoutes = new Elysia({ prefix: "/lookups" })
-	.use(rateLimitMiddleware)
+	.use(rateLimitMiddleware(CACHE_KEY))
 	.use(authGuard)
 	.use(caslMiddleware)
 

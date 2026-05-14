@@ -62,6 +62,30 @@ export function invalidateCachePrefix(prefix: string): void {
 }
 
 /**
+ * Check if a specific cache key has valid (non-expired) data.
+ *
+ * @returns true if an unexpired entry exists for the given key
+ */
+export function isCached(key: string): boolean {
+	const entry = store.get(key);
+	return entry !== undefined && entry.expiresAt > Date.now();
+}
+
+/**
+ * Check if any cache key starting with the given prefix has valid data.
+ *
+ * @example isCachedPrefix("inventory:") // checks inventory:all, etc.
+ */
+export function isCachedPrefix(prefix: string): boolean {
+	for (const [key, entry] of store) {
+		if (key.startsWith(prefix) && entry.expiresAt > Date.now()) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Clear the entire cache. Useful in testing or admin reset.
  */
 export function clearAllCache(): void {
