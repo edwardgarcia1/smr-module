@@ -1,3 +1,4 @@
+import mssql from "mssql";
 import { getDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
 import type { DateRange, PaginatedResponse, SalesFilter, SalesRecord } from "./sales.schema";
@@ -198,7 +199,7 @@ function buildDataSql(
 	offset: number,
 	limit: number,
 	filter?: SalesFilter,
-): { sql: string; params: Record<string, string> } {
+): { sql: string; params: Record<string, string | number> } {
 	const { clause: dateClause, params: dateParams } = buildDateRangeClause(dateRanges);
 	const { clause: filterClause, params: filterParams } = buildFilterClause(filter);
 
@@ -217,7 +218,7 @@ ORDER BY _row_num`;
 
 	return {
 		sql,
-		params: { ...dateParams, ...filterParams, _offset: String(offset), _limit: String(limit) },
+		params: { ...dateParams, ...filterParams, _offset: offset, _limit: limit },
 	};
 }
 
@@ -362,7 +363,11 @@ async function runData(
 	const request = pool.request();
 
 	for (const [key, val] of Object.entries(params)) {
-		request.input(key, val);
+		if (typeof val === "number") {
+			request.input(key, mssql.Int, val);
+		} else {
+			request.input(key, val);
+		}
 	}
 
 	const result = await request.query(sql);
