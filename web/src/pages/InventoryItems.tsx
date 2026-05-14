@@ -102,6 +102,185 @@ const DEFAULT_PAGE_SIZE = 100;
 
 type PromoFilter = "all" | "promos" | "non_promos";
 
+// ─── Toolbar Component (standalone — stable reference prevents remount) ─
+
+interface InventoryItemsToolbarProps {
+	searchInputValue: string;
+	onSearchInputChange: (value: string) => void;
+	handleSearch: () => void;
+	handleKeyDown: (e: React.KeyboardEvent) => void;
+	clearSearch: () => void;
+	isSearching: boolean;
+	promoFilter: PromoFilter;
+	loading: boolean;
+	onPromoFilterChange: (value: PromoFilter) => void;
+}
+
+const InventoryItemsToolbar: React.FC<InventoryItemsToolbarProps> = ({
+	searchInputValue,
+	onSearchInputChange,
+	handleSearch,
+	handleKeyDown,
+	clearSearch,
+	isSearching,
+	promoFilter,
+	loading,
+	onPromoFilterChange,
+}) => {
+	const iconSx = {
+		minWidth: "auto",
+		textTransform: "none",
+		fontSize: "0.8125rem",
+		fontWeight: 500,
+		paddingLeft: 0.75,
+		paddingRight: 0.75,
+	};
+	return (
+		<Box
+			sx={{
+				display: "flex",
+				flexDirection: { xs: "column", md: "row" },
+				justifyContent: "space-between",
+				alignItems: { xs: "stretch", md: "center" },
+				gap: { xs: 1, md: 0 },
+				px: 2,
+				py: 1,
+				borderBottom: "1px solid",
+				borderColor: "divider",
+			}}
+		>
+			<Box
+				sx={{
+					display: "flex",
+					flexDirection: { xs: "column", sm: "row" },
+					alignItems: { xs: "flex-start", sm: "center" },
+					gap: { xs: 0.5, sm: 2 },
+				}}
+			>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					Inventory Items
+				</Typography>
+				<FormControl component="fieldset" variant="standard">
+					<RadioGroup
+						row
+						value={promoFilter}
+						onChange={(_, value) => {
+							onPromoFilterChange(value as PromoFilter);
+						}}
+					>
+						<FormControlLabel
+							value="all"
+							control={<Radio size="small" />}
+							label="All"
+							disabled={loading}
+							sx={{
+								"& .MuiFormControlLabel-label": {
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+								},
+							}}
+						/>
+						<FormControlLabel
+							value="promos"
+							control={<Radio size="small" />}
+							label="Promos"
+							disabled={loading}
+							sx={{
+								"& .MuiFormControlLabel-label": {
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+								},
+							}}
+						/>
+						<FormControlLabel
+							value="non_promos"
+							control={<Radio size="small" />}
+							label="Non-Promos"
+							disabled={loading}
+							sx={{
+								"& .MuiFormControlLabel-label": {
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+								},
+							}}
+						/>
+					</RadioGroup>
+				</FormControl>
+			</Box>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					gap: 1,
+					width: { xs: "100%", md: "auto" },
+				}}
+			>
+				<TextField
+					size="small"
+					placeholder="Search inventory... (Enter to search)"
+					value={searchInputValue}
+					onChange={(e) => onSearchInputChange(e.target.value)}
+					onKeyDown={handleKeyDown}
+					fullWidth
+					slotProps={{
+						input: {
+							endAdornment: (
+								<InputAdornment position="end">
+									<IconButton
+										size="small"
+										onClick={clearSearch}
+										aria-label="clear search"
+										sx={{ mr: 0.25 }}
+									>
+										<CloseIcon fontSize="small" />
+									</IconButton>
+									<IconButton
+										size="small"
+										onClick={handleSearch}
+										aria-label="search"
+										disabled={isSearching}
+									>
+										<SearchIcon />
+									</IconButton>
+								</InputAdornment>
+							),
+						},
+					}}
+					sx={{
+						"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+						"& .MuiInputBase-input": { paddingY: 0 },
+						minWidth: { xs: 0, md: 240 },
+					}}
+				/>
+				<FilterPanelTrigger
+					size="small"
+					startIcon={<FilterListIcon />}
+					style={iconSx}
+				>
+					<Box
+						component="span"
+						sx={{ display: { xs: "none", md: "inline" } }}
+					>
+						Filters
+					</Box>
+				</FilterPanelTrigger>
+				<ColumnsPanelTrigger
+					size="small"
+					startIcon={<ViewColumnIcon />}
+					style={iconSx}
+				>
+					<Box
+						component="span"
+						sx={{ display: { xs: "none", md: "inline" } }}
+					>
+						Columns
+					</Box>
+				</ColumnsPanelTrigger>
+			</Box>
+		</Box>
+	);
+};
+
 // ── Component ─────────────────────────────────────────────────────────
 
 const InventoryItems: React.FC = () => {
@@ -111,19 +290,19 @@ const InventoryItems: React.FC = () => {
 	const [page, setPage] = useState(0);
 	const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 	const [searchQuery, setSearchQuery] = useState("");
-	const [promoFilter, setPromoFilter] = useState<PromoFilter>("all");
-	const searchInputRef = useRef<HTMLInputElement>(null);
+	const [searchInputValue, setSearchInputValue] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<number>(0);
+	const [promoFilter, setPromoFilter] = useState<PromoFilter>("all");
 
 	// Commit search on Enter key or button click, reset to page 0
 	const handleSearch = useCallback(() => {
-		const value = searchInputRef.current?.value ?? "";
+		const value = searchInputValue.trim();
 		if (isSearching) return;
 		setIsSearching(true);
 		setSearchQuery(value);
 		setPage(0);
-	}, [isSearching]);
+	}, [isSearching, searchInputValue]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -138,10 +317,15 @@ const InventoryItems: React.FC = () => {
 		window.clearTimeout(searchTimeoutRef.current);
 		setIsSearching(false);
 		setSearchQuery("");
+		setSearchInputValue("");
 		setPage(0);
-		if (searchInputRef.current) {
-			searchInputRef.current.value = "";
-		}
+	}, []);
+
+	const handlePromoFilterChange = useCallback((value: PromoFilter) => {
+		setPromoFilter(value);
+		setPage(0);
+		setSearchQuery("");
+		setSearchInputValue("");
 	}, []);
 
 	// Fetch joined Inventory + Component + ItemSite data, then aggregate
@@ -310,168 +494,6 @@ const InventoryItems: React.FC = () => {
 		},
 	];
 
-	// ─── Custom Toolbar ────────────────────────────────────────────────
-
-	const CustomToolbar = useCallback(() => {
-		const iconSx = {
-			minWidth: "auto",
-			textTransform: "none",
-			fontSize: "0.8125rem",
-			fontWeight: 500,
-			paddingLeft: 0.75,
-			paddingRight: 0.75,
-		};
-		return (
-			<Box
-				sx={{
-					display: "flex",
-					flexDirection: { xs: "column", md: "row" },
-					justifyContent: "space-between",
-					alignItems: { xs: "stretch", md: "center" },
-					gap: { xs: 1, md: 0 },
-					px: 2,
-					py: 1,
-					borderBottom: "1px solid",
-					borderColor: "divider",
-				}}
-			>
-				<Box
-					sx={{
-						display: "flex",
-						flexDirection: { xs: "column", sm: "row" },
-						alignItems: { xs: "flex-start", sm: "center" },
-						gap: { xs: 0.5, sm: 2 },
-					}}
-				>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-						Inventory Items
-					</Typography>
-					<FormControl component="fieldset" variant="standard">
-						<RadioGroup
-							row
-							value={promoFilter}
-							onChange={(_, value) => {
-								setPromoFilter(value as PromoFilter);
-								setPage(0);
-								setSearchQuery("");
-								if (searchInputRef.current) {
-									searchInputRef.current.value = "";
-								}
-							}}
-						>
-							<FormControlLabel
-								value="all"
-								control={<Radio size="small" />}
-								label="All"
-								disabled={loading}
-								sx={{
-									"& .MuiFormControlLabel-label": {
-										fontSize: "0.8125rem",
-										fontWeight: 500,
-									},
-								}}
-							/>
-							<FormControlLabel
-								value="promos"
-								control={<Radio size="small" />}
-								label="Promos"
-								disabled={loading}
-								sx={{
-									"& .MuiFormControlLabel-label": {
-										fontSize: "0.8125rem",
-										fontWeight: 500,
-									},
-								}}
-							/>
-							<FormControlLabel
-								value="non_promos"
-								control={<Radio size="small" />}
-								label="Non-Promos"
-								disabled={loading}
-								sx={{
-									"& .MuiFormControlLabel-label": {
-										fontSize: "0.8125rem",
-										fontWeight: 500,
-									},
-								}}
-							/>
-						</RadioGroup>
-					</FormControl>
-				</Box>
-				<Box
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						gap: 1,
-						width: { xs: "100%", md: "auto" },
-					}}
-				>
-					<TextField
-						inputRef={searchInputRef}
-						size="small"
-						placeholder="Search inventory... (Enter to search)"
-						defaultValue=""
-						onKeyDown={handleKeyDown}
-						fullWidth
-						slotProps={{
-							input: {
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											size="small"
-											onClick={clearSearch}
-											aria-label="clear search"
-											sx={{ mr: 0.25 }}
-										>
-											<CloseIcon fontSize="small" />
-										</IconButton>
-										<IconButton
-											size="small"
-											onClick={handleSearch}
-											aria-label="search"
-											disabled={isSearching}
-										>
-											<SearchIcon />
-										</IconButton>
-									</InputAdornment>
-								),
-							},
-						}}
-						sx={{
-							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
-							"& .MuiInputBase-input": { paddingY: 0 },
-							minWidth: { xs: 0, md: 240 },
-						}}
-					/>
-					<FilterPanelTrigger
-						size="small"
-						startIcon={<FilterListIcon />}
-						style={iconSx}
-					>
-						<Box
-							component="span"
-							sx={{ display: { xs: "none", md: "inline" } }}
-						>
-							Filters
-						</Box>
-					</FilterPanelTrigger>
-					<ColumnsPanelTrigger
-						size="small"
-						startIcon={<ViewColumnIcon />}
-						style={iconSx}
-					>
-						<Box
-							component="span"
-							sx={{ display: { xs: "none", md: "inline" } }}
-						>
-							Columns
-						</Box>
-					</ColumnsPanelTrigger>
-				</Box>
-			</Box>
-		);
-	}, [handleSearch, handleKeyDown, clearSearch, promoFilter, loading, isSearching]);
-
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
 			{error ? (
@@ -490,9 +512,20 @@ const InventoryItems: React.FC = () => {
 					loading={loading || isSearching}
 					pageSizeOptions={[25, 50, 100]}
 					disableColumnSorting
-					slots={{ toolbar: CustomToolbar }}
+					slots={{ toolbar: InventoryItemsToolbar }}
 					showToolbar
 					slotProps={{
+						toolbar: {
+							searchInputValue,
+							onSearchInputChange: setSearchInputValue,
+							handleSearch,
+							handleKeyDown,
+							clearSearch,
+							isSearching,
+							promoFilter,
+							loading,
+							onPromoFilterChange: handlePromoFilterChange,
+						},
 						loadingOverlay: {
 							variant: "skeleton",
 						},

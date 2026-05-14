@@ -46,6 +46,144 @@ interface PaginatedResponse<T> {
 // Community edition limited to 100 rows per page
 const DEFAULT_PAGE_SIZE = 100;
 
+// ─── Toolbar Component (standalone — stable reference prevents remount) ─
+
+interface PricesToolbarProps {
+	searchInputValue: string;
+	onSearchInputChange: (value: string) => void;
+	handleSearch: () => void;
+	handleKeyDown: (e: React.KeyboardEvent) => void;
+	clearSearch: () => void;
+	isSearching: boolean;
+	priceClassID: string | null;
+	priceClassOptions: string[];
+	onPriceClassIDChange: (value: string | null) => void;
+}
+
+const PricesToolbar: React.FC<PricesToolbarProps> = ({
+	searchInputValue,
+	onSearchInputChange,
+	handleSearch,
+	handleKeyDown,
+	clearSearch,
+	isSearching,
+	priceClassID,
+	priceClassOptions,
+	onPriceClassIDChange,
+}) => {
+	const iconSx = {
+		minWidth: "auto",
+		textTransform: "none",
+		fontSize: "0.8125rem",
+		fontWeight: 500,
+		paddingLeft: 0.75,
+		paddingRight: 0.75,
+	};
+	return (
+		<Box
+			sx={{
+				display: "flex",
+				flexDirection: { xs: "column", md: "row" },
+				justifyContent: "space-between",
+				alignItems: { xs: "stretch", md: "center" },
+				gap: { xs: 1, md: 0 },
+				px: 2,
+				py: 1,
+				borderBottom: "1px solid",
+				borderColor: "divider",
+			}}
+		>
+			<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+				Prices
+			</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					gap: 1,
+					width: { xs: "100%", md: "auto" },
+				}}
+			>
+				<TextField
+					size="small"
+					placeholder="Search prices... (Enter to search)"
+					value={searchInputValue}
+					onChange={(e) => onSearchInputChange(e.target.value)}
+					onKeyDown={handleKeyDown}
+					fullWidth
+					slotProps={{
+						input: {
+							endAdornment: (
+								<InputAdornment position="end">
+									<IconButton
+										size="small"
+										onClick={clearSearch}
+										aria-label="clear search"
+										sx={{ mr: 0.25 }}
+									>
+										<CloseIcon fontSize="small" />
+									</IconButton>
+									<IconButton
+										size="small"
+										onClick={handleSearch}
+										aria-label="search"
+										disabled={isSearching}
+									>
+										<SearchIcon />
+									</IconButton>
+								</InputAdornment>
+							),
+						},
+					}}
+					sx={{
+						"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+						"& .MuiInputBase-input": { paddingY: 0 },
+						minWidth: { xs: 0, md: 240 },
+					}}
+				/>
+				<Autocomplete
+					size="small"
+					options={priceClassOptions}
+					value={priceClassID}
+					onChange={(_, newVal) => onPriceClassIDChange(newVal)}
+					renderInput={(params) => (
+						<TextField
+							{...params}
+							placeholder="Price Class"
+							sx={{ minWidth: 180, maxWidth: 240 }}
+						/>
+					)}
+					sx={{ minWidth: 180 }}
+				/>
+				<FilterPanelTrigger
+					size="small"
+					startIcon={<FilterListIcon />}
+					style={iconSx}
+				>
+					<Box
+						component="span"
+						sx={{ display: { xs: "none", md: "inline" } }}
+					>
+						Filters
+					</Box>
+				</FilterPanelTrigger>
+				<ColumnsPanelTrigger
+					size="small"
+					startIcon={<ViewColumnIcon />}
+					style={iconSx}
+				>
+					<Box
+						component="span"
+						sx={{ display: { xs: "none", md: "inline" } }}
+					>
+						Columns
+					</Box>
+				</ColumnsPanelTrigger>
+			</Box>
+		</Box>
+	);
+};
+
 // ── Component ─────────────────────────────────────────────────────────
 
 const Prices: React.FC = () => {
@@ -56,7 +194,7 @@ const Prices: React.FC = () => {
 	const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 	const [rowCount, setRowCount] = useState(0);
 	const [searchQuery, setSearchQuery] = useState("");
-	const searchInputRef = useRef<HTMLInputElement>(null);
+	const [searchInputValue, setSearchInputValue] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<number>(0);
 
@@ -68,12 +206,12 @@ const Prices: React.FC = () => {
 
 	// Commit search on Enter key or button click, reset to page 0
 	const handleSearch = useCallback(() => {
-		const value = searchInputRef.current?.value ?? "";
+		const value = searchInputValue.trim();
 		if (isSearching) return;
 		setIsSearching(true);
 		setSearchQuery(value);
 		setPage(0);
-	}, [isSearching]);
+	}, [isSearching, searchInputValue]);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
@@ -88,10 +226,8 @@ const Prices: React.FC = () => {
 		window.clearTimeout(searchTimeoutRef.current);
 		setIsSearching(false);
 		setSearchQuery("");
+		setSearchInputValue("");
 		setPage(0);
-		if (searchInputRef.current) {
-			searchInputRef.current.value = "";
-		}
 	}, []);
 
 	// Fetch whenever page, pageSize or searchQuery changes
@@ -208,122 +344,6 @@ const Prices: React.FC = () => {
 		},
 	];
 
-	// ─── Custom Toolbar ────────────────────────────────────────────────
-
-	const CustomToolbar = useCallback(() => {
-		const iconSx = {
-			minWidth: "auto",
-			textTransform: "none",
-			fontSize: "0.8125rem",
-			fontWeight: 500,
-			paddingLeft: 0.75,
-			paddingRight: 0.75,
-		};
-		return (
-			<Box
-				sx={{
-					display: "flex",
-					flexDirection: { xs: "column", md: "row" },
-					justifyContent: "space-between",
-					alignItems: { xs: "stretch", md: "center" },
-					gap: { xs: 1, md: 0 },
-					px: 2,
-					py: 1,
-					borderBottom: "1px solid",
-					borderColor: "divider",
-				}}
-			>
-				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-					Prices
-				</Typography>
-				<Box
-					sx={{
-						display: "flex",
-						alignItems: "center",
-						gap: 1,
-						width: { xs: "100%", md: "auto" },
-					}}
-				>
-					<TextField
-						inputRef={searchInputRef}
-						size="small"
-						placeholder="Search prices... (Enter to search)"
-						defaultValue=""
-						onKeyDown={handleKeyDown}
-						fullWidth
-						slotProps={{
-							input: {
-								endAdornment: (
-									<InputAdornment position="end">
-										<IconButton
-											size="small"
-											onClick={clearSearch}
-											aria-label="clear search"
-											sx={{ mr: 0.25 }}
-										>
-											<CloseIcon fontSize="small" />
-										</IconButton>
-										<IconButton
-											size="small"
-											onClick={handleSearch}
-											aria-label="search"
-											disabled={isSearching}
-										>
-											<SearchIcon />
-										</IconButton>
-									</InputAdornment>
-								),
-							},
-						}}
-						sx={{
-							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
-							"& .MuiInputBase-input": { paddingY: 0 },
-							minWidth: { xs: 0, md: 240 },
-						}}
-					/>
-					<Autocomplete
-						size="small"
-						options={priceClassOptions}
-						value={priceClassID}
-						onChange={(_, newVal) => setPriceClassID(newVal)}
-						renderInput={(params) => (
-							<TextField
-								{...params}
-								placeholder="Price Class"
-								sx={{ minWidth: 180, maxWidth: 240 }}
-							/>
-						)}
-						sx={{ minWidth: 180 }}
-					/>
-					<FilterPanelTrigger
-						size="small"
-						startIcon={<FilterListIcon />}
-						style={iconSx}
-					>
-						<Box
-							component="span"
-							sx={{ display: { xs: "none", md: "inline" } }}
-						>
-							Filters
-						</Box>
-					</FilterPanelTrigger>
-					<ColumnsPanelTrigger
-						size="small"
-						startIcon={<ViewColumnIcon />}
-						style={iconSx}
-					>
-						<Box
-							component="span"
-							sx={{ display: { xs: "none", md: "inline" } }}
-						>
-							Columns
-						</Box>
-					</ColumnsPanelTrigger>
-				</Box>
-			</Box>
-		);
-	}, [handleSearch, handleKeyDown, clearSearch, isSearching, priceClassID, priceClassOptions, setPriceClassID]);
-
 	return (
 		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
 			{error ? (
@@ -342,12 +362,23 @@ const Prices: React.FC = () => {
 					loading={loading}
 					pageSizeOptions={[25, 50, 100]}
 					disableColumnSorting
-					slots={{ toolbar: CustomToolbar }}
+					slots={{ toolbar: PricesToolbar }}
 					showToolbar
 					initialState={{
 						columns: { columnVisibilityModel: { SlsPrcID: false } },
 					}}
 					slotProps={{
+						toolbar: {
+							searchInputValue,
+							onSearchInputChange: setSearchInputValue,
+							handleSearch,
+							handleKeyDown,
+							clearSearch,
+							isSearching,
+							priceClassID,
+							priceClassOptions,
+							onPriceClassIDChange: setPriceClassID,
+						},
 						loadingOverlay: {
 							variant: "skeleton",
 						},
