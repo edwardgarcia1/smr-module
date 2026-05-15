@@ -1,15 +1,15 @@
 import { Elysia, t } from "elysia";
 import {
-	createSlsPrc,
-	getSlsPrcById,
-	updateSlsPrc,
-	deleteSlsPrc,
-	createSlsPrcDet,
-	getSlsPrcDetByHeaderId,
-	getSlsPrcPaginated,
-	getSlsPrcDetPaginated,
-	getSlsPrcWithDetsPaginated,
-	getDistinctCatalogNbr,
+	createItemCost,
+	getItemCostById,
+	updateItemCost,
+	deleteItemCost,
+	createPriceClass,
+	getCurrentPriceClasses,
+	getDistinctPriceClasses,
+	updatePriceClass,
+	deletePriceClass,
+	getPricesPaginated,
 	MAX_LIMIT,
 	DEFAULT_LIMIT,
 } from "./price.service";
@@ -40,15 +40,15 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			.use(caslMiddleware)
 			.use(rateLimitMiddleware(`${CACHE_PREFIX}class`))
 
-			// GET /price/class — distinct CatalogNbr values (cached 5 min)
+			// GET /price/class — distinct price_class values (cached 5 min)
 			.get(
 				"/class",
 				async ({ rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "ItemCost");
 
-					return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctCatalogNbr);
+					return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctPriceClasses);
 				},
 			),
 	)
@@ -60,69 +60,46 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			.use(caslMiddleware)
 			.use(rateLimitMiddleware())
 
-			// GET /price/ids — paginated list of price headers
+			// ── Price Class CRUD ─────────────────────────────────────
+
+			// GET /price/classes — all price classes (with pct_discount, dates)
 			.get(
-				"/ids",
-				async ({ query, rateLimit, limited, ability, user }) => {
+				"/classes",
+				async ({ rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "PriceClass");
 
-					const page = clamp(Number(query.page) || 1, 1, Infinity);
-					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
-
-					return getSlsPrcPaginated(page, limit);
-				},
-				{
-					query: t.Object({
-						page: t.Optional(t.String()),
-						limit: t.Optional(t.String()),
-					}),
+					return getCurrentPriceClasses();
 				},
 			)
 
-			// GET /price/ids/:slsPrcId — single price header
-			.get(
-				"/ids/:slsPrcId",
-				async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
-
-					const prc = await getSlsPrcById(slsPrcId);
-					if (!prc) throw new NotFoundError(`SlsPrc ${slsPrcId} not found`);
-					return prc;
-				},
-				{
-					params: t.Object({ slsPrcId: t.String() }),
-				},
-			)
-
-			// POST /price/ids — create price header
+			// POST /price/classes — create a price class
 			.post(
-				"/ids",
+				"/classes",
 				async ({ body, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "Site");
+					checkPermission(ability, "create", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createSlsPrc(body);
+					return createPriceClass(body);
 				},
 				{
 					body: t.Object({
-						SlsPrcID: t.String({ maxLength: 30 }),
-						InvtID: t.String({ maxLength: 30 }),
-						CatalogNbr: t.String({ maxLength: 50 }),
+						price_class: t.String({ maxLength: 30 }),
+						pct_discount: t.Number(),
+						valid_from: t.String({ maxLength: 10 }), // ISO date YYYY-MM-DD
+						valid_to: t.Optional(t.String({ maxLength: 10 })),
 					}),
 				},
 			)
 
-			// PUT /price/ids/:slsPrcId — update price header
+			// PUT /price/classes/:priceClass/:validFrom — update price class
 			.put(
-				"/ids/:slsPrcId",
+				"/classes/:priceClass/:validFrom",
 				async ({
-					params: { slsPrcId },
+					params: { priceClass, validFrom },
 					body,
 					rateLimit,
 					limited,
@@ -131,114 +108,154 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				}) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "Site");
+					checkPermission(ability, "update", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updateSlsPrc(slsPrcId, body);
+					return updatePriceClass(priceClass, validFrom, body);
 				},
 				{
-					params: t.Object({ slsPrcId: t.String() }),
+					params: t.Object({
+						priceClass: t.String(),
+						validFrom: t.String(),
+					}),
 					body: t.Object({
-						InvtID: t.Optional(t.String({ maxLength: 30 })),
-						CatalogNbr: t.Optional(t.String({ maxLength: 50 })),
+						pct_discount: t.Optional(t.Number()),
+						valid_to: t.Optional(t.String({ maxLength: 10 })),
 					}),
 				},
 			)
 
-			// DELETE /price/ids/:slsPrcId — delete price header
+			// DELETE /price/classes/:priceClass/:validFrom — delete price class
 			.delete(
-				"/ids/:slsPrcId",
-				async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
+				"/classes/:priceClass/:validFrom",
+				async ({ params: { priceClass, validFrom }, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "Site");
+					checkPermission(ability, "delete", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteSlsPrc(slsPrcId);
-					return { message: `SlsPrc ${slsPrcId} deleted` };
+					await deletePriceClass(priceClass, validFrom);
+					return { message: `PriceClass ${priceClass} / ${validFrom} deleted` };
 				},
 				{
-					params: t.Object({ slsPrcId: t.String() }),
-				},
-			)
-
-			// GET /price/value — paginated list of all values
-			.get(
-				"/value",
-				async ({ query, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
-
-					const page = clamp(Number(query.page) || 1, 1, Infinity);
-					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
-
-					return getSlsPrcDetPaginated(page, limit);
-				},
-				{
-					query: t.Object({
-						page: t.Optional(t.String()),
-						limit: t.Optional(t.String()),
+					params: t.Object({
+						priceClass: t.String(),
+						validFrom: t.String(),
 					}),
 				},
 			)
 
-			// GET /price/value/:slsPrcId — details by header
+			// ── Item Cost CRUD ────────────────────────────────────────
+
+			// GET /price/items — get item cost by id
 			.get(
-				"/value/:slsPrcId",
-				async ({ params: { slsPrcId }, rateLimit, limited, ability, user }) => {
+				"/items/:id",
+				async ({ params: { id }, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "ItemCost");
 
-					return getSlsPrcDetByHeaderId(slsPrcId);
+					const cost = await getItemCostById(id);
+					if (!cost) throw new NotFoundError(`ItemCost ${id} not found`);
+					return cost;
 				},
 				{
-					params: t.Object({ slsPrcId: t.String() }),
+					params: t.Object({ id: t.Numeric() }),
 				},
 			)
 
-			// POST /price/value — create detail
+			// POST /price/items — create item cost
 			.post(
-				"/value",
+				"/items",
 				async ({ body, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "Site");
+					checkPermission(ability, "create", "ItemCost");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createSlsPrcDet(body);
+					return createItemCost(body);
 				},
 				{
 					body: t.Object({
-						SlsPrcID: t.String({ maxLength: 30 }),
-						DiscPrice: t.Number(),
-						SlsUnit: t.String({ maxLength: 10 }),
+						inventory_id: t.String({ maxLength: 30 }),
+						cost: t.Number(),
+						unit: t.String({ maxLength: 10 }),
+						valid_from: t.String({ maxLength: 10 }),
+						valid_to: t.Optional(t.String({ maxLength: 10 })),
 					}),
 				},
 			)
 
-			// GET /price — paginated IDs + Values on SlsPrcID, with optional search and priceClassID filter
+			// PUT /price/items/:id — update item cost
+			.put(
+				"/items/:id",
+				async ({
+					params: { id },
+					body,
+					rateLimit,
+					limited,
+					ability,
+					user,
+				}) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "update", "ItemCost");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					return updateItemCost(id, body);
+				},
+				{
+					params: t.Object({ id: t.Numeric() }),
+					body: t.Object({
+						cost: t.Optional(t.Number()),
+						unit: t.Optional(t.String({ maxLength: 10 })),
+						valid_to: t.Optional(t.String({ maxLength: 10 })),
+					}),
+				},
+			)
+
+			// DELETE /price/items/:id — delete item cost
+			.delete(
+				"/items/:id",
+				async ({ params: { id }, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "delete", "ItemCost");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					await deleteItemCost(id);
+					return { message: `ItemCost ${id} deleted` };
+				},
+				{
+					params: t.Object({ id: t.Numeric() }),
+				},
+			)
+
+			// ── Main price listing ───────────────────────────────────
+
+			// GET /price — paginated price records with search, unit, price_class
 			.get(
 				"/",
 				async ({ query, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "ItemCost");
 
 					const page = clamp(Number(query.page) || 1, 1, Infinity);
 					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
 					const search = query.search;
-					const priceClassID = query.priceClassID;
+					const unit = query.unit;
+					const priceClassVal = query.price_class;
 
-					return getSlsPrcWithDetsPaginated(page, limit, search, priceClassID);
+					return getPricesPaginated(page, limit, search, unit, priceClassVal);
 				},
 				{
 					query: t.Object({
 						page: t.Optional(t.String()),
 						limit: t.Optional(t.String()),
 						search: t.Optional(t.String()),
-						priceClassID: t.Optional(t.String()),
+						unit: t.Optional(t.String()),
+						price_class: t.Optional(t.String()),
 					}),
 				},
 			),

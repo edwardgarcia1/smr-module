@@ -1,5 +1,9 @@
 import sql from "mssql";
 import { CREATE_USERS_TABLE_SQL } from "./modules/users/user.schema";
+import {
+	CREATE_ITEMCOST_TABLE_SQL,
+	CREATE_PRICECLASS_TABLE_SQL,
+} from "./modules/price/price.schema";
 
 const config: sql.config = {
 	server: process.env.DB_HOST || "localhost",
@@ -22,6 +26,14 @@ async function migrate() {
 		// Create SMR_Users table if it doesn't exist
 		await pool.request().query(CREATE_USERS_TABLE_SQL);
 		console.log("SMR_Users table ready");
+
+		// Create SMR_ItemCost table
+		await pool.request().query(CREATE_ITEMCOST_TABLE_SQL);
+		console.log("SMR_ItemCost table ready");
+
+		// Create SMR_PriceClass table
+		await pool.request().query(CREATE_PRICECLASS_TABLE_SQL);
+		console.log("SMR_PriceClass table ready");
 
 		// Seed superadmin if not exists
 		const username = process.env.SUPERADMIN_USERNAME || "superadmin";

@@ -2,36 +2,49 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
 	Box,
 	Paper,
-	Alert,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+	TablePagination,
+	Collapse,
+	IconButton,
+	Typography,
 	TextField,
 	Autocomplete,
 	InputAdornment,
-	IconButton,
-	Typography,
+	Alert,
+	LinearProgress,
 } from "@mui/material";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
-import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import {
-	DataGrid,
-	ColumnsPanelTrigger,
-	FilterPanelTrigger,
-	type GridColDef,
-	type GridPaginationModel,
-} from "@mui/x-data-grid";
 import apiRequest from "../services/api";
 
-// ── Types matching price.schema.ts ────────────────────────────────────
+// ── Types matching price.schema.ts response ──────────────────────────
 
-interface SlsPrcWithDet {
-	SlsPrcID: string;
-	InvtID: string;
-	CatalogNbr: string;
-	Descr: string | null;
-	DiscPrice: number | null;
-	SlsUnit: string | null;
-	_id: string;
+interface PriceHistoryEntry {
+	valid_from: string;
+	valid_to: string | null;
+	cost: number;
+	unit: string;
+	price_class: string | null;
+	discount_price: number | null;
+}
+
+interface PriceRecord {
+	inventory_id: string;
+	class_id: string | null;
+	description: string | null;
+	cost: number | null;
+	unit: string | null;
+	price_class: string | null;
+	pct_discount: number | null;
+	discount_price: number | null;
+	history: PriceHistoryEntry[];
 }
 
 interface PaginatedResponse<T> {
@@ -42,11 +55,116 @@ interface PaginatedResponse<T> {
 	totalPages: number;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────
-// Community edition limited to 100 rows per page
-const DEFAULT_PAGE_SIZE = 100;
+// ── Helpers ──────────────────────────────────────────────────────────
 
-// ─── Toolbar Component (standalone — stable reference prevents remount) ─
+function fmtNum(val: number | null | undefined): string {
+	if (val === null || val === undefined) return "—";
+	return val.toLocaleString(undefined, {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 4,
+	});
+}
+
+function fmtDate(val: string | null | undefined): string {
+	if (!val) return "Current";
+	// Display as short date
+	const d = new Date(val);
+	return d.toLocaleDateString(undefined, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
+}
+
+// ── Row Component (collapsible) ──────────────────────────────────────
+
+interface RowProps {
+	row: PriceRecord;
+}
+
+const Row: React.FC<RowProps> = ({ row }) => {
+	const [open, setOpen] = useState(false);
+	const hasHistory = row.history.length > 0;
+
+	return (
+		<React.Fragment>
+			<TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
+				<TableCell sx={{ width: 48, px: 1 }}>
+					<IconButton
+						aria-label="expand row"
+						size="small"
+						onClick={() => setOpen(!open)}
+						disabled={!hasHistory}
+					>
+						{hasHistory ? (
+							open ? (
+								<KeyboardArrowUpIcon />
+							) : (
+								<KeyboardArrowDownIcon />
+							)
+						) : (
+							<Box sx={{ width: 24 }} />
+						)}
+					</IconButton>
+				</TableCell>
+				<TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
+					{row.inventory_id}
+				</TableCell>
+				<TableCell>{row.class_id ?? "—"}</TableCell>
+				<TableCell sx={{ maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+					{row.description ?? "—"}
+				</TableCell>
+				<TableCell align="right">{fmtNum(row.cost)}</TableCell>
+				<TableCell>{row.unit ?? "—"}</TableCell>
+				<TableCell>{row.price_class ?? "—"}</TableCell>
+				<TableCell align="right">{row.pct_discount != null ? `${(row.pct_discount * 100).toFixed(1)}%` : "—"}</TableCell>
+				<TableCell align="right" sx={{ fontWeight: 600 }}>
+					{fmtNum(row.discount_price)}
+				</TableCell>
+			</TableRow>
+			<TableRow>
+				<TableCell
+					sx={{ paddingBottom: 0, paddingTop: 0, borderBottom: open ? undefined : "unset" }}
+					colSpan={9}
+				>
+					<Collapse in={open} timeout="auto" unmountOnExit>
+						<Box sx={{ margin: 1 }}>
+							<Typography variant="subtitle2" gutterBottom component="div" sx={{ color: "text.secondary" }}>
+								Cost History
+							</Typography>
+							<Table size="small" aria-label="price history">
+								<TableHead>
+									<TableRow>
+										<TableCell>Valid From</TableCell>
+										<TableCell>Valid To</TableCell>
+										<TableCell align="right">Cost</TableCell>
+										<TableCell>Unit</TableCell>
+										<TableCell>Price Class</TableCell>
+										<TableCell align="right">Discount Price</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{row.history.map((h, idx) => (
+										<TableRow key={`${h.valid_from}__${idx}`}>
+											<TableCell>{fmtDate(h.valid_from)}</TableCell>
+											<TableCell>{fmtDate(h.valid_to)}</TableCell>
+											<TableCell align="right">{fmtNum(h.cost)}</TableCell>
+											<TableCell>{h.unit}</TableCell>
+											<TableCell>{h.price_class ?? "—"}</TableCell>
+											<TableCell align="right">{fmtNum(h.discount_price)}</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</Box>
+					</Collapse>
+				</TableCell>
+			</TableRow>
+		</React.Fragment>
+	);
+};
+
+// ── Toolbar ──────────────────────────────────────────────────────────
 
 interface PricesToolbarProps {
 	searchInputValue: string;
@@ -55,9 +173,13 @@ interface PricesToolbarProps {
 	handleKeyDown: (e: React.KeyboardEvent) => void;
 	clearSearch: () => void;
 	isSearching: boolean;
-	priceClassID: string | null;
+	totalCount: number;
+	priceClass: string | null;
 	priceClassOptions: string[];
-	onPriceClassIDChange: (value: string | null) => void;
+	onPriceClassChange: (value: string | null) => void;
+	unit: string | null;
+	unitOptions: string[];
+	onUnitChange: (value: string | null) => void;
 }
 
 const PricesToolbar: React.FC<PricesToolbarProps> = ({
@@ -67,127 +189,113 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	handleKeyDown,
 	clearSearch,
 	isSearching,
-	priceClassID,
+	totalCount,
+	priceClass,
 	priceClassOptions,
-	onPriceClassIDChange,
-}) => {
-	const iconSx = {
-		minWidth: "auto",
-		textTransform: "none",
-		fontSize: "0.8125rem",
-		fontWeight: 500,
-		paddingLeft: 0.75,
-		paddingRight: 0.75,
-	};
-	return (
-		<Box
-			sx={{
-				display: "flex",
-				flexDirection: { xs: "column", md: "row" },
-				justifyContent: "space-between",
-				alignItems: { xs: "stretch", md: "center" },
-				gap: { xs: 1, md: 0 },
-				px: 2,
-				py: 1,
-				borderBottom: "1px solid",
-				borderColor: "divider",
-			}}
-		>
+	onPriceClassChange,
+	unit,
+	unitOptions,
+	onUnitChange,
+}) => (
+	<Box
+		sx={{
+			display: "flex",
+			flexDirection: { xs: "column", md: "row" },
+			justifyContent: "space-between",
+			alignItems: { xs: "stretch", md: "center" },
+			gap: { xs: 1, md: 0 },
+			px: 2,
+			py: 1,
+			borderBottom: "1px solid",
+			borderColor: "divider",
+		}}
+	>
+		<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 			<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
 				Prices
 			</Typography>
-			<Box
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					gap: 1,
-					width: { xs: "100%", md: "auto" },
-				}}
-			>
-				<TextField
-					size="small"
-					placeholder="Search prices... (Enter to search)"
-					value={searchInputValue}
-					onChange={(e) => onSearchInputChange(e.target.value)}
-					onKeyDown={handleKeyDown}
-					fullWidth
-					slotProps={{
-						input: {
-							endAdornment: (
-								<InputAdornment position="end">
-									<IconButton
-										size="small"
-										onClick={clearSearch}
-										aria-label="clear search"
-										sx={{ mr: 0.25 }}
-									>
-										<CloseIcon fontSize="small" />
-									</IconButton>
-									<IconButton
-										size="small"
-										onClick={handleSearch}
-										aria-label="search"
-										disabled={isSearching}
-									>
-										<SearchIcon />
-									</IconButton>
-								</InputAdornment>
-							),
-						},
-					}}
-					sx={{
-						"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
-						"& .MuiInputBase-input": { paddingY: 0 },
-						minWidth: { xs: 0, md: 240 },
-					}}
-				/>
-				<Autocomplete
-					size="small"
-					options={priceClassOptions}
-					value={priceClassID}
-					onChange={(_, newVal) => onPriceClassIDChange(newVal)}
-					renderInput={(params) => (
-						<TextField
-							{...params}
-							placeholder="Price Class"
-							sx={{ minWidth: 180, maxWidth: 240 }}
-						/>
-					)}
-					sx={{ minWidth: 180 }}
-				/>
-				<FilterPanelTrigger
-					size="small"
-					startIcon={<FilterListIcon />}
-					style={iconSx}
-				>
-					<Box
-						component="span"
-						sx={{ display: { xs: "none", md: "inline" } }}
-					>
-						Filters
-					</Box>
-				</FilterPanelTrigger>
-				<ColumnsPanelTrigger
-					size="small"
-					startIcon={<ViewColumnIcon />}
-					style={iconSx}
-				>
-					<Box
-						component="span"
-						sx={{ display: { xs: "none", md: "inline" } }}
-					>
-						Columns
-					</Box>
-				</ColumnsPanelTrigger>
-			</Box>
+			<Typography variant="caption" sx={{ color: "text.secondary" }}>
+				{totalCount} records
+			</Typography>
 		</Box>
-	);
-};
+		<Box
+			sx={{
+				display: "flex",
+				alignItems: "center",
+				gap: 1,
+				flexWrap: "wrap",
+				width: { xs: "100%", md: "auto" },
+			}}
+		>
+			<TextField
+				size="small"
+				placeholder="Search inventory, class, desc..."
+				value={searchInputValue}
+				onChange={(e) => onSearchInputChange(e.target.value)}
+				onKeyDown={handleKeyDown}
+				fullWidth
+				slotProps={{
+					input: {
+						endAdornment: (
+							<InputAdornment position="end">
+								<IconButton
+									size="small"
+									onClick={clearSearch}
+									aria-label="clear search"
+									sx={{ mr: 0.25 }}
+								>
+									<CloseIcon fontSize="small" />
+								</IconButton>
+								<IconButton
+									size="small"
+									onClick={handleSearch}
+									aria-label="search"
+									disabled={isSearching}
+								>
+									<SearchIcon />
+								</IconButton>
+							</InputAdornment>
+						),
+					},
+				}}
+				sx={{
+					"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+					"& .MuiInputBase-input": { paddingY: 0 },
+					minWidth: { xs: 0, md: 220 },
+				}}
+			/>
+			<Autocomplete
+				size="small"
+				options={priceClassOptions}
+				value={priceClass}
+				onChange={(_, newVal) => onPriceClassChange(newVal)}
+				renderInput={(params) => (
+					<TextField {...params} placeholder="Price Class" sx={{ minWidth: 160 }} />
+				)}
+				sx={{ minWidth: 160 }}
+			/>
+			<Autocomplete
+				size="small"
+				options={unitOptions}
+				value={unit}
+				onChange={(_, newVal) => onUnitChange(newVal)}
+				renderInput={(params) => (
+					<TextField {...params} placeholder="Unit" sx={{ minWidth: 100 }} />
+				)}
+				sx={{ minWidth: 100 }}
+			/>
+		</Box>
+	</Box>
+);
 
-// ── Component ─────────────────────────────────────────────────────────
+// ── Main Component ───────────────────────────────────────────────────
+
+const DEFAULT_PAGE_SIZE = 25;
+
+const unitOptions = ["", "PCS", "CS", "BOX", "KG", "L", "M"];
 
 const Prices: React.FC = () => {
-	const [rows, setRows] = useState<SlsPrcWithDet[]>([]);
+	const [rows, setRows] = useState<PriceRecord[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [page, setPage] = useState(0);
@@ -197,14 +305,17 @@ const Prices: React.FC = () => {
 	const [searchInputValue, setSearchInputValue] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<number>(0);
-
-	// Price Class filter state
-	const [priceClassID, setPriceClassID] = useState<string | null>(null);
+	const [priceClass, setPriceClass] = useState<string | null>(null);
 	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
-	const priceClassIDRef = useRef<string | null>(priceClassID);
-	useEffect(() => { priceClassIDRef.current = priceClassID; }, [priceClassID]);
+	const [unit, setUnit] = useState<string | null>(null);
 
-	// Commit search on Enter key or button click, reset to page 0
+	const priceClassRef = useRef<string | null>(priceClass);
+	const unitRef = useRef<string | null>(unit);
+
+	useEffect(() => { priceClassRef.current = priceClass; }, [priceClass]);
+	useEffect(() => { unitRef.current = unit; }, [unit]);
+
+	// Commit search on Enter key or button click
 	const handleSearch = useCallback(() => {
 		const value = searchInputValue.trim();
 		if (isSearching) return;
@@ -215,9 +326,7 @@ const Prices: React.FC = () => {
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
-			if (e.key === "Enter") {
-				handleSearch();
-			}
+			if (e.key === "Enter") handleSearch();
 		},
 		[handleSearch],
 	);
@@ -230,7 +339,7 @@ const Prices: React.FC = () => {
 		setPage(0);
 	}, []);
 
-	// Fetch whenever page, pageSize or searchQuery changes
+	// Fetch data
 	useEffect(() => {
 		let cancelled = false;
 
@@ -242,20 +351,17 @@ const Prices: React.FC = () => {
 					page: String(page + 1),
 					limit: String(pageSize),
 				});
-				if (searchQuery) {
-					params.set("search", searchQuery);
-				}
-				const pcID = priceClassIDRef.current;
-				if (pcID) params.set("priceClassID", pcID);
-				const res = await apiRequest<PaginatedResponse<SlsPrcWithDet>>(
+				if (searchQuery) params.set("search", searchQuery);
+				const pc = priceClassRef.current;
+				if (pc) params.set("price_class", pc);
+				const u = unitRef.current;
+				if (u) params.set("unit", u);
+
+				const res = await apiRequest<PaginatedResponse<PriceRecord>>(
 					`/price?${params}`,
 				);
 				if (!cancelled) {
-					const withId = res.data.map((row, index) => ({
-						...row,
-						_id: `${row.SlsPrcID}__${index}`,
-					}));
-					setRows(withId);
+					setRows(res.data);
 					setRowCount(res.total);
 				}
 			} catch (err: unknown) {
@@ -276,9 +382,9 @@ const Prices: React.FC = () => {
 		return () => {
 			cancelled = true;
 		};
-	}, [page, pageSize, searchQuery, priceClassID]);
+	}, [page, pageSize, searchQuery, priceClass, unit]);
 
-	// Fetch price class options for the filter
+	// Fetch price class options
 	useEffect(() => {
 		let cancelled = false;
 
@@ -289,7 +395,7 @@ const Prices: React.FC = () => {
 					setPriceClassOptions(res);
 				}
 			} catch {
-				// non-critical; filter just won't have suggestions
+				// non-critical
 			}
 		};
 
@@ -297,99 +403,82 @@ const Prices: React.FC = () => {
 		return () => { cancelled = true; };
 	}, []);
 
-	const handlePaginationModelChange = (newModel: GridPaginationModel) => {
-		setPage(newModel.page);
-		setPageSize(newModel.pageSize);
+	const handleChangePage = (_: unknown, newPage: number) => {
+		setPage(newPage);
 	};
 
-	const columns: GridColDef[] = [
-		{
-			field: "SlsPrcID",
-			headerName: "Price ID",
-			width: 150,
-		},
-		{
-			field: "InvtID",
-			headerName: "Inventory ID",
-			width: 150,
-		},
-		{
-			field: "Descr",
-			headerName: "Description",
-			minWidth: 250,
-			flex: 1,
-		},
-		{
-			field: "CatalogNbr",
-			headerName: "Price Class",
-			width: 150,
-		},
-		{
-			field: "DiscPrice",
-			headerName: "Discount Price",
-			width: 150,
-			type: "number",
-			valueFormatter: (value: number | null) => {
-				if (value === null || value === undefined) return "";
-				return value.toLocaleString(undefined, {
-					minimumFractionDigits: 2,
-					maximumFractionDigits: 4,
-				});
-			},
-		},
-		{
-			field: "SlsUnit",
-			headerName: "Sales Unit",
-			width: 150,
-		},
-	];
+	const handleChangeRowsPerPage = (
+		event: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		setPageSize(parseInt(event.target.value, 10));
+		setPage(0);
+	};
 
 	return (
-		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
+		<Paper sx={{ width: "100%", mb: 2, overflow: "hidden" }}>
+			<PricesToolbar
+				searchInputValue={searchInputValue}
+				onSearchInputChange={setSearchInputValue}
+				handleSearch={handleSearch}
+				handleKeyDown={handleKeyDown}
+				clearSearch={clearSearch}
+				isSearching={isSearching}
+				totalCount={rowCount}
+				priceClass={priceClass}
+				priceClassOptions={priceClassOptions}
+				onPriceClassChange={setPriceClass}
+				unit={unit}
+				unitOptions={unitOptions}
+				onUnitChange={setUnit}
+			/>
 			{error ? (
 				<Alert severity="error" sx={{ m: 2 }}>
 					{error}
 				</Alert>
+			) : loading ? (
+				<LinearProgress />
 			) : (
-				<DataGrid
-					rows={rows}
-					columns={columns}
-					getRowId={(row) => row._id}
-					paginationModel={{ page, pageSize }}
-					onPaginationModelChange={handlePaginationModelChange}
-					paginationMode="server"
-					rowCount={rowCount}
-					loading={loading}
-					pageSizeOptions={[25, 50, 100]}
-					disableColumnSorting
-					slots={{ toolbar: PricesToolbar }}
-					showToolbar
-					initialState={{
-						columns: { columnVisibilityModel: { SlsPrcID: false } },
-					}}
-					slotProps={{
-						toolbar: {
-							searchInputValue,
-							onSearchInputChange: setSearchInputValue,
-							handleSearch,
-							handleKeyDown,
-							clearSearch,
-							isSearching,
-							priceClassID,
-							priceClassOptions,
-							onPriceClassIDChange: setPriceClassID,
-						},
-						loadingOverlay: {
-							variant: "skeleton",
-						},
-					}}
-					sx={{
-						height: 600,
-						"& .MuiDataGrid-cell:focus": {
-							outline: "none",
-						},
-					}}
-				/>
+				<>
+					<TableContainer>
+						<Table aria-label="collapsible price table" size="small">
+							<TableHead>
+								<TableRow>
+									<TableCell sx={{ width: 48, px: 1 }} />
+									<TableCell sx={{ fontWeight: 600 }}>Inventory ID</TableCell>
+									<TableCell sx={{ fontWeight: 600 }}>Class ID</TableCell>
+									<TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+									<TableCell align="right" sx={{ fontWeight: 600 }}>Cost</TableCell>
+									<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
+									<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
+									<TableCell align="right" sx={{ fontWeight: 600 }}>Discount %</TableCell>
+									<TableCell align="right" sx={{ fontWeight: 600 }}>Discount Price</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{rows.length === 0 ? (
+									<TableRow>
+										<TableCell colSpan={9} align="center" sx={{ py: 4, color: "text.secondary" }}>
+											No prices found
+										</TableCell>
+									</TableRow>
+								) : (
+									rows.map((row) => (
+										<Row key={row.inventory_id} row={row} />
+									))
+								)}
+							</TableBody>
+						</Table>
+					</TableContainer>
+					<TablePagination
+						component="div"
+						count={rowCount}
+						page={page}
+						onPageChange={handleChangePage}
+						rowsPerPage={pageSize}
+						onRowsPerPageChange={handleChangeRowsPerPage}
+						rowsPerPageOptions={[10, 25, 50, 100]}
+					/>
+				</>
 			)}
 		</Paper>
 	);

@@ -3,7 +3,7 @@ import { createMongoAbility, AbilityBuilder, type MongoAbility, type InferSubjec
 import { type AuthUser } from "./auth";
 import { ForbiddenError } from "./error";
 
-export type Subject = "User" | "Site" | "ProductClass" | "Vendor" | "Inventory" | "Component" | "SlsPrc" | "SlsPrcDet" | "Sales" | "all";
+export type Subject = "User" | "Site" | "ProductClass" | "Vendor" | "Inventory" | "Component" | "SlsPrc" | "SlsPrcDet" | "Sales" | "ItemCost" | "PriceClass" | "all";
 export type Actions = "manage" | "create" | "read" | "update" | "delete";
 
 export type AppAbility = MongoAbility<[Actions, InferSubjects<Subject>]>;
@@ -27,6 +27,8 @@ export const caslMiddleware = (app: Elysia) =>
 				can("manage", "SlsPrc");
 				can("manage", "SlsPrcDet");
 				can("manage", "Sales");
+				can("manage", "ItemCost");
+				can("manage", "PriceClass");
 			}
         }
 
