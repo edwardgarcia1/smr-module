@@ -649,22 +649,23 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	onError,
 }) => {
 	const isEdit = editItem != null;
-	const [className, setClassName] = useState(
-		isEdit ? editItem.price_class : "",
-	);
-	const [discount, setDiscount] = useState(
-		isEdit ? String(editItem.pct_discount) : "",
-	);
-	const [validFrom, setValidFrom] = useState(
-		() => {
-			const now = new Date();
-			const offset = now.getTimezoneOffset();
-			const local = new Date(now.getTime() - offset * 60000);
-			return local.toISOString().slice(0, 16);
-		},
-	);
+	const [className, setClassName] = useState("");
+	const [discount, setDiscount] = useState("");
+	const [validFrom, setValidFrom] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [dialogError, setDialogError] = useState<string | null>(null);
+
+	// Sync state when dialog opens with a different editItem
+	// (useState initializer only runs once — useEffect handles subsequent opens)
+	useEffect(() => {
+		setClassName(isEdit ? editItem.price_class : "");
+		setDiscount(isEdit ? String(editItem.pct_discount) : "");
+		const now = new Date();
+		const offset = now.getTimezoneOffset();
+		const local = new Date(now.getTime() - offset * 60000);
+		setValidFrom(local.toISOString().slice(0, 16));
+		setDialogError(null);
+	}, [open, isEdit, editItem]);
 
 	const dialogKey = open
 		? isEdit
@@ -704,7 +705,7 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 		// In edit mode, always use current timestamp for the new entry's valid_from
 		const newValidFrom = isEdit
 			? now
-			: validFrom.replace("T", " ") + ":00";
+			: new Date(validFrom).toISOString().slice(0, 19).replace("T", " ");
 
 		// Track whether we expired the old entry (for rollback)
 		let expiredOld = false;
