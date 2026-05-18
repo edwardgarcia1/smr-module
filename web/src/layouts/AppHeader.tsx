@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
 	AppBar,
 	Toolbar,
@@ -6,13 +7,20 @@ import {
 	IconButton,
 	Skeleton,
 	Box,
+	Breadcrumbs,
+	Link,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+
+export interface BreadcrumbItem {
+	label: string;
+	href?: string;
+}
 
 interface AppHeaderProps {
 	onMenuClick: () => void;
 	drawerWidth: number;
-	currentTab: string;
+	breadcrumbs: BreadcrumbItem[];
 	onCollapseClick: () => void;
 	isLoading?: boolean;
 }
@@ -20,10 +28,11 @@ interface AppHeaderProps {
 const AppHeader: React.FC<AppHeaderProps> = ({
 	onMenuClick,
 	drawerWidth,
-	currentTab,
+	breadcrumbs,
 	onCollapseClick,
 	isLoading = false,
 }) => {
+	const navigate = useNavigate();
 	const currentDate = new Date().toLocaleDateString("en-PH", {
 		weekday: "long",
 		year: "numeric",
@@ -65,19 +74,55 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 				{isLoading ? (
 					<Skeleton
 						variant="text"
-						width={150}
+						width={200}
 						height={32}
 						sx={{ bgcolor: "grey.300", opacity: 0.5 }}
 					/>
-				) : (
-					<Typography
-						noWrap
-						component="div"
-						sx={{ flexGrow: 1, color: "var(--text)", fontWeight: 400 }}
+				) : breadcrumbs.length > 0 ? (
+					<Breadcrumbs
+						aria-label="page breadcrumb"
+						sx={{
+							flexGrow: 1,
+							"& .MuiBreadcrumbs-ol": { flexWrap: "nowrap" },
+							"& .MuiBreadcrumbs-li": { whiteSpace: "nowrap" },
+						}}
 					>
-						{currentTab || "Fullstack Starter"}
-					</Typography>
-				)}
+						{breadcrumbs.map((crumb, index) => {
+							const isLast = index === breadcrumbs.length - 1;
+							return isLast || !crumb.href ? (
+								<Typography
+									key={index}
+									sx={{
+										color: "var(--text)",
+										fontWeight: isLast ? 500 : 400,
+										fontSize: isLast ? 15 : 13,
+										opacity: isLast ? 1 : 0.6,
+									}}
+								>
+									{crumb.label}
+								</Typography>
+							) : (
+								<Link
+									key={index}
+									underline="hover"
+									sx={{
+										color: "var(--text)",
+										fontSize: 13,
+										opacity: 0.6,
+										cursor: "pointer",
+										"&:hover": { opacity: 1 },
+									}}
+									onClick={(e) => {
+										e.preventDefault();
+										navigate(crumb.href!);
+									}}
+								>
+									{crumb.label}
+								</Link>
+							);
+						})}
+					</Breadcrumbs>
+				) : null}
 				<Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
 					<Typography
 						variant="body1"

@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from "./store/useAuthStore";
 import { AbilityProvider } from "./config/AbilityProvider";
 import AppLayout from "./layouts/AppLayout";
+import type { BreadcrumbItem } from "./layouts/AppHeader";
 import Loading from "./pages/Loading";
 import SplashScreen from "./pages/SplashScreen";
 import { LinearProgress, Box } from "@mui/material";
@@ -28,8 +29,8 @@ import { LinearProgress, Box } from "@mui/material";
 	const Prices = lazy(() => import("./pages/Prices"));
 	const SalesOrders = lazy(() => import("./pages/SalesOrders"));
 
-// 2. Mapping pathnames to tabs keeps logic data-driven and cleaner
-const TAB_MAP: Record<string, string> = {
+// 2. Map root paths to display labels for breadcrumb generation
+const ROOT_LABEL_MAP: Record<string, string> = {
 	"/": "Dashboard",
 	"/users": "Users",
 	"/inventory-items": "Inventory Items",
@@ -42,13 +43,51 @@ const TAB_MAP: Record<string, string> = {
 	"/sales-orders": "Sales Orders",
 };
 
+/**
+ * Build breadcrumbs from the current pathname.
+ * The first segment is resolved via ROOT_LABEL_MAP; subsequent segments
+ * are displayed as-is (IDs, action names, etc.) for future sub-page support.
+ */
+function buildBreadcrumbs(pathname: string): BreadcrumbItem[] {
+	const segments = pathname.split("/").filter(Boolean);
+	if (segments.length === 0) {
+		return [{ label: "Dashboard" }];
+	}
+
+	const crumbs: BreadcrumbItem[] = [];
+
+	segments.forEach((segment, index) => {
+		const path = "/" + segments.slice(0, index + 1).join("/");
+		const isLast = index === segments.length - 1;
+
+		// First segment: resolve via map
+		if (index === 0) {
+			crumbs.push({
+				label: ROOT_LABEL_MAP[path] || segment,
+				...(isLast ? {} : { href: path }),
+			});
+		} else {
+			// Nested segment: use the raw segment as label
+			const label = segment
+				.split("-")
+				.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+				.join(" ");
+			crumbs.push({
+				label,
+				...(isLast ? {} : { href: path }),
+			});
+		}
+	});
+
+	return crumbs;
+}
+
 const AuthenticatedLayout: React.FC = () => {
 	const location = useLocation();
-	// Optimization: Use object lookup instead of switch statement
-	const currentTab = TAB_MAP[location.pathname] || "";
+	const breadcrumbs = buildBreadcrumbs(location.pathname);
 
 	return (
-		<AppLayout currentTab={currentTab}>
+		<AppLayout breadcrumbs={breadcrumbs}>
 			<Outlet />
 		</AppLayout>
 	);

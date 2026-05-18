@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Box } from "@mui/material";
-import AppHeader from "./AppHeader";
+import AppHeader, { type BreadcrumbItem } from "./AppHeader";
 import AppSidebar from "./AppSidebar";
 
 interface AppLayoutProps {
 	children: React.ReactNode;
-	currentTab?: string;
+	breadcrumbs?: BreadcrumbItem[];
 	isLoading?: boolean;
 }
 
@@ -14,7 +14,7 @@ const collapsedWidth = 56;
 
 const AppLayout: React.FC<AppLayoutProps> = ({
 	children,
-	currentTab = "",
+	breadcrumbs = [],
 	isLoading = false,
 }) => {
 	const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,7 +50,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 			<AppHeader
 				onMenuClick={handleDrawerToggle}
 				drawerWidth={effectiveWidth}
-				currentTab={currentTab}
+				breadcrumbs={breadcrumbs}
 				onCollapseClick={handleCollapseToggle}
 				isLoading={isLoading}
 			/>

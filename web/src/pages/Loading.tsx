@@ -4,7 +4,7 @@ import AppLayout from '../layouts/AppLayout';
 
 const Loading: React.FC = () => {
   return (
-    <AppLayout currentTab="" isLoading={true}>
+    <AppLayout breadcrumbs={[]} isLoading={true}>
       <Box
         sx={{
           display: 'flex',
