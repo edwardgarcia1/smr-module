@@ -1134,7 +1134,17 @@ const PriceClassCard: React.FC = () => {
 			)}
 
 			{loading ? (
-				<TableSkeleton cols={6} rows={4} />
+				<TableSkeleton
+					cols={[
+						{ icon: true },
+						{},
+						{ align: "right" },
+						{},
+						{},
+						{ icon: true, align: "right" },
+					]}
+					rows={4}
+				/>
 			) : groupedArray.length === 0 ? (
 				<Typography
 					variant="body2"
@@ -1227,25 +1237,43 @@ const PriceClassCard: React.FC = () => {
 
 // ── Table Skeleton ─────────────────────────────────────────────────
 
-const TableSkeleton: React.FC<{ cols: number; rows?: number }> = ({ cols, rows = 5 }) => (
+interface SkeletonCol {
+	/** Column alignment. Defaults to 'left'. */
+	align?: "left" | "right" | "center";
+	/** When true, renders a narrow fixed-width skeleton (icon/button columns). */
+	icon?: boolean;
+	/** When true, renders an empty cell (zero-width spacer columns). */
+	spacer?: boolean;
+}
+
+/** Deterministic pseudo-random width (40‑90%) based on row/col indices. */
+function skelWidthPct(row: number, col: number): number {
+	return 40 + ((row * 7 + col * 13 + col * 3) % 51);
+}
+
+const TableSkeleton: React.FC<{ cols: SkeletonCol[]; rows?: number }> = ({ cols, rows = 5 }) => (
 	<TableContainer>
 		<Table size="small">
 			<TableBody>
 				{Array.from({ length: rows }, (_, i) => (
 					<TableRow key={i}>
-						{Array.from({ length: cols }, (_, j) => (
-							<TableCell key={j}>
-								<Skeleton
-									animation="wave"
-									variant="text"
-									width={
-										j === 0 ? 24 :            // expand icon column
-										j === cols - 1 ? 32 :     // last column (actions/edit)
-										undefined                  // auto width
-									}
-								/>
-							</TableCell>
-						))}
+						{cols.map((col, j) =>
+							col.spacer ? (
+								<TableCell key={j} sx={{ p: 0, width: 0, borderBottom: "unset" }} />
+							) : col.icon ? (
+								<TableCell key={j} sx={{ width: 48, px: 1, textAlign: col.align ?? "left" }}>
+									<Skeleton animation="wave" variant="circular" width={20} height={20} />
+								</TableCell>
+							) : (
+								<TableCell key={j} sx={{ textAlign: col.align ?? "left" }}>
+									<Skeleton
+										animation="wave"
+										variant="text"
+										sx={{ width: `${skelWidthPct(i, j)}%`, maxWidth: 120, display: "inline-block" }}
+									/>
+								</TableCell>
+							),
+						)}
 					</TableRow>
 				))}
 			</TableBody>
@@ -1528,7 +1556,20 @@ const Prices: React.FC = () => {
 					{error}
 				</Alert>
 			) : loading ? (
-				<TableSkeleton cols={9} rows={8} />
+				<TableSkeleton
+					cols={[
+						{ icon: true },
+						{},
+						{},
+						{},
+						{ align: "right" },
+						{ align: "right" },
+						{},
+						{ spacer: true },
+						{ icon: true, align: "right" },
+					]}
+					rows={8}
+				/>
 			) : (
 				<>
 					<TableContainer>
