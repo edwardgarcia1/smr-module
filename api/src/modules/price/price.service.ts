@@ -15,6 +15,55 @@ import type {
 	ImportResult,
 } from "./price.schema";
 
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+/** Format a Date as MSSQL DATETIME string (YYYY-MM-DD HH:MM:SS) */
+function toMsSqlDatetime(date: Date): string {
+	return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
+/** Return a DATETIME string 1 second before the given DATETIME string.
+ *  Input is treated as UTC (matching toMsSqlDatetime output).
+ *  Accepts "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD" (treated as midnight UTC). */
+function oneSecondBefore(dtStr: string): string {
+	const normalized = dtStr.replace(" ", "T");
+	const iso = normalized.includes("T") ? normalized + "Z" : normalized + "T00:00:00Z";
+	const d = new Date(iso);
+	d.setSeconds(d.getSeconds() - 1);
+	return toMsSqlDatetime(d);
+}
+
+/**
+ * Normalize unit to "CS" if a conversion factor exists in INUnit.
+ * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
+ * Returns { cost, unit } with CS unit and converted cost if possible,
+ * otherwise returns the original values.
+ */
+async function normalizeToCsUnit(
+	inventoryId: string,
+	cost: number,
+	unit: string,
+): Promise<{ cost: number; unit: string }> {
+	if (unit.toUpperCase() === "CS") return { cost, unit };
+
+	// Forward: found row where FromUnit = current unit, ToUnit = CS
+	// 1 current_unit = factor × CS → cost_per_CS = cost_per_current / factor
+	const factor = await findConversionFactor(inventoryId, unit, "CS");
+	if (factor !== null) {
+		return { cost: cost / factor, unit: "CS" };
+	}
+
+	// Reverse: found row where FromUnit = CS, ToUnit = current unit
+	// 1 CS = reverseFactor × current_unit → cost_per_CS = cost_per_current × reverseFactor
+	const reverseFactor = await findConversionFactor(inventoryId, "CS", unit);
+	if (reverseFactor !== null) {
+		return { cost: cost * reverseFactor, unit: "CS" };
+	}
+
+	// No conversion available — keep original
+	return { cost, unit };
+}
+
 // ─── Constants ─────────────────────────────────────────────────────────
 
 const MAX_LIMIT = 10_000;
@@ -24,12 +73,17 @@ const DEFAULT_LIMIT = 500;
 
 export const createItemCost = async (item: NewItemCost): Promise<ItemCost> => {
 	const pool = await getDb();
+	const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
+
+	// Normalize unit to CS if possible
+	const normalized = await normalizeToCsUnit(item.inventory_id, item.cost, item.unit);
+
 	const result = await pool
 		.request()
 		.input("inventory_id", item.inventory_id)
-		.input("cost", item.cost)
-		.input("unit", item.unit)
-		.input("valid_from", item.valid_from)
+		.input("cost", normalized.cost)
+		.input("unit", normalized.unit)
+		.input("valid_from", validFrom)
 		.input("valid_to", item.valid_to ?? null)
 		.query(`
       INSERT INTO SMR_ItemCost (inventory_id, cost, unit, valid_from, valid_to)
@@ -111,6 +165,23 @@ export const deleteItemCost = async (id: number): Promise<void> => {
 		.request()
 		.input("id", id)
 		.query("DELETE FROM SMR_ItemCost OUTPUT DELETED.id WHERE id = @id");
+
+	if (result.rowsAffected[0] === 0) {
+		throw new NotFoundError(`ItemCost ${id} not found`);
+	}
+};
+
+/**
+ * Set valid_to on an existing ItemCost (used when replacing with a newer entry).
+ * This expires the old cost record 1 second before the new cost's valid_from.
+ */
+export const expireItemCost = async (id: number, validTo: string): Promise<void> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("id", id)
+		.input("valid_to", validTo)
+		.query("UPDATE SMR_ItemCost SET valid_to = @valid_to WHERE id = @id");
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemCost ${id} not found`);
@@ -265,6 +336,7 @@ async function findConversionFactor(
 
 /**
  * Convert a cost value from one unit to another using INUnit.
+ * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
  * Returns { convertedCost, convertedUnit } or the original if no conversion exists.
  */
 async function convertCost(
@@ -275,15 +347,20 @@ async function convertCost(
 ): Promise<{ cost: number; unit: string }> {
 	if (fromUnit === toUnit) return { cost, unit: fromUnit };
 
+	// Forward: found row where FromUnit = source unit
+	// 1 source_unit = factor × target_unit
+	// cost_per_target = cost_per_source / factor
 	const factor = await findConversionFactor(inventoryId, fromUnit, toUnit);
 	if (factor !== null) {
-		return { cost: cost * factor, unit: toUnit };
+		return { cost: cost / factor, unit: toUnit };
 	}
 
-	// Try reverse direction
+	// Reverse: found row where FromUnit = target unit
+	// 1 target_unit = reverseFactor × source_unit
+	// cost_per_target = cost_per_source × reverseFactor
 	const reverseFactor = await findConversionFactor(inventoryId, toUnit, fromUnit);
 	if (reverseFactor !== null) {
-		return { cost: cost / reverseFactor, unit: toUnit };
+		return { cost: cost * reverseFactor, unit: toUnit };
 	}
 
 	// No conversion found — return original
@@ -581,10 +658,12 @@ export { MAX_LIMIT, DEFAULT_LIMIT };
  * Import item costs from an array of rows (parsed from Excel).
  *
  * For each row:
- *  - If inventory_id already has a current cost (valid_to IS NULL), update it.
- *    Set the old current cost's valid_to to the new valid_from minus 1 day,
+ *  - If inventory_id already has a current cost (valid_to IS NULL), expire it.
+ *    Set the old current cost's valid_to to 1 second before the new valid_from,
  *    then insert the new cost.
  *  - If no current cost exists, insert a new row.
+ *  - Unit is normalized to "CS" if a conversion factor exists in INUnit.
+ *  - valid_from defaults to current datetime if not provided.
  *
  * Returns a summary of processed/inserted/updated/errors.
  */
@@ -601,8 +680,8 @@ export const importItemCosts = async (
 		const item = items[i]!;
 		const rowNum = i + 2; // Excel rows are 1-based + header
 
-		if (!item.inventory_id || item.cost == null || !item.unit || !item.valid_from) {
-			errors.push({ row: rowNum, message: "Missing required fields (inventory_id, cost, unit, valid_from)" });
+		if (!item.inventory_id || item.cost == null || !item.unit) {
+			errors.push({ row: rowNum, message: "Missing required fields (inventory_id, cost, unit)" });
 			continue;
 		}
 
@@ -617,6 +696,12 @@ export const importItemCosts = async (
 				continue;
 			}
 
+			// Default valid_from to current datetime
+			const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
+
+			// Normalize unit to CS if possible
+			const normalized = await normalizeToCsUnit(item.inventory_id, item.cost, item.unit);
+
 			// Find current cost for this inventory item
 			const current = await pool
 				.request()
@@ -628,8 +713,8 @@ export const importItemCosts = async (
         `);
 
 			if (current.recordset.length > 0) {
-				// Expire the old current cost
-				const oldValidTo = getDayBefore(item.valid_from);
+				// Expire the old current cost — 1 second before new valid_from
+				const oldValidTo = oneSecondBefore(validFrom);
 				await pool
 					.request()
 					.input("id", current.recordset[0].id)
@@ -642,9 +727,9 @@ export const importItemCosts = async (
 			await pool
 				.request()
 				.input("inventory_id", item.inventory_id)
-				.input("cost", item.cost)
-				.input("unit", item.unit)
-				.input("valid_from", item.valid_from)
+				.input("cost", normalized.cost)
+				.input("unit", normalized.unit)
+				.input("valid_from", validFrom)
 				.input("valid_to", item.valid_to ?? null)
 				.query(`
           INSERT INTO SMR_ItemCost (inventory_id, cost, unit, valid_from, valid_to)
@@ -664,12 +749,6 @@ export const importItemCosts = async (
 		errors,
 	};
 };
-
-function getDayBefore(dateStr: string): string {
-	const d = new Date(dateStr);
-	d.setDate(d.getDate() - 1);
-	return d.toISOString().slice(0, 10);
-}
 
 // ─── Backward-compat exports (for lookups.service.ts and any other importers) ──
 

@@ -1,8 +1,7 @@
 import { Elysia, t } from "elysia";
-import {
-	createItemCost,
+import { createItemCost,
 	getItemCostById,
-	updateItemCost,
+	expireItemCost,
 	deleteItemCost,
 	importItemCosts,
 	createPriceClass,
@@ -181,13 +180,13 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 						inventory_id: t.String({ maxLength: 30 }),
 						cost: t.Number(),
 						unit: t.String({ maxLength: 10 }),
-						valid_from: t.String({ maxLength: 10 }),
-						valid_to: t.Optional(t.String({ maxLength: 10 })),
+						valid_from: t.Optional(t.String({ maxLength: 19 })), // defaults to current DATETIME
+						valid_to: t.Optional(t.String({ maxLength: 19 })),
 					}),
 				},
 			)
 
-			// PUT /price/items/:id — update item cost
+			// PUT /price/items/:id — replace item cost (expires old, creates new)
 			.put(
 				"/items/:id",
 				async ({
@@ -202,15 +201,33 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "ItemCost");
 
+					// Fetch existing record to get inventory_id
+					const existing = await getItemCostById(id);
+					if (!existing) throw new NotFoundError(`ItemCost ${id} not found`);
+
+					// Expire old cost — set valid_to to 1 second before current time
+					const now = new Date();
+					const nowStr = now.toISOString().slice(0, 19).replace("T", " ");
+					const oneSecBefore = new Date(now.getTime() - 1000);
+					const oneSecBeforeStr = oneSecBefore.toISOString().slice(0, 19).replace("T", " ");
+					await expireItemCost(id, oneSecBeforeStr);
+
+					// Create new cost entry with updated values
+					const newCost = await createItemCost({
+						inventory_id: existing.inventory_id,
+						cost: body.cost ?? existing.cost,
+						unit: body.unit ?? existing.unit,
+						valid_from: nowStr,
+					});
+
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updateItemCost(id, body);
+					return newCost;
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
 					body: t.Object({
 						cost: t.Optional(t.Number()),
 						unit: t.Optional(t.String({ maxLength: 10 })),
-						valid_to: t.Optional(t.String({ maxLength: 10 })),
 					}),
 				},
 			)
@@ -250,8 +267,8 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 								inventory_id: t.String({ maxLength: 30 }),
 								cost: t.Number(),
 								unit: t.String({ maxLength: 10 }),
-								valid_from: t.String({ maxLength: 10 }),
-								valid_to: t.Optional(t.String({ maxLength: 10 })),
+								valid_from: t.Optional(t.String({ maxLength: 19 })),
+								valid_to: t.Optional(t.String({ maxLength: 19 })),
 							}),
 						),
 					}),

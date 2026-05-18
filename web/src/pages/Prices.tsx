@@ -92,10 +92,12 @@ function fmtNum(val: number | null | undefined): string {
 function fmtDate(val: string | null | undefined): string {
 	if (!val) return "Current";
 	const d = new Date(val);
-	return d.toLocaleDateString(undefined, {
+	return d.toLocaleString(undefined, {
 		year: "numeric",
 		month: "short",
 		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
 	});
 }
 
@@ -504,7 +506,7 @@ const ImportDialog: React.FC<{
 					const vt = String(row.valid_to ?? row.ValidTo ?? row.validTo ?? "").trim();
 
 					const err =
-						!invId || isNaN(cost) || !unit || !vf
+						!invId || isNaN(cost) || !unit
 							? "Missing required fields"
 							: undefined;
 
@@ -537,7 +539,7 @@ const ImportDialog: React.FC<{
 				inventory_id: r.inventory_id,
 				cost: r.cost,
 				unit: r.unit,
-				valid_from: r.valid_from,
+				valid_from: r.valid_from || undefined,
 				valid_to: r.valid_to || undefined,
 			})),
 		);
@@ -561,8 +563,8 @@ const ImportDialog: React.FC<{
 					<Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
 						Select an Excel file (.xlsx, .xls) with columns:{" "}
 						<strong>inventory_id</strong>, <strong>cost</strong>,{" "}
-						<strong>unit</strong>, <strong>valid_from</strong>{" "}
-						(optional: <strong>valid_to</strong>).
+						<strong>unit</strong>{" "}
+						(optional: <strong>valid_from</strong>, <strong>valid_to</strong>).
 					</Typography>
 					<Button variant="contained" component="label">
 						Choose File
@@ -787,15 +789,13 @@ const Prices: React.FC = () => {
 		setSaving(true);
 		try {
 			if (editRowId === -1 && editInventoryId) {
-				// Creating new cost
-				const today = new Date().toISOString().slice(0, 10);
+				// Creating new cost — valid_from defaults to current datetime on server
 				await apiRequest("/price/items", {
 					method: "POST",
 					body: {
 						inventory_id: editInventoryId,
 						cost: Number(editCost),
 						unit: editUnit,
-						valid_from: today,
 					},
 				});
 			} else if (editRowId != null && editRowId > 0) {

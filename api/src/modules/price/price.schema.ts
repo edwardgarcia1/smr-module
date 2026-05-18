@@ -12,15 +12,15 @@ export interface ItemCost {
 	inventory_id: string;
 	cost: number;
 	unit: string;
-	valid_from: string; // DATE
-	valid_to: string | null; // DATE, NULL = current
+	valid_from: string; // DATETIME
+	valid_to: string | null; // DATETIME, NULL = current
 }
 
 export type NewItemCost = {
 	inventory_id: string;
 	cost: number;
 	unit: string;
-	valid_from: string;
+	valid_from?: string; // defaults to current DATETIME
 	valid_to?: string | null;
 };
 
@@ -31,8 +31,8 @@ export type ItemCostUpdate = Partial<Pick<ItemCost, "cost" | "unit" | "valid_to"
 export interface PriceClass {
 	price_class: string;
 	pct_discount: number;
-	valid_from: string; // DATE
-	valid_to: string | null; // DATE, NULL = current
+	valid_from: string; // DATETIME
+	valid_to: string | null; // DATETIME, NULL = current
 }
 
 export type NewPriceClass = {
@@ -89,12 +89,12 @@ export interface PriceQuery {
 	price_class?: string;
 }
 
-/** Row from Excel import — must have inventory_id, cost, unit, valid_from */
+/** Row from Excel import — must have inventory_id, cost, unit */
 export interface BulkImportItem {
 	inventory_id: string;
 	cost: number;
 	unit: string;
-	valid_from: string;
+	valid_from?: string; // defaults to current DATETIME
 	valid_to?: string | null;
 }
 
@@ -121,8 +121,8 @@ BEGIN
     inventory_id NVARCHAR(30) NOT NULL,
     cost NUMERIC(18, 4) NOT NULL,
     unit NVARCHAR(10) NOT NULL,
-    valid_from DATE NOT NULL,
-    valid_to DATE NULL,
+    valid_from DATETIME NOT NULL,
+    valid_to DATETIME NULL,
     CONSTRAINT PK_SMR_ItemCost PRIMARY KEY (id)
   );
 END
@@ -135,8 +135,8 @@ BEGIN
   CREATE TABLE SMR_PriceClass (
     price_class NVARCHAR(30) NOT NULL,
     pct_discount NUMERIC(18, 4) NOT NULL,
-    valid_from DATE NOT NULL,
-    valid_to DATE NULL,
+    valid_from DATETIME NOT NULL,
+    valid_to DATETIME NULL,
     CONSTRAINT PK_SMR_PriceClass PRIMARY KEY (price_class, valid_from)
   );
 END
