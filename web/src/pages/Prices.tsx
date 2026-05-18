@@ -227,7 +227,7 @@ const Row: React.FC<RowProps> = ({
 					}
 				>
 					{isEditing && (
-						<Box sx={{ display: "flex", gap: 0.5 }}>
+						<Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
 							<Button
 								size="small"
 								variant="contained"
@@ -249,7 +249,7 @@ const Row: React.FC<RowProps> = ({
 						</Box>
 					)}
 				</TableCell>
-				<TableCell sx={{ width: 48, px: 0.5 }}>
+				<TableCell sx={{ width: 48, px: 0.5, textAlign: "right" }}>
 					{!isEditing && (
 						<IconButton
 							size="small"
@@ -340,31 +340,42 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	onImportClick,
 }) => (
 	<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
-		{/* Row 1: Title + record counts */}
+		{/* Row 1: Title + record counts + Import button */}
 		<Box
 			sx={{
 				display: "flex",
 				alignItems: "center",
-				gap: 1.5,
+				justifyContent: "space-between",
 				px: 2,
 				pt: 1.5,
-				pb: 0.5,
+				pb: 1.5,
 			}}
 		>
-			<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-				Prices
-			</Typography>
-			<Typography variant="caption" sx={{ color: "text.secondary" }}>
-				{totalCount} records
-				{withoutCostCount > 0 && (
-					<Box
-						component="span"
-						sx={{ ml: 1, color: "warning.main", fontWeight: 600 }}
-					>
-						({withoutCostCount} without cost)
-					</Box>
-				)}
-			</Typography>
+			<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					Prices
+				</Typography>
+				<Typography variant="caption" sx={{ color: "text.secondary" }}>
+					{totalCount} records
+					{withoutCostCount > 0 && (
+						<Box
+							component="span"
+							sx={{ ml: 1, color: "warning.main", fontWeight: 600 }}
+						>
+							({withoutCostCount} without cost)
+						</Box>
+					)}
+				</Typography>
+			</Box>
+			<Button
+				variant="outlined"
+				size="small"
+				startIcon={<UploadIcon />}
+				onClick={onImportClick}
+				sx={{ whiteSpace: "nowrap", minWidth: 100 }}
+			>
+				Import
+			</Button>
 		</Box>
 		{/* Row 2: Toolbar controls */}
 		<Box
@@ -376,65 +387,55 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 				px: 2,
 				pb: 1.5,
 				pt: 0.5,
-				width: { xs: "100%", md: "auto" },
 			}}
 		>
-			<Button
-				variant="outlined"
-				size="small"
-				startIcon={<UploadIcon />}
-				onClick={onImportClick}
-				sx={{ whiteSpace: "nowrap", minWidth: 100 }}
-			>
-				Import
-			</Button>
 			<TextField
-				size="small"
-				placeholder="Search inventory, class, desc..."
-				value={searchInputValue}
-				onChange={(e) => onSearchInputChange(e.target.value)}
-				onKeyDown={handleKeyDown}
-				fullWidth
-				slotProps={{
-					input: {
-						endAdornment: (
-							<InputAdornment position="end">
-								<IconButton
-									size="small"
-									onClick={clearSearch}
-									aria-label="clear search"
-									sx={{ mr: 0.25 }}
-								>
-									<CloseIcon fontSize="small" />
-								</IconButton>
-								<IconButton
-									size="small"
-									onClick={handleSearch}
-									aria-label="search"
-									disabled={isSearching}
-								>
-									<SearchIcon />
-								</IconButton>
-							</InputAdornment>
-						),
-					},
-				}}
-				sx={{
-					"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
-					"& .MuiInputBase-input": { paddingY: 0 },
-					minWidth: { xs: 0, md: 220 },
-				}}
-			/>
-			<Autocomplete
-				size="small"
-				options={unitOptions}
-				value={unit}
-				onChange={(_, newVal) => onUnitChange(newVal)}
-				renderInput={(params) => (
-					<TextField {...params} placeholder="Unit" sx={{ minWidth: 90 }} />
-				)}
-				sx={{ minWidth: 90 }}
-			/>
+					size="small"
+					placeholder="Search inventory, class, desc..."
+					value={searchInputValue}
+					onChange={(e) => onSearchInputChange(e.target.value)}
+					onKeyDown={handleKeyDown}
+					fullWidth
+					slotProps={{
+						input: {
+							endAdornment: (
+								<InputAdornment position="end">
+									<IconButton
+										size="small"
+										onClick={clearSearch}
+										aria-label="clear search"
+										sx={{ mr: 0.25 }}
+									>
+										<CloseIcon fontSize="small" />
+									</IconButton>
+									<IconButton
+										size="small"
+										onClick={handleSearch}
+										aria-label="search"
+										disabled={isSearching}
+									>
+										<SearchIcon />
+									</IconButton>
+								</InputAdornment>
+							),
+						},
+					}}
+					sx={{
+						"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+						"& .MuiInputBase-input": { paddingY: 0 },
+						minWidth: { xs: 0, md: 220 },
+					}}
+				/>
+				<Autocomplete
+					size="small"
+					options={unitOptions}
+					value={unit}
+					onChange={(_, newVal) => onUnitChange(newVal)}
+					renderInput={(params) => (
+						<TextField {...params} placeholder="Unit" sx={{ minWidth: 90 }} />
+					)}
+					sx={{ minWidth: 90 }}
+				/>
 		</Box>
 	</Box>
 );
@@ -885,6 +886,13 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 					})}%
 				</TableCell>
 				<TableCell>{fmtDate(pc.valid_from)}</TableCell>
+				<TableCell>
+					{pc.valid_to ? fmtDate(pc.valid_to) : (
+						<Typography component="span" variant="body2" sx={{ color: "success.main", fontWeight: 600 }}>
+							Current
+						</Typography>
+					)}
+				</TableCell>
 				<TableCell align="right" sx={{ width: 100 }}>
 					{!isFallback && (
 						<IconButton
@@ -913,7 +921,7 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 						paddingTop: 0,
 						borderBottom: open ? undefined : "unset",
 					}}
-					colSpan={5}
+					colSpan={6}
 				>
 					<Collapse in={open} timeout="auto" unmountOnExit>
 						<Box sx={{ margin: 1 }}>
@@ -1061,9 +1069,18 @@ const PriceClassCard: React.FC = () => {
 	}, [groupedRows]);
 
 	return (
-		<Paper sx={{ mb: 2, overflow: "hidden" }} variant="outlined">
-			<Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
-				<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+		<Paper sx={{ mb: 2, overflow: "hidden" }}>
+			<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						px: 2,
+						pt: 1.5,
+						pb: 1.5,
+					}}
+				>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 						<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
 							Price Classes
@@ -1075,11 +1092,12 @@ const PriceClassCard: React.FC = () => {
 						)}
 					</Box>
 					<Button
-						variant="contained"
+						variant="outlined"
 						size="small"
 						startIcon={<AddIcon />}
 						onClick={handleAdd}
 						disabled={loading}
+						sx={{ whiteSpace: "nowrap", minWidth: 100 }}
 					>
 						Add
 					</Button>
@@ -1110,6 +1128,7 @@ const PriceClassCard: React.FC = () => {
 								<TableCell>Price Class</TableCell>
 								<TableCell align="right">Discount %</TableCell>
 								<TableCell>Valid From</TableCell>
+								<TableCell>Valid To</TableCell>
 								<TableCell align="right" sx={{ width: 100 }}>
 									Actions
 								</TableCell>
@@ -1414,8 +1433,8 @@ const Prices: React.FC = () => {
 										Cost
 									</TableCell>
 									<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
-									<TableCell sx={{ width: 0, p: 0 }} />
-									<TableCell sx={{ width: 48, px: 0.5 }} />
+								<TableCell sx={{ width: 0, p: 0, textAlign: "right" }} />
+								<TableCell sx={{ width: 48, px: 0.5, textAlign: "right" }} />
 								</TableRow>
 							</TableHead>
 							<TableBody>
