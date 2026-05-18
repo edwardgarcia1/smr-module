@@ -94,7 +94,19 @@ function fmtDate(val: string | null | undefined): string {
 	});
 }
 
-const unitOptions = ["PCS", "CS", "BOX", "KG", "L", "M"];
+const unitOptions = [
+	"BAGS",
+	"CAN",
+	"CS",
+	"IB",
+	"PCK",
+	"PCS",
+	"PET",
+	"SACKS",
+	"SET",
+	"SW",
+	"TETRA",
+];
 
 // ── Row Component (collapsible + editable) ───────────────────────────
 
