@@ -1,5 +1,5 @@
 import { getDb } from "../../config/db";
-import { NotFoundError } from "../../middlewares/error";
+import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type {
 	ItemCost,
@@ -194,6 +194,22 @@ export const createPriceClass = async (
 	pc: NewPriceClass,
 ): Promise<PriceClass> => {
 	const pool = await getDb();
+
+	// Prevent duplicate active price_class name
+	const existing = await pool
+		.request()
+		.input("price_class", pc.price_class)
+		.query(`
+      SELECT COUNT(*) AS _cnt
+      FROM SMR_PriceClass
+      WHERE price_class = @price_class AND valid_to IS NULL
+    `);
+	if (Number(existing.recordset[0]?._cnt) > 0) {
+		throw new BadRequestError(
+			`Price class '${pc.price_class}' already has an active entry. Expire it first before creating a new one.`,
+		);
+	}
+
 	const result = await pool
 		.request()
 		.input("price_class", pc.price_class)
@@ -202,7 +218,7 @@ export const createPriceClass = async (
 		.input("valid_to", pc.valid_to ?? null)
 		.query(`
       INSERT INTO SMR_PriceClass (price_class, pct_discount, valid_from, valid_to)
-      OUTPUT INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
+      OUTPUT INSERTED.id, INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
       VALUES (@price_class, @pct_discount, @valid_from, @valid_to)
     `);
 
@@ -228,10 +244,40 @@ export const getCurrentPriceClasses = async (): Promise<PriceClass[]> => {
 	const result = await pool
 		.request()
 		.query(`
-      SELECT price_class, pct_discount, valid_from, valid_to
+      SELECT id, price_class, pct_discount, valid_from, valid_to
       FROM SMR_PriceClass
       WHERE valid_to IS NULL
       ORDER BY price_class
+    `);
+	return trimStrings(result.recordset as PriceClass[]);
+};
+
+/** Returns ALL price class entries (current + history) ordered by price_class, valid_from DESC */
+export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.query(`
+      SELECT id, price_class, pct_discount, valid_from, valid_to
+      FROM SMR_PriceClass
+      ORDER BY price_class, valid_from DESC
+    `);
+	return trimStrings(result.recordset as PriceClass[]);
+};
+
+/** Returns all entries (expired + current) for a specific price_class name */
+export const getPriceClassHistory = async (
+	priceClass: string,
+): Promise<PriceClass[]> => {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("price_class", priceClass)
+		.query(`
+      SELECT id, price_class, pct_discount, valid_from, valid_to
+      FROM SMR_PriceClass
+      WHERE price_class = @price_class
+      ORDER BY valid_from DESC
     `);
 	return trimStrings(result.recordset as PriceClass[]);
 };
@@ -250,8 +296,7 @@ export const getDistinctPriceClasses = async (): Promise<string[]> => {
 };
 
 export const updatePriceClass = async (
-	priceClass: string,
-	validFrom: string,
+	id: number,
 	updates: PriceClassUpdate,
 ): Promise<PriceClass> => {
 	const pool = await getDb();
@@ -260,45 +305,40 @@ export const updatePriceClass = async (
 	if (updates.valid_to !== undefined) setClauses.push("valid_to = @valid_to");
 
 	if (setClauses.length === 0) {
-		throw new NotFoundError(`No updates provided for PriceClass ${priceClass}`);
+		throw new NotFoundError(`No updates provided for PriceClass ${id}`);
 	}
 
 	const req = pool.request()
-		.input("price_class", priceClass)
-		.input("valid_from", validFrom);
+		.input("id", id);
 	if (updates.pct_discount !== undefined) req.input("pct_discount", updates.pct_discount);
 	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
 
 	const result = await req.query(`
       UPDATE SMR_PriceClass
       SET ${setClauses.join(", ")}
-      OUTPUT INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
-      WHERE price_class = @price_class AND valid_from = @valid_from
+      OUTPUT INSERTED.id, INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
+      WHERE id = @id
     `);
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`PriceClass ${priceClass} / ${validFrom} not found`);
+		throw new NotFoundError(`PriceClass ${id} not found`);
 	}
 	return trimStrings(result.recordset[0] as PriceClass);
 };
 
-export const deletePriceClass = async (
-	priceClass: string,
-	validFrom: string,
-): Promise<void> => {
+export const deletePriceClass = async (id: number): Promise<void> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
-		.input("price_class", priceClass)
-		.input("valid_from", validFrom)
+		.input("id", id)
 		.query(`
       DELETE FROM SMR_PriceClass
-      OUTPUT DELETED.price_class
-      WHERE price_class = @price_class AND valid_from = @valid_from
+      OUTPUT DELETED.id
+      WHERE id = @id
     `);
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`PriceClass ${priceClass} / ${validFrom} not found`);
+		throw new NotFoundError(`PriceClass ${id} not found`);
 	}
 };
 

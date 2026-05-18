@@ -5,7 +5,9 @@ import { createItemCost,
 	deleteItemCost,
 	importItemCosts,
 	createPriceClass,
+	getAllPriceClasses,
 	getCurrentPriceClasses,
+	getPriceClassHistory,
 	getDistinctPriceClasses,
 	updatePriceClass,
 	deletePriceClass,
@@ -62,7 +64,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 			// ── Price Class CRUD ─────────────────────────────────────
 
-			// GET /price/classes — all price classes (with pct_discount, dates)
+			// GET /price/classes — all price classes (with history), ordered by price_class, valid_from DESC
 			.get(
 				"/classes",
 				async ({ rateLimit, limited, ability, user }) => {
@@ -70,7 +72,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "PriceClass");
 
-					return getCurrentPriceClasses();
+					return getAllPriceClasses();
 				},
 			)
 
@@ -95,11 +97,11 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				},
 			)
 
-			// PUT /price/classes/:priceClass/:validFrom — update price class
+			// PUT /price/classes/:id — update price class (expire by id)
 			.put(
-				"/classes/:priceClass/:validFrom",
+				"/classes/:id",
 				async ({
-					params: { priceClass, validFrom },
+					params: { id },
 					body,
 					rateLimit,
 					limited,
@@ -111,12 +113,11 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "update", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updatePriceClass(priceClass, validFrom, body);
+					return updatePriceClass(id, body);
 				},
 				{
 					params: t.Object({
-						priceClass: t.String(),
-						validFrom: t.String(),
+						id: t.Numeric(),
 					}),
 					body: t.Object({
 						pct_discount: t.Optional(t.Number()),
@@ -125,22 +126,38 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				},
 			)
 
-			// DELETE /price/classes/:priceClass/:validFrom — delete price class
+			// DELETE /price/classes/:id — delete price class by id
 			.delete(
-				"/classes/:priceClass/:validFrom",
-				async ({ params: { priceClass, validFrom }, rateLimit, limited, ability, user }) => {
+				"/classes/:id",
+				async ({ params: { id }, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deletePriceClass(priceClass, validFrom);
-					return { message: `PriceClass ${priceClass} / ${validFrom} deleted` };
+					await deletePriceClass(id);
+					return { message: `PriceClass ${id} deleted` };
+				},
+				{
+					params: t.Object({
+						id: t.Numeric(),
+					}),
+				},
+			)
+
+			// GET /price/classes/:priceClass/history — history for a specific price class
+			.get(
+				"/classes/:priceClass/history",
+				async ({ params: { priceClass }, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "read", "PriceClass");
+
+					return getPriceClassHistory(priceClass);
 				},
 				{
 					params: t.Object({
 						priceClass: t.String(),
-						validFrom: t.String(),
 					}),
 				},
 			)

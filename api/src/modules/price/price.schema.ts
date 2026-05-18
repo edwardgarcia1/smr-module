@@ -29,6 +29,7 @@ export type ItemCostUpdate = Partial<Pick<ItemCost, "cost" | "unit" | "valid_to"
 // ─── SMR_PriceClass ───────────────────────────────────────────────────
 
 export interface PriceClass {
+	id: number;
 	price_class: string;
 	pct_discount: number;
 	valid_from: string; // DATETIME
@@ -127,11 +128,12 @@ export const CREATE_PRICECLASS_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SMR_PriceClass' AND xtype='U')
 BEGIN
   CREATE TABLE SMR_PriceClass (
+    id BIGINT IDENTITY(1,1) NOT NULL,
     price_class NVARCHAR(30) NOT NULL,
     pct_discount NUMERIC(18, 4) NOT NULL,
     valid_from DATETIME NOT NULL,
     valid_to DATETIME NULL,
-    CONSTRAINT PK_SMR_PriceClass PRIMARY KEY (price_class, valid_from)
+    CONSTRAINT PK_SMR_PriceClass PRIMARY KEY (id)
   );
 END
 `;
