@@ -16,7 +16,7 @@ import {
 	Autocomplete,
 	InputAdornment,
 	Alert,
-	LinearProgress,
+	Skeleton,
 	Button,
 	Select,
 	MenuItem,
@@ -1134,7 +1134,7 @@ const PriceClassCard: React.FC = () => {
 			)}
 
 			{loading ? (
-				<LinearProgress sx={{ mx: 2, mb: 1 }} />
+				<TableSkeleton cols={6} rows={4} />
 			) : groupedArray.length === 0 ? (
 				<Typography
 					variant="body2"
@@ -1224,6 +1224,34 @@ const PriceClassCard: React.FC = () => {
 		</Paper>
 	);
 };
+
+// ── Table Skeleton ─────────────────────────────────────────────────
+
+const TableSkeleton: React.FC<{ cols: number; rows?: number }> = ({ cols, rows = 5 }) => (
+	<TableContainer>
+		<Table size="small">
+			<TableBody>
+				{Array.from({ length: rows }, (_, i) => (
+					<TableRow key={i}>
+						{Array.from({ length: cols }, (_, j) => (
+							<TableCell key={j}>
+								<Skeleton
+									animation="wave"
+									variant="text"
+									width={
+										j === 0 ? 24 :            // expand icon column
+										j === cols - 1 ? 32 :     // last column (actions/edit)
+										undefined                  // auto width
+									}
+								/>
+							</TableCell>
+						))}
+					</TableRow>
+				))}
+			</TableBody>
+		</Table>
+	</TableContainer>
+);
 
 // ── Main Component ───────────────────────────────────────────────────
 
@@ -1500,7 +1528,7 @@ const Prices: React.FC = () => {
 					{error}
 				</Alert>
 			) : loading ? (
-				<LinearProgress />
+				<TableSkeleton cols={9} rows={8} />
 			) : (
 				<>
 					<TableContainer>
