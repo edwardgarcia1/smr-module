@@ -71,7 +71,7 @@ interface ImportRow {
 	inventory_id: string;
 	cost: number;
 	unit: string;
-	valid_from: string;
+	valid_from?: string;
 	valid_to?: string | null;
 }
 
@@ -989,39 +989,25 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 
 // ── PriceClass Card ─────────────────────────────────────────────────
 
-const PriceClassCard: React.FC = () => {
-	const [classes, setClasses] = useState<PriceClassItem[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+interface PriceClassCardProps {
+	classes: PriceClassItem[];
+	loading: boolean;
+	error: string | null;
+	onError: (msg: string | null) => void;
+	onRefresh: () => Promise<void>;
+}
+
+const PriceClassCard: React.FC<PriceClassCardProps> = ({
+	classes,
+	loading,
+	error,
+	onError,
+	onRefresh,
+}) => {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editItem, setEditItem] = useState<PriceClassItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deleteConfirmItem, setDeleteConfirmItem] = useState<PriceClassItem | null>(null);
-
-	const fetchClasses = useCallback(async (signal?: AbortSignal) => {
-		setLoading(true);
-		setError(null);
-		try {
-			const res = await apiRequest<PriceClassItem[]>("/price/classes", {
-				signal,
-			});
-			if (signal?.aborted) return;
-			setClasses(res);
-		} catch (err: unknown) {
-			if (signal?.aborted) return;
-			setError(
-				err instanceof Error ? err.message : "Failed to fetch price classes",
-			);
-		} finally {
-			if (!signal?.aborted) setLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		const abort = new AbortController();
-		fetchClasses(abort.signal);
-		return () => abort.abort();
-	}, [fetchClasses]);
 
 	const handleAdd = () => {
 		setEditItem(null);
@@ -1047,9 +1033,9 @@ const PriceClassCard: React.FC = () => {
 				`/price/classes/${item.id}`,
 				{ method: "DELETE" },
 			);
-			await fetchClasses();
+			await onRefresh();
 		} catch (err: unknown) {
-			setError(
+			onError(
 				err instanceof Error ? err.message : "Failed to delete price class",
 			);
 		} finally {
@@ -1062,7 +1048,7 @@ const PriceClassCard: React.FC = () => {
 	};
 
 	const handleSaved = async () => {
-		await fetchClasses();
+		await onRefresh();
 	};
 
 	// Group entries by price_class: current (valid_to IS NULL) + history
@@ -1128,7 +1114,7 @@ const PriceClassCard: React.FC = () => {
 			</Box>
 
 			{error && (
-				<Alert severity="error" sx={{ mx: 2, mb: 1 }} onClose={() => setError(null)}>
+				<Alert severity="error" sx={{ mx: 2, mb: 1 }} onClose={() => onError(null)}>
 					{error}
 				</Alert>
 			)}
@@ -1199,7 +1185,7 @@ const PriceClassCard: React.FC = () => {
 				editItem={editItem}
 				onClose={() => setDialogOpen(false)}
 				onSaved={handleSaved}
-				onError={setError}
+				onError={onError}
 			/>
 
 			{/* Delete Confirmation Dialog */}
@@ -1304,6 +1290,11 @@ const Prices: React.FC = () => {
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
 	const [selectedPctDiscount, setSelectedPctDiscount] = useState<number | null>(null);
 
+	// Shared full classes data (for PriceClassCard + filter derivation)
+	const [allClasses, setAllClasses] = useState<PriceClassItem[]>([]);
+	const [classesLoading, setClassesLoading] = useState(true);
+	const [classesError, setClassesError] = useState<string | null>(null);
+
 	// Edit state
 	const [editRowId, setEditRowId] = useState<number | null>(null);
 	const [editInventoryId, setEditInventoryId] = useState<string | null>(null);
@@ -1322,53 +1313,44 @@ const Prices: React.FC = () => {
 		unitRef.current = unit;
 	}, [unit]);
 
-	// Fetch price classes for the autocomplete filter
-	useEffect(() => {
-		const abort = new AbortController();
-		(async () => {
-			try {
-				const classes = await apiRequest<Array<{ price_class: string; pct_discount: number; valid_to: string | null }>>(
-					"/price/classes",
-					{ signal: abort.signal },
-				);
-				if (abort.signal.aborted) return;
-				const active = classes.filter((c) => c.valid_to === null);
-				const names = [...new Set(active.map((c) => c.price_class))].sort((a, b) => a.localeCompare(b));
-				setPriceClassOptions(names);
-			} catch {
-				// silently fail
+	// Single fetch for price classes: populates filter, discount map, and PriceClassCard data
+	const discountMapRef = useRef<Map<string, number>>(new Map());
+	const fetchPriceClasses = useCallback(async (signal?: AbortSignal) => {
+		setClassesLoading(true);
+		setClassesError(null);
+		try {
+			const classes = await apiRequest<PriceClassItem[]>(
+				"/price/classes",
+				{ signal },
+			);
+			if (signal?.aborted) return;
+			setAllClasses(classes);
+
+			const active = classes.filter((c) => c.valid_to === null);
+			// Populate filter dropdown options
+			const names = [...new Set(active.map((c) => c.price_class))].sort((a, b) => a.localeCompare(b));
+			setPriceClassOptions(names);
+			// Build discount lookup map
+			const map = new Map<string, number>();
+			for (const c of active) {
+				map.set(c.price_class, c.pct_discount);
 			}
-		})();
-		return () => abort.abort();
+			discountMapRef.current = map;
+		} catch (err: unknown) {
+			if (signal?.aborted) return;
+			setClassesError(
+				err instanceof Error ? err.message : "Failed to fetch price classes",
+			);
+		} finally {
+			if (!signal?.aborted) setClassesLoading(false);
+		}
 	}, []);
 
-	// Update selectedPctDiscount when selectedPriceClass changes
-	const discountMapRef = useRef<Map<string, number>>(new Map());
 	useEffect(() => {
 		const abort = new AbortController();
-		(async () => {
-			try {
-				const classes = await apiRequest<Array<{ price_class: string; pct_discount: number; valid_to: string | null }>>(
-					"/price/classes",
-					{ signal: abort.signal },
-				);
-				if (abort.signal.aborted) return;
-				const map = new Map<string, number>();
-				for (const c of classes) {
-					if (c.valid_to === null) {
-						map.set(c.price_class, c.pct_discount);
-					}
-				}
-				discountMapRef.current = map;
-				if (selectedPriceClass) {
-					setSelectedPctDiscount(map.get(selectedPriceClass) ?? null);
-				}
-			} catch {
-				// silently fail
-			}
-		})();
+		fetchPriceClasses(abort.signal);
 		return () => abort.abort();
-	}, [selectedPriceClass]);
+	}, [fetchPriceClasses]);
 
 	// Commit search
 	const handleSearch = useCallback(() => {
@@ -1529,7 +1511,13 @@ const Prices: React.FC = () => {
 
 	return (
 		<>
-			<PriceClassCard />
+			<PriceClassCard
+				classes={allClasses}
+				loading={classesLoading}
+				error={classesError}
+				onError={setClassesError}
+				onRefresh={fetchPriceClasses}
+			/>
 			<Paper sx={{ width: "100%", mb: 2, overflow: "hidden" }}>
 			<PricesToolbar
 				searchInputValue={searchInputValue}
@@ -1548,7 +1536,11 @@ const Prices: React.FC = () => {
 				selectedPriceClass={selectedPriceClass}
 				onPriceClassChange={(val) => {
 					setSelectedPriceClass(val);
-					if (!val) setSelectedPctDiscount(null);
+					if (!val) {
+						setSelectedPctDiscount(null);
+					} else {
+						setSelectedPctDiscount(discountMapRef.current.get(val) ?? null);
+					}
 				}}
 			/>
 			{error ? (
