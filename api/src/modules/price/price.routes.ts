@@ -89,8 +89,8 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					body: t.Object({
 						price_class: t.String({ maxLength: 30 }),
 						pct_discount: t.Number(),
-						valid_from: t.String({ maxLength: 10 }), // ISO date YYYY-MM-DD
-						valid_to: t.Optional(t.String({ maxLength: 10 })),
+						valid_from: t.String({ maxLength: 19 }), // ISO datetime YYYY-MM-DD HH:MM:SS
+						valid_to: t.Optional(t.String({ maxLength: 19 })),
 					}),
 				},
 			)
@@ -120,7 +120,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					}),
 					body: t.Object({
 						pct_discount: t.Optional(t.Number()),
-						valid_to: t.Optional(t.String({ maxLength: 10 })),
+						valid_to: t.Optional(t.Union([t.String({ maxLength: 19 }), t.Null()])),
 					}),
 				},
 			)

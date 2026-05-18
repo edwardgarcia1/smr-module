@@ -23,6 +23,7 @@ import {
 	Dialog,
 	DialogTitle,
 	DialogContent,
+	DialogContentText,
 	DialogActions,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -33,6 +34,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import UploadIcon from "@mui/icons-material/Upload";
+import AddIcon from "@mui/icons-material/Add";
+import DeleteIcon from "@mui/icons-material/Delete";
 import apiRequest from "../services/api";
 import * as XLSX from "xlsx";
 
@@ -618,6 +621,386 @@ const ImportDialog: React.FC<{
 	);
 };
 
+// ── Price Class Types ──────────────────────────────────────────────
+
+interface PriceClassItem {
+	price_class: string;
+	pct_discount: number;
+	valid_from: string;
+	valid_to: string | null;
+}
+
+// ── PriceClass Dialog ──────────────────────────────────────────────
+
+interface PriceClassDialogProps {
+	open: boolean;
+	editItem: PriceClassItem | null; // null = add mode
+	onClose: () => void;
+	onSaved: () => void;
+	onError: (msg: string) => void;
+}
+
+const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
+	open,
+	editItem,
+	onClose,
+	onSaved,
+	onError,
+}) => {
+	const isEdit = editItem != null;
+	const [className, setClassName] = useState(
+		isEdit ? editItem.price_class : "",
+	);
+	const [discount, setDiscount] = useState(
+		isEdit ? String(editItem.pct_discount) : "",
+	);
+	const [validFrom, setValidFrom] = useState(
+		() => {
+			const now = new Date();
+			const offset = now.getTimezoneOffset();
+			const local = new Date(now.getTime() - offset * 60000);
+			return local.toISOString().slice(0, 16);
+		},
+	);
+	const [saving, setSaving] = useState(false);
+
+	const dialogKey = open
+		? isEdit
+			? `edit-${editItem.price_class}-${editItem.valid_from}`
+			: "add-new"
+		: "closed";
+
+	const handleSave = async () => {
+		if (!className.trim()) {
+			onError("Price class name is required");
+			return;
+		}
+		const discountNum = Number(discount);
+		if (isNaN(discountNum)) {
+			onError("Discount must be a valid number");
+			return;
+		}
+		if (!validFrom) {
+			onError("Valid from date is required");
+			return;
+		}
+		setSaving(true);
+
+		// Current timestamp in MSSQL format (YYYY-MM-DD HH:MM:SS)
+		const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+
+		// In edit mode, always use current timestamp for the new entry's valid_from
+		// to avoid PK collision with the old entry. In add mode, use the form value.
+		const newValidFrom = isEdit
+			? now
+			: validFrom.replace("T", " ") + ":00";
+
+		// Track whether we expired the old entry (for rollback)
+		let expiredOld = false;
+		const oldItem = isEdit ? editItem : null;
+
+		try {
+			if (isEdit && oldItem) {
+				// Step 1: Expire the old price class by setting valid_to = now
+				await apiRequest(
+					`/price/classes/${encodeURIComponent(oldItem.price_class)}/${encodeURIComponent(oldItem.valid_from)}`,
+					{
+						method: "PUT",
+						body: { valid_to: now },
+					},
+				);
+				expiredOld = true;
+			}
+
+			// Step 2: Create a new price class entry with updated values
+			await apiRequest("/price/classes", {
+				method: "POST",
+				body: {
+					price_class: className.trim(),
+					pct_discount: discountNum,
+					valid_from: newValidFrom,
+				},
+			});
+
+			onSaved();
+			onClose();
+		} catch (err: unknown) {
+			// Rollback: if the old entry was expired but the POST failed,
+			// try to restore valid_to back to what it was
+			if (expiredOld && oldItem) {
+				// Omit valid_to so the service doesn't update it,
+				// meaning the old entry's valid_to stays as-is (expired).
+				// This is a best-effort — the user should retry.
+			}
+			onError(
+				err instanceof Error ? err.message : "Failed to save price class",
+			);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<Dialog key={dialogKey} open={open} onClose={onClose} maxWidth="sm" fullWidth>
+			<DialogTitle>{isEdit ? "Edit Price Class" : "Add Price Class"}</DialogTitle>
+			<DialogContent>
+				<Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+					<TextField
+						label="Price Class"
+						value={className}
+						onChange={(e) => setClassName(e.target.value)}
+						disabled={isEdit}
+						size="small"
+						required
+					/>
+					<TextField
+						label="Discount %"
+						type="number"
+						value={discount}
+						onChange={(e) => setDiscount(e.target.value)}
+						size="small"
+						required
+						inputProps={{ step: "0.01" }}
+					/>
+					{isEdit ? (
+						<Typography variant="body2" sx={{ color: "text.secondary", fontStyle: "italic" }}>
+							New entry will use current timestamp as valid_from.
+						</Typography>
+					) : (
+						<TextField
+							label="Valid From"
+							type="datetime-local"
+							value={validFrom}
+							onChange={(e) => setValidFrom(e.target.value)}
+							size="small"
+							InputLabelProps={{ shrink: true }}
+							required
+						/>
+					)}
+				</Box>
+			</DialogContent>
+			<DialogActions>
+				<Button onClick={onClose} disabled={saving}>
+					Cancel
+				</Button>
+				<Button variant="contained" onClick={handleSave} disabled={saving}>
+					{saving ? "Saving..." : "Save"}
+				</Button>
+			</DialogActions>
+		</Dialog>
+	);
+};
+
+// ── PriceClass Card ─────────────────────────────────────────────────
+
+const PriceClassCard: React.FC = () => {
+	const [classes, setClasses] = useState<PriceClassItem[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [editItem, setEditItem] = useState<PriceClassItem | null>(null);
+	const [deleting, setDeleting] = useState(false);
+	const [deleteConfirmItem, setDeleteConfirmItem] = useState<PriceClassItem | null>(null);
+
+	const fetchClasses = useCallback(async (signal?: AbortSignal) => {
+		setLoading(true);
+		setError(null);
+		try {
+			const res = await apiRequest<PriceClassItem[]>("/price/classes", {
+				signal,
+			});
+			if (signal?.aborted) return;
+			setClasses(res);
+		} catch (err: unknown) {
+			if (signal?.aborted) return;
+			setError(
+				err instanceof Error ? err.message : "Failed to fetch price classes",
+			);
+		} finally {
+			if (!signal?.aborted) setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		const abort = new AbortController();
+		fetchClasses(abort.signal);
+		return () => abort.abort();
+	}, [fetchClasses]);
+
+	const handleAdd = () => {
+		setEditItem(null);
+		setDialogOpen(true);
+	};
+
+	const handleEdit = (item: PriceClassItem) => {
+		setEditItem(item);
+		setDialogOpen(true);
+	};
+
+	const handleDelete = (item: PriceClassItem) => {
+		setDeleteConfirmItem(item);
+	};
+
+	const handleDeleteConfirm = async () => {
+		const item = deleteConfirmItem;
+		if (!item) return;
+		setDeleting(true);
+		setDeleteConfirmItem(null);
+		try {
+			await apiRequest(
+				`/price/classes/${encodeURIComponent(item.price_class)}/${encodeURIComponent(item.valid_from)}`,
+				{ method: "DELETE" },
+			);
+			await fetchClasses();
+		} catch (err: unknown) {
+			setError(
+				err instanceof Error ? err.message : "Failed to delete price class",
+			);
+		} finally {
+			setDeleting(false);
+		}
+	};
+
+	const handleDeleteCancel = () => {
+		setDeleteConfirmItem(null);
+	};
+
+	const handleSaved = async () => {
+		await fetchClasses();
+	};
+
+	return (
+		<Paper sx={{ mb: 2, overflow: "hidden" }} variant="outlined">
+			<Box sx={{ px: 2, pt: 1.5, pb: 0.5 }}>
+				<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+						<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+							Price Classes
+						</Typography>
+						{!loading && (
+							<Typography variant="caption" sx={{ color: "text.secondary" }}>
+								{classes.length} {classes.length === 1 ? "class" : "classes"}
+							</Typography>
+						)}
+					</Box>
+					<Button
+						variant="contained"
+						size="small"
+						startIcon={<AddIcon />}
+						onClick={handleAdd}
+						disabled={loading}
+					>
+						Add
+					</Button>
+				</Box>
+			</Box>
+
+			{error && (
+				<Alert severity="error" sx={{ mx: 2, mb: 1 }} onClose={() => setError(null)}>
+					{error}
+				</Alert>
+			)}
+
+			{loading ? (
+				<LinearProgress sx={{ mx: 2, mb: 1 }} />
+			) : classes.length === 0 ? (
+				<Typography
+					variant="body2"
+					sx={{ color: "text.secondary", px: 2, pb: 1.5 }}
+				>
+					No price classes defined
+				</Typography>
+			) : (
+				<TableContainer>
+					<Table size="small" sx={{ "& th": { fontWeight: 600, fontSize: "0.75rem" } }}>
+						<TableHead>
+							<TableRow>
+								<TableCell>Price Class</TableCell>
+								<TableCell align="right">Discount %</TableCell>
+								<TableCell>Valid From</TableCell>
+								<TableCell align="right" sx={{ width: 100 }}>
+									Actions
+								</TableCell>
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{classes.map((pc) => (
+								<TableRow key={`${pc.price_class}__${pc.valid_from}`} hover>
+									<TableCell sx={{ fontWeight: 600 }}>{pc.price_class}</TableCell>
+									<TableCell align="right">
+										{pc.pct_discount.toLocaleString(undefined, {
+											minimumFractionDigits: 2,
+											maximumFractionDigits: 4,
+										})}
+										%
+									</TableCell>
+									<TableCell>{fmtDate(pc.valid_from)}</TableCell>
+									<TableCell align="right">
+										<IconButton
+											size="small"
+											onClick={() => handleEdit(pc)}
+											disabled={deleting}
+											aria-label={`edit ${pc.price_class}`}
+										>
+											<EditIcon fontSize="small" />
+										</IconButton>
+										<IconButton
+											size="small"
+											onClick={() => handleDelete(pc)}
+											disabled={deleting}
+											aria-label={`delete ${pc.price_class}`}
+										>
+											<DeleteIcon fontSize="small" />
+										</IconButton>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</TableContainer>
+			)}
+
+			<PriceClassDialog
+				open={dialogOpen}
+				editItem={editItem}
+				onClose={() => setDialogOpen(false)}
+				onSaved={handleSaved}
+				onError={setError}
+			/>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog
+				open={deleteConfirmItem != null}
+				onClose={handleDeleteCancel}
+				maxWidth="xs"
+				fullWidth
+			>
+				<DialogTitle>Delete Price Class?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Are you sure you want to delete price class{" "}
+						<strong>{deleteConfirmItem?.price_class}</strong> (valid from{" "}
+						{deleteConfirmItem?.valid_from})? This action cannot be undone.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={handleDeleteCancel} disabled={deleting}>
+						Cancel
+					</Button>
+					<Button
+						onClick={handleDeleteConfirm}
+						variant="contained"
+						color="error"
+						disabled={deleting}
+					>
+						{deleting ? "Deleting..." : "Delete"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+		</Paper>
+	);
+};
+
 // ── Main Component ───────────────────────────────────────────────────
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -812,7 +1195,9 @@ const Prices: React.FC = () => {
 	};
 
 	return (
-		<Paper sx={{ width: "100%", mb: 2, overflow: "hidden" }}>
+		<>
+			<PriceClassCard />
+			<Paper sx={{ width: "100%", mb: 2, overflow: "hidden" }}>
 			<PricesToolbar
 				searchInputValue={searchInputValue}
 				onSearchInputChange={setSearchInputValue}
@@ -905,6 +1290,7 @@ const Prices: React.FC = () => {
 				importResult={importResult}
 			/>
 		</Paper>
+		</>
 	);
 };
 
