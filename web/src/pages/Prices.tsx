@@ -125,6 +125,7 @@ interface RowProps {
 	onEditCostChange: (val: string) => void;
 	onEditUnitChange: (val: string) => void;
 	saving: boolean;
+	pctDiscount: number | null;
 }
 
 const Row: React.FC<RowProps> = ({
@@ -139,6 +140,7 @@ const Row: React.FC<RowProps> = ({
 	onEditCostChange,
 	onEditUnitChange,
 	saving,
+	pctDiscount,
 }) => {
 	const [open, setOpen] = useState(false);
 	const hasHistory = row.history.length > 0;
@@ -199,6 +201,11 @@ const Row: React.FC<RowProps> = ({
 					) : (
 						fmtNum(row.cost)
 					)}
+				</TableCell>
+				<TableCell align="right" sx={{ minWidth: 120 }}>
+					{pctDiscount != null && row.cost != null
+						? fmtNum(row.cost * (1 - pctDiscount / 100))
+						: "—"}
 				</TableCell>
 				<TableCell>
 					{isEditing ? (
@@ -268,7 +275,7 @@ const Row: React.FC<RowProps> = ({
 						paddingTop: 0,
 						borderBottom: open ? undefined : "unset",
 					}}
-					colSpan={8}
+					colSpan={9}
 				>
 					<Collapse in={open} timeout="auto" unmountOnExit>
 						<Box sx={{ margin: 1 }}>
@@ -323,6 +330,9 @@ interface PricesToolbarProps {
 	unitOptions: string[];
 	onUnitChange: (value: string | null) => void;
 	onImportClick: () => void;
+	priceClassOptions: string[];
+	selectedPriceClass: string | null;
+	onPriceClassChange: (value: string | null) => void;
 }
 
 const PricesToolbar: React.FC<PricesToolbarProps> = ({
@@ -338,6 +348,9 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	unitOptions,
 	onUnitChange,
 	onImportClick,
+	priceClassOptions,
+	selectedPriceClass,
+	onPriceClassChange,
 }) => (
 	<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
 		{/* Row 1: Title + record counts + Import button */}
@@ -435,6 +448,16 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 						<TextField {...params} placeholder="Unit" sx={{ minWidth: 90 }} />
 					)}
 					sx={{ minWidth: 90 }}
+				/>
+				<Autocomplete
+					size="small"
+					options={priceClassOptions}
+					value={selectedPriceClass}
+					onChange={(_, newVal) => onPriceClassChange(newVal)}
+					renderInput={(params) => (
+						<TextField {...params} placeholder="Price Class" sx={{ minWidth: 130 }} />
+					)}
+					sx={{ minWidth: 130 }}
 				/>
 		</Box>
 	</Box>
@@ -1220,6 +1243,11 @@ const Prices: React.FC = () => {
 	const searchTimeoutRef = useRef<number>(0);
 	const [unit, setUnit] = useState<string | null>(null);
 
+	// Price class filter state
+	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
+	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
+	const [selectedPctDiscount, setSelectedPctDiscount] = useState<number | null>(null);
+
 	// Edit state
 	const [editRowId, setEditRowId] = useState<number | null>(null);
 	const [editInventoryId, setEditInventoryId] = useState<string | null>(null);
@@ -1237,6 +1265,54 @@ const Prices: React.FC = () => {
 	useEffect(() => {
 		unitRef.current = unit;
 	}, [unit]);
+
+	// Fetch price classes for the autocomplete filter
+	useEffect(() => {
+		const abort = new AbortController();
+		(async () => {
+			try {
+				const classes = await apiRequest<Array<{ price_class: string; pct_discount: number; valid_to: string | null }>>(
+					"/price/classes",
+					{ signal: abort.signal },
+				);
+				if (abort.signal.aborted) return;
+				const active = classes.filter((c) => c.valid_to === null);
+				const names = [...new Set(active.map((c) => c.price_class))].sort((a, b) => a.localeCompare(b));
+				setPriceClassOptions(names);
+			} catch {
+				// silently fail
+			}
+		})();
+		return () => abort.abort();
+	}, []);
+
+	// Update selectedPctDiscount when selectedPriceClass changes
+	const discountMapRef = useRef<Map<string, number>>(new Map());
+	useEffect(() => {
+		const abort = new AbortController();
+		(async () => {
+			try {
+				const classes = await apiRequest<Array<{ price_class: string; pct_discount: number; valid_to: string | null }>>(
+					"/price/classes",
+					{ signal: abort.signal },
+				);
+				if (abort.signal.aborted) return;
+				const map = new Map<string, number>();
+				for (const c of classes) {
+					if (c.valid_to === null) {
+						map.set(c.price_class, c.pct_discount);
+					}
+				}
+				discountMapRef.current = map;
+				if (selectedPriceClass) {
+					setSelectedPctDiscount(map.get(selectedPriceClass) ?? null);
+				}
+			} catch {
+				// silently fail
+			}
+		})();
+		return () => abort.abort();
+	}, [selectedPriceClass]);
 
 	// Commit search
 	const handleSearch = useCallback(() => {
@@ -1412,6 +1488,12 @@ const Prices: React.FC = () => {
 				unitOptions={unitOptions}
 				onUnitChange={setUnit}
 				onImportClick={() => setImportOpen(true)}
+				priceClassOptions={priceClassOptions}
+				selectedPriceClass={selectedPriceClass}
+				onPriceClassChange={(val) => {
+					setSelectedPriceClass(val);
+					if (!val) setSelectedPctDiscount(null);
+				}}
 			/>
 			{error ? (
 				<Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>
@@ -1432,6 +1514,9 @@ const Prices: React.FC = () => {
 									<TableCell align="right" sx={{ fontWeight: 600 }}>
 										Cost
 									</TableCell>
+									<TableCell align="right" sx={{ fontWeight: 600 }}>
+										Discounted
+									</TableCell>
 									<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
 								<TableCell sx={{ width: 0, p: 0, textAlign: "right" }} />
 								<TableCell sx={{ width: 48, px: 0.5, textAlign: "right" }} />
@@ -1441,7 +1526,7 @@ const Prices: React.FC = () => {
 								{rows.length === 0 ? (
 									<TableRow>
 										<TableCell
-										colSpan={8}
+										colSpan={9}
 										align="center"
 										sx={{ py: 4, color: "text.secondary" }}
 									>
@@ -1463,6 +1548,7 @@ const Prices: React.FC = () => {
 											onEditCostChange={setEditCost}
 											onEditUnitChange={setEditUnit}
 											saving={saving}
+											pctDiscount={selectedPctDiscount}
 										/>
 									))
 								)}
