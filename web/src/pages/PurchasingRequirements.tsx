@@ -91,13 +91,10 @@ interface ProductRow {
 	customOrder: number | null;
 }
 
-// ─── Placeholder Data ────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const defaultStorageLocations: StorageLocation[] = [
-	{ id: "1", name: "Main Warehouse" },
-	{ id: "2", name: "Cold Storage" },
-	{ id: "3", name: "Distribution Center" },
-];
+/** Only show inventory items / storage locations at these SiteIDs */
+const ALLOWED_SITE_IDS = new Set(["MAIN", "CAB", "3MPMT", "3MPGT"]);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -653,7 +650,9 @@ const PurchasingRequirements: React.FC = () => {
 
 	// Filters
 	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
-		persistedForm?.storageLocations ?? defaultStorageLocations,
+		persistedForm?.storageLocations?.filter((loc) =>
+			ALLOWED_SITE_IDS.has(loc.id),
+		) ?? [],
 	);
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
@@ -707,7 +706,9 @@ const PurchasingRequirements: React.FC = () => {
 				]);
 				if (!cancelled) {
 					setStorageLocations(
-						sites.map((s) => ({ id: s.SiteId, name: s.Name })),
+						sites
+							.filter((s) => ALLOWED_SITE_IDS.has(s.SiteId))
+							.map((s) => ({ id: s.SiteId, name: s.Name })),
 					);
 					setPriceClassOptions(classes);
 					setPrincipals(principalList);

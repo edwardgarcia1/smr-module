@@ -398,10 +398,23 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// ── Joined route ─────────────────────────────────────────────────
 
 	// GET /item — Inventory + Component + ItemSite on InvtID
-	.get("/", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+	.get(
+		"/",
+		async ({ query: { sites }, rateLimit, limited, ability, user }) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "Site");
 
-		return getInventoryWithComponentsAndItemSites();
-	});
+			return getInventoryWithComponentsAndItemSites(sites);
+		},
+		{
+			query: t.Object({
+				sites: t.Optional(
+					t.String({
+						description:
+							"Comma-separated SiteID filter, e.g. ?sites=MAIN,CAB,3MPMT,3MPGT",
+					}),
+				),
+			}),
+		},
+	);

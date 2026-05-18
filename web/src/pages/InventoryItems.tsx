@@ -328,6 +328,8 @@ const InventoryItems: React.FC = () => {
 		setSearchInputValue("");
 	}, []);
 
+	const ALLOWED_SITES = "MAIN,CAB,3MPMT,3MPGT";
+
 	// Fetch joined Inventory + Component + ItemSite data, then aggregate
 	useEffect(() => {
 		let cancelled = false;
@@ -336,7 +338,9 @@ const InventoryItems: React.FC = () => {
 			setLoading(true);
 			setError(null);
 			try {
-				const data = await apiRequest<JoinedInventoryRow[]>("/item");
+				const data = await apiRequest<JoinedInventoryRow[]>(
+					`/item?sites=${ALLOWED_SITES}`,
+				);
 				if (!cancelled) {
 					const aggregated = aggregateJoinedRows(data);
 

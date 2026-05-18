@@ -374,11 +374,26 @@ export const getInventoryWithItemSites = async (): Promise<
 	return trimStrings(result.recordset as InventoryWithItemSite[]);
 };
 
-export const getInventoryWithComponentsAndItemSites = async (): Promise<
-	InventoryWithComponentsAndItemSites[]
-> => {
+export const getInventoryWithComponentsAndItemSites = async (
+	sites?: string,
+): Promise<InventoryWithComponentsAndItemSites[]> => {
 	const pool = await getDb();
-	const result = await pool.request().query(`
+
+	const request = pool.request();
+	let siteFilter = "";
+
+	if (sites) {
+		const siteList = sites.split(",").map((s) => s.trim()).filter(Boolean);
+		if (siteList.length > 0) {
+			const conditions = siteList.map((site, i) => {
+				request.input(`SiteID${i}`, site);
+				return `@SiteID${i}`;
+			});
+			siteFilter = `AND s.SiteID IN (${conditions.join(", ")})`;
+		}
+	}
+
+	const result = await request.query(`
       SELECT
         i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
         c.KitID, c.CmpnentID, c.CmpnentQty,
@@ -387,6 +402,7 @@ export const getInventoryWithComponentsAndItemSites = async (): Promise<
       FROM Inventory i
       LEFT JOIN Component c ON i.InvtID = c.KitID
       LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
+      WHERE s.SiteID IS NOT NULL ${siteFilter}
       ORDER BY i.InvtID, c.CmpnentID, s.SiteID
     `);
 	return trimStrings(result.recordset as InventoryWithComponentsAndItemSites[]);
