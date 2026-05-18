@@ -724,7 +724,7 @@ const Prices: React.FC = () => {
 		setEditRowId(row.item_cost_id ?? -1); // -1 means "new"
 		setEditInventoryId(row.item_cost_id != null ? null : row.inventory_id);
 		setEditCost(String(row.cost ?? ""));
-		setEditUnit(row.unit ?? "PCS");
+		setEditUnit(row.unit ?? "CS");
 	};
 
 	const handleCancelEdit = () => {
