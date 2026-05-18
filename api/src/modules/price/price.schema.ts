@@ -58,6 +58,7 @@ export interface PriceHistoryEntry {
 // ─── Price record — response shape per the plan ──────────────────────
 
 export interface PriceRecord {
+	item_cost_id: number | null; // SMR_ItemCost.id (for editing)
 	inventory_id: string;
 	class_id: string | null;
 	description: string | null;
@@ -76,6 +77,7 @@ export interface PaginatedResponse<T> {
 	page: number;
 	limit: number;
 	totalPages: number;
+	withoutCostCount: number; // inventory items with no current cost
 }
 
 /** Query params accepted by GET /price */
@@ -85,6 +87,23 @@ export interface PriceQuery {
 	search?: string;
 	unit?: string;
 	price_class?: string;
+}
+
+/** Row from Excel import — must have inventory_id, cost, unit, valid_from */
+export interface BulkImportItem {
+	inventory_id: string;
+	cost: number;
+	unit: string;
+	valid_from: string;
+	valid_to?: string | null;
+}
+
+/** Result of a bulk import */
+export interface ImportResult {
+	processed: number;
+	inserted: number;
+	updated: number;
+	errors: Array<{ row: number; message: string }>;
 }
 
 // ─── Backward-compat aliases (for lookups.service.ts) ─────────────────

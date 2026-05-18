@@ -11,6 +11,8 @@ import type {
 	PriceRecord,
 	PriceHistoryEntry,
 	PaginatedResponse,
+	BulkImportItem,
+	ImportResult,
 } from "./price.schema";
 
 // ─── Constants ─────────────────────────────────────────────────────────
@@ -356,9 +358,9 @@ export const getPricesPaginated = async (
 	// Current cost subquery: only rows where valid_to IS NULL
 	// Pick one cost per inventory_id (latest id)
 	const currentCostSubQ = `
-    SELECT inventory_id, cost, unit, valid_from, valid_to
+    SELECT id, inventory_id, cost, unit, valid_from, valid_to
     FROM (
-      SELECT inventory_id, cost, unit, valid_from, valid_to,
+      SELECT id, inventory_id, cost, unit, valid_from, valid_to,
         ROW_NUMBER() OVER (PARTITION BY inventory_id ORDER BY id DESC) AS _rn
       FROM SMR_ItemCost
       WHERE valid_to IS NULL
@@ -386,6 +388,7 @@ export const getPricesPaginated = async (
 	const dataQuery = `
     SELECT * FROM (
       SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
+        ic.id AS item_cost_id,
         i.InvtID AS inventory_id,
         i.ClassID AS class_id,
         i.Descr AS description,
@@ -410,8 +413,25 @@ export const getPricesPaginated = async (
 	const countResult = await countReq.query(countQuery);
 	const total = Number(countResult.recordset[0]?._total) || 0;
 
+	// Count of inventory items without any current cost
+	const noCostCountQuery = `
+    SELECT COUNT(*) AS _cnt
+    FROM Inventory i
+    WHERE NOT EXISTS (
+      SELECT 1 FROM SMR_ItemCost ic
+      WHERE ic.inventory_id = i.InvtID AND ic.valid_to IS NULL
+    )
+    ${hasPriceClass ? `AND i.ClassID = @priceClass` : ``}
+    ${hasSearch ? `AND (i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)` : ``}
+  `;
+	const noCostReq = pool.request();
+	if (hasSearch) noCostReq.input("search", `%${search.trim()}%`);
+	if (hasPriceClass) noCostReq.input("priceClass", priceClass!.trim());
+	const noCostResult = await noCostReq.query(noCostCountQuery);
+	const withoutCostCount = Number(noCostResult.recordset[0]?._cnt) || 0;
+
 	if (total === 0) {
-		return { data: [], total: 0, page, limit, totalPages: 1 };
+		return { data: [], total: 0, page, limit, totalPages: 1, withoutCostCount };
 	}
 
 	// Execute data
@@ -423,6 +443,7 @@ export const getPricesPaginated = async (
 	const dataResult = await dataReq.query(dataQuery);
 
 	type RawRow = {
+		item_cost_id: number | null;
 		inventory_id: string;
 		class_id: string | null;
 		description: string | null;
@@ -527,6 +548,7 @@ export const getPricesPaginated = async (
 		}
 
 		data.push({
+			item_cost_id: row.item_cost_id,
 			inventory_id: row.inventory_id,
 			class_id: row.class_id,
 			description: row.description,
@@ -542,6 +564,7 @@ export const getPricesPaginated = async (
 	return {
 		data,
 		total,
+		withoutCostCount,
 		page,
 		limit,
 		totalPages: Math.ceil(total / limit) || 1,
@@ -551,6 +574,102 @@ export const getPricesPaginated = async (
 // ─── Exported constants ────────────────────────────────────────────────
 
 export { MAX_LIMIT, DEFAULT_LIMIT };
+
+// ─── Bulk import ──────────────────────────────────────────────────────
+
+/**
+ * Import item costs from an array of rows (parsed from Excel).
+ *
+ * For each row:
+ *  - If inventory_id already has a current cost (valid_to IS NULL), update it.
+ *    Set the old current cost's valid_to to the new valid_from minus 1 day,
+ *    then insert the new cost.
+ *  - If no current cost exists, insert a new row.
+ *
+ * Returns a summary of processed/inserted/updated/errors.
+ */
+export const importItemCosts = async (
+	items: BulkImportItem[],
+): Promise<ImportResult> => {
+	const pool = await getDb();
+	let inserted = 0;
+	let updated = 0;
+
+	const errors: Array<{ row: number; message: string }> = [];
+
+	for (let i = 0; i < items.length; i++) {
+		const item = items[i]!;
+		const rowNum = i + 2; // Excel rows are 1-based + header
+
+		if (!item.inventory_id || item.cost == null || !item.unit || !item.valid_from) {
+			errors.push({ row: rowNum, message: "Missing required fields (inventory_id, cost, unit, valid_from)" });
+			continue;
+		}
+
+		try {
+			// Check if inventory exists
+			const invCheck = await pool
+				.request()
+				.input("invtId", item.inventory_id)
+				.query("SELECT COUNT(*) AS _cnt FROM Inventory WHERE InvtID = @invtId");
+			if (Number(invCheck.recordset[0]?._cnt) === 0) {
+				errors.push({ row: rowNum, message: `Inventory '${item.inventory_id}' not found` });
+				continue;
+			}
+
+			// Find current cost for this inventory item
+			const current = await pool
+				.request()
+				.input("invId", item.inventory_id)
+				.query(`
+          SELECT id, cost, unit, valid_from, valid_to
+          FROM SMR_ItemCost
+          WHERE inventory_id = @invId AND valid_to IS NULL
+        `);
+
+			if (current.recordset.length > 0) {
+				// Expire the old current cost
+				const oldValidTo = getDayBefore(item.valid_from);
+				await pool
+					.request()
+					.input("id", current.recordset[0].id)
+					.input("valid_to", oldValidTo)
+					.query("UPDATE SMR_ItemCost SET valid_to = @valid_to WHERE id = @id");
+				updated++;
+			}
+
+			// Insert new cost
+			await pool
+				.request()
+				.input("inventory_id", item.inventory_id)
+				.input("cost", item.cost)
+				.input("unit", item.unit)
+				.input("valid_from", item.valid_from)
+				.input("valid_to", item.valid_to ?? null)
+				.query(`
+          INSERT INTO SMR_ItemCost (inventory_id, cost, unit, valid_from, valid_to)
+          VALUES (@inventory_id, @cost, @unit, @valid_from, @valid_to)
+        `);
+			inserted++;
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : "Unknown error";
+			errors.push({ row: rowNum, message: msg });
+		}
+	}
+
+	return {
+		processed: items.length,
+		inserted,
+		updated,
+		errors,
+	};
+};
+
+function getDayBefore(dateStr: string): string {
+	const d = new Date(dateStr);
+	d.setDate(d.getDate() - 1);
+	return d.toISOString().slice(0, 10);
+}
 
 // ─── Backward-compat exports (for lookups.service.ts and any other importers) ──
 

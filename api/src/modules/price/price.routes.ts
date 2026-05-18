@@ -4,6 +4,7 @@ import {
 	getItemCostById,
 	updateItemCost,
 	deleteItemCost,
+	importItemCosts,
 	createPriceClass,
 	getCurrentPriceClasses,
 	getDistinctPriceClasses,
@@ -228,6 +229,32 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
+				},
+			)
+
+			// POST /price/items/import — bulk import item costs from Excel data
+			.post(
+				"/items/import",
+				async ({ body, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "create", "ItemCost");
+
+					invalidateCachePrefix(CACHE_PREFIX);
+					return importItemCosts(body.items);
+				},
+				{
+					body: t.Object({
+						items: t.Array(
+							t.Object({
+								inventory_id: t.String({ maxLength: 30 }),
+								cost: t.Number(),
+								unit: t.String({ maxLength: 10 }),
+								valid_from: t.String({ maxLength: 10 }),
+								valid_to: t.Optional(t.String({ maxLength: 10 })),
+							}),
+						),
+					}),
 				},
 			)
 
