@@ -402,31 +402,25 @@ async function findPriceClassForDate(
  * For each inventory item, returns the current cost (valid_to IS NULL)
  * along with its history (valid_to IS NOT NULL).
  *
- * @param page       Page number (1-based).
- * @param limit      Rows per page.
- * @param search     Optional search across InvtID, ClassID, Descr, price_class.
- * @param reqUnit    Optional target unit to convert costs into.
- * @param priceClass Optional price class filter.
+ * @param page    Page number (1-based).
+ * @param limit   Rows per page.
+ * @param search  Optional search across InvtID, ClassID, Descr.
+ * @param reqUnit Optional target unit to convert costs into.
  */
 export const getPricesPaginated = async (
 	page: number,
 	limit: number,
 	search?: string,
 	reqUnit?: string,
-	priceClass?: string,
 ): Promise<PaginatedResponse<PriceRecord>> => {
 	const pool = await getDb();
 	const offset = (page - 1) * limit;
 
 	const conditions: string[] = [];
 	const hasSearch = search != null && search.trim().length > 0;
-	const hasPriceClass = priceClass != null && priceClass.trim().length > 0;
 
 	if (hasSearch) {
 		conditions.push(`(i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)`);
-	}
-	if (hasPriceClass) {
-		conditions.push(`i.ClassID = @priceClass`);
 	}
 
 	const whereClause =
@@ -445,15 +439,6 @@ export const getPricesPaginated = async (
     WHERE _rn = 1
   `;
 
-	// Price class discount: only join when price_class param is provided
-	const hasPc = hasPriceClass;
-	const priceClassJoin = hasPc
-		? `LEFT JOIN SMR_PriceClass pc ON pc.price_class = @priceClass AND pc.valid_to IS NULL`
-		: ``;
-	const priceClassSelect = hasPc
-		? `pc.price_class, pc.pct_discount, CAST(ic.cost * (1 - ISNULL(pc.pct_discount, 0)) AS NUMERIC(18,4)) AS discount_price`
-		: `CAST(NULL AS NVARCHAR(30)) AS price_class, CAST(NULL AS NUMERIC(18,4)) AS pct_discount, CAST(NULL AS NUMERIC(18,4)) AS discount_price`;
-
 	// Count query
 	const countQuery = `
     SELECT COUNT(*) AS _total
@@ -470,13 +455,9 @@ export const getPricesPaginated = async (
         i.ClassID AS class_id,
         i.Descr AS description,
         ic.cost,
-        ic.unit,
-        ic.valid_from,
-        ic.valid_to,
-        ${priceClassSelect}
+        ic.unit
       FROM Inventory i
       LEFT JOIN (${currentCostSubQ}) ic ON i.InvtID = ic.inventory_id
-      ${priceClassJoin}
       ${whereClause}
     ) AS _paginated
     WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
@@ -486,7 +467,6 @@ export const getPricesPaginated = async (
 	// Execute count
 	const countReq = pool.request();
 	if (hasSearch) countReq.input("search", `%${search.trim()}%`);
-	if (hasPriceClass) countReq.input("priceClass", priceClass!.trim());
 	const countResult = await countReq.query(countQuery);
 	const total = Number(countResult.recordset[0]?._total) || 0;
 
@@ -498,12 +478,10 @@ export const getPricesPaginated = async (
       SELECT 1 FROM SMR_ItemCost ic
       WHERE ic.inventory_id = i.InvtID AND ic.valid_to IS NULL
     )
-    ${hasPriceClass ? `AND i.ClassID = @priceClass` : ``}
     ${hasSearch ? `AND (i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)` : ``}
   `;
 	const noCostReq = pool.request();
 	if (hasSearch) noCostReq.input("search", `%${search.trim()}%`);
-	if (hasPriceClass) noCostReq.input("priceClass", priceClass!.trim());
 	const noCostResult = await noCostReq.query(noCostCountQuery);
 	const withoutCostCount = Number(noCostResult.recordset[0]?._cnt) || 0;
 
@@ -514,7 +492,6 @@ export const getPricesPaginated = async (
 	// Execute data
 	const dataReq = pool.request();
 	if (hasSearch) dataReq.input("search", `%${search.trim()}%`);
-	if (hasPriceClass) dataReq.input("priceClass", priceClass!.trim());
 	dataReq.input("_offset", offset);
 	dataReq.input("_limit", limit);
 	const dataResult = await dataReq.query(dataQuery);
@@ -526,11 +503,6 @@ export const getPricesPaginated = async (
 		description: string | null;
 		cost: number | null;
 		unit: string | null;
-		valid_from: string | null;
-		valid_to: string | null;
-		price_class: string | null;
-		pct_discount: number | null;
-		discount_price: number | null;
 	};
 
 	const rawRows = trimStrings(dataResult.recordset as RawRow[]);
@@ -548,28 +520,14 @@ export const getPricesPaginated = async (
 			return `@${paramName}`;
 		});
 
-		// If priceClass provided, join with SMR_PriceClass to calculate historical discounts
-		// using the price_class parameter value
-		const historyPcSelect = hasPriceClass
-			? `@priceClass AS price_class, pc.pct_discount, CAST(ic.cost * (1 - ISNULL(pc.pct_discount, 0)) AS NUMERIC(18,4)) AS discount_price`
-			: `CAST(NULL AS NVARCHAR(30)) AS price_class, CAST(NULL AS NUMERIC(18,4)) AS pct_discount, CAST(NULL AS NUMERIC(18,4)) AS discount_price`;
-
-		const historyPcJoin = hasPriceClass
-			? `LEFT JOIN SMR_PriceClass pc ON pc.price_class = @priceClass AND pc.valid_from <= ic.valid_from AND (pc.valid_to IS NULL OR pc.valid_to > ic.valid_from)`
-			: ``;
-
-		if (hasPriceClass) historyReq.input("priceClass", priceClass!.trim());
-
 		const historyResult = await historyReq.query(`
       SELECT
         ic.inventory_id,
         ic.cost,
         ic.unit,
         ic.valid_from,
-        ic.valid_to,
-        ${historyPcSelect}
+        ic.valid_to
       FROM SMR_ItemCost ic
-      ${historyPcJoin}
       WHERE ic.inventory_id IN (${idParams.join(", ")})
       ORDER BY ic.inventory_id, ic.valid_from DESC
     `);
@@ -580,9 +538,6 @@ export const getPricesPaginated = async (
 			unit: string;
 			valid_from: string;
 			valid_to: string | null;
-			price_class: string | null;
-			pct_discount: number | null;
-			discount_price: number | null;
 		};
 
 		const historyRows = trimStrings(historyResult.recordset as HistoryRaw[]);
@@ -593,8 +548,6 @@ export const getPricesPaginated = async (
 				valid_to: h.valid_to,
 				cost: h.cost,
 				unit: h.unit,
-				price_class: h.price_class,
-				discount_price: h.discount_price,
 			});
 			historyMap.set(h.inventory_id, existing);
 		}
@@ -605,7 +558,6 @@ export const getPricesPaginated = async (
 	for (const row of rawRows) {
 		let effectiveCost = row.cost;
 		let effectiveUnit = row.unit;
-		let effectiveDiscount = row.discount_price;
 
 		// Unit conversion if requested
 		if (reqUnit && row.cost !== null && row.unit) {
@@ -617,11 +569,6 @@ export const getPricesPaginated = async (
 			);
 			effectiveCost = converted.cost;
 			effectiveUnit = converted.unit;
-			if (row.pct_discount !== null) {
-				effectiveDiscount = Math.round(
-					converted.cost * (1 - row.pct_discount) * 10000,
-				) / 10000;
-			}
 		}
 
 		data.push({
@@ -631,9 +578,6 @@ export const getPricesPaginated = async (
 			description: row.description,
 			cost: effectiveCost,
 			unit: effectiveUnit,
-			price_class: row.price_class,
-			pct_discount: row.pct_discount,
-			discount_price: effectiveDiscount,
 			history: historyMap.get(row.inventory_id) ?? [],
 		});
 	}

@@ -289,9 +289,8 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
 					const search = query.search;
 					const unit = query.unit;
-					const priceClassVal = query.price_class;
 
-					return getPricesPaginated(page, limit, search, unit, priceClassVal);
+					return getPricesPaginated(page, limit, search, unit);
 				},
 				{
 					query: t.Object({
@@ -299,7 +298,6 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 						limit: t.Optional(t.String()),
 						search: t.Optional(t.String()),
 						unit: t.Optional(t.String()),
-						price_class: t.Optional(t.String()),
 					}),
 				},
 			),

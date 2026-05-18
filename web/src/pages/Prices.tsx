@@ -24,8 +24,6 @@ import {
 	DialogTitle,
 	DialogContent,
 	DialogActions,
-	FormControl,
-	InputLabel,
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
@@ -45,8 +43,6 @@ interface PriceHistoryEntry {
 	valid_to: string | null;
 	cost: number;
 	unit: string;
-	price_class: string | null;
-	discount_price: number | null;
 }
 
 interface PriceRecord {
@@ -56,9 +52,6 @@ interface PriceRecord {
 	description: string | null;
 	cost: number | null;
 	unit: string | null;
-	price_class: string | null;
-	pct_discount: number | null;
-	discount_price: number | null;
 	history: PriceHistoryEntry[];
 }
 
@@ -169,7 +162,7 @@ const Row: React.FC<RowProps> = ({
 				<TableCell>{row.class_id ?? "—"}</TableCell>
 				<TableCell
 					sx={{
-						maxWidth: 220,
+						maxWidth: 400,
 						overflow: "hidden",
 						textOverflow: "ellipsis",
 						whiteSpace: "nowrap",
@@ -241,15 +234,6 @@ const Row: React.FC<RowProps> = ({
 						</Box>
 					)}
 				</TableCell>
-				<TableCell>{row.price_class ?? "—"}</TableCell>
-				<TableCell align="right">
-					{row.pct_discount != null
-						? `${(row.pct_discount * 100).toFixed(1)}%`
-						: "—"}
-				</TableCell>
-				<TableCell align="right" sx={{ fontWeight: 600 }}>
-					{fmtNum(row.discount_price)}
-				</TableCell>
 				<TableCell sx={{ width: 48, px: 0.5 }}>
 					{!isEditing && (
 						<IconButton
@@ -269,7 +253,7 @@ const Row: React.FC<RowProps> = ({
 						paddingTop: 0,
 						borderBottom: open ? undefined : "unset",
 					}}
-					colSpan={11}
+					colSpan={8}
 				>
 					<Collapse in={open} timeout="auto" unmountOnExit>
 						<Box sx={{ margin: 1 }}>
@@ -288,8 +272,6 @@ const Row: React.FC<RowProps> = ({
 										<TableCell>Valid To</TableCell>
 										<TableCell align="right">Cost</TableCell>
 										<TableCell>Unit</TableCell>
-										<TableCell>Price Class</TableCell>
-										<TableCell align="right">Discount Price</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -299,10 +281,6 @@ const Row: React.FC<RowProps> = ({
 											<TableCell>{fmtDate(h.valid_to)}</TableCell>
 											<TableCell align="right">{fmtNum(h.cost)}</TableCell>
 											<TableCell>{h.unit}</TableCell>
-											<TableCell>{h.price_class ?? "—"}</TableCell>
-											<TableCell align="right">
-												{fmtNum(h.discount_price)}
-											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
@@ -326,9 +304,6 @@ interface PricesToolbarProps {
 	isSearching: boolean;
 	totalCount: number;
 	withoutCostCount: number;
-	priceClass: string | null;
-	priceClassOptions: string[];
-	onPriceClassChange: (value: string | null) => void;
 	unit: string | null;
 	unitOptions: string[];
 	onUnitChange: (value: string | null) => void;
@@ -344,9 +319,6 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	isSearching,
 	totalCount,
 	withoutCostCount,
-	priceClass,
-	priceClassOptions,
-	onPriceClassChange,
 	unit,
 	unitOptions,
 	onUnitChange,
@@ -437,16 +409,6 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 					"& .MuiInputBase-input": { paddingY: 0 },
 					minWidth: { xs: 0, md: 220 },
 				}}
-			/>
-			<Autocomplete
-				size="small"
-				options={priceClassOptions}
-				value={priceClass}
-				onChange={(_, newVal) => onPriceClassChange(newVal)}
-				renderInput={(params) => (
-					<TextField {...params} placeholder="Price Class" sx={{ minWidth: 140 }} />
-				)}
-				sx={{ minWidth: 140 }}
 			/>
 			<Autocomplete
 				size="small"
@@ -660,8 +622,6 @@ const Prices: React.FC = () => {
 	const [searchInputValue, setSearchInputValue] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
 	const searchTimeoutRef = useRef<number>(0);
-	const [priceClass, setPriceClass] = useState<string | null>(null);
-	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
 	const [unit, setUnit] = useState<string | null>(null);
 
 	// Edit state
@@ -676,12 +636,8 @@ const Prices: React.FC = () => {
 	const [importing, setImporting] = useState(false);
 	const [importResult, setImportResult] = useState<string | null>(null);
 
-	const priceClassRef = useRef<string | null>(priceClass);
 	const unitRef = useRef<string | null>(unit);
 
-	useEffect(() => {
-		priceClassRef.current = priceClass;
-	}, [priceClass]);
 	useEffect(() => {
 		unitRef.current = unit;
 	}, [unit]);
@@ -720,8 +676,6 @@ const Prices: React.FC = () => {
 				limit: String(pageSize),
 			});
 			if (searchQuery) params.set("search", searchQuery);
-			const pc = priceClassRef.current;
-			if (pc) params.set("price_class", pc);
 			const u = unitRef.current;
 			if (u) params.set("unit", u);
 
@@ -744,30 +698,13 @@ const Prices: React.FC = () => {
 				setIsSearching(false);
 			}
 		}
-	}, [page, pageSize, searchQuery, priceClass, unit]);
+	}, [page, pageSize, searchQuery, unit]);
 
 	useEffect(() => {
 		const abort = new AbortController();
 		fetchData(abort.signal);
 		return () => abort.abort();
 	}, [fetchData]);
-
-	// Fetch price class options
-	useEffect(() => {
-		let cancelled = false;
-		const fetchOptions = async () => {
-			try {
-				const res = await apiRequest<string[]>("/price/class");
-				if (!cancelled) setPriceClassOptions(res);
-			} catch {
-				// non-critical
-			}
-		};
-		fetchOptions();
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	// ── Edit handlers ──────────────────────────────────────────────
 
@@ -873,9 +810,6 @@ const Prices: React.FC = () => {
 				isSearching={isSearching}
 				totalCount={rowCount}
 				withoutCostCount={withoutCostCount}
-				priceClass={priceClass}
-				priceClassOptions={priceClassOptions}
-				onPriceClassChange={setPriceClass}
 				unit={unit}
 				unitOptions={unitOptions}
 				onUnitChange={setUnit}
@@ -902,13 +836,6 @@ const Prices: React.FC = () => {
 									</TableCell>
 									<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
 									<TableCell sx={{ width: 0, p: 0 }} />
-									<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
-									<TableCell align="right" sx={{ fontWeight: 600 }}>
-										Discount %
-									</TableCell>
-									<TableCell align="right" sx={{ fontWeight: 600 }}>
-										Discount Price
-									</TableCell>
 									<TableCell sx={{ width: 48, px: 0.5 }} />
 								</TableRow>
 							</TableHead>
@@ -916,12 +843,12 @@ const Prices: React.FC = () => {
 								{rows.length === 0 ? (
 									<TableRow>
 										<TableCell
-					colSpan={11}
-											align="center"
-											sx={{ py: 4, color: "text.secondary" }}
-										>
-											No prices found
-										</TableCell>
+										colSpan={8}
+										align="center"
+										sx={{ py: 4, color: "text.secondary" }}
+									>
+										No prices found
+									</TableCell>
 									</TableRow>
 								) : (
 									rows.map((row) => (

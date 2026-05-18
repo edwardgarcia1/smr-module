@@ -51,8 +51,6 @@ export interface PriceHistoryEntry {
 	valid_to: string | null;
 	cost: number;
 	unit: string;
-	price_class: string | null;
-	discount_price: number | null;
 }
 
 // ─── Price record — response shape per the plan ──────────────────────
@@ -64,9 +62,6 @@ export interface PriceRecord {
 	description: string | null;
 	cost: number | null;
 	unit: string | null;
-	price_class: string | null;
-	pct_discount: number | null;
-	discount_price: number | null;
 	history: PriceHistoryEntry[];
 }
 
@@ -86,7 +81,6 @@ export interface PriceQuery {
 	limit: number;
 	search?: string;
 	unit?: string;
-	price_class?: string;
 }
 
 /** Row from Excel import — must have inventory_id, cost, unit */
