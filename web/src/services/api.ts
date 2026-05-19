@@ -85,29 +85,3 @@ export const api = {
 };
 
 export default api.apiRequest;
-
-// ─── Proactive token refresh ──────────────────────────────────────────
-// Cookies expire at 15 min. Refresh every 12 min to avoid hitting 401s.
-const REFRESH_INTERVAL = 12 * 60 * 1000;
-let refreshTimer: ReturnType<typeof setTimeout> | null = null;
-
-/** Start recurring proactive refresh cycle. Safe to call multiple times. */
-export function scheduleTokenRefresh(): void {
-	cancelTokenRefresh();
-	refreshTimer = setTimeout(async () => {
-		try {
-			await apiRequest("/auth/refresh", { method: "POST", isRefresh: true });
-			scheduleTokenRefresh(); // Recur
-		} catch {
-			// Silent — reactive 401 handler in apiRequest deals with failures
-		}
-	}, REFRESH_INTERVAL);
-}
-
-/** Cancel any pending proactive refresh. Call on logout. */
-export function cancelTokenRefresh(): void {
-	if (refreshTimer !== null) {
-		clearTimeout(refreshTimer);
-		refreshTimer = null;
-	}
-}

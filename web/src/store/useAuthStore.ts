@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { authService } from "../services/auth";
-import { scheduleTokenRefresh, cancelTokenRefresh } from "../services/api";
 
 export interface User {
 	id: string;
@@ -26,10 +25,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 	isInitialAuth: true,
 	login: (user) => {
 		set({ user, isLoading: false });
-		scheduleTokenRefresh();
 	},
 	logout: async () => {
-		cancelTokenRefresh();
 		try {
 			await authService.logout();
 		} catch {
@@ -38,11 +35,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 		set({ user: null, isLoading: false });
 	},
 	checkAuth: async () => {
-		set({ isLoading: true });
 		try {
 			const user = await authService.me();
 			set({ user, isLoading: false });
-			scheduleTokenRefresh();
 		} catch {
 			set({ user: null, isLoading: false });
 		} finally {
