@@ -44,6 +44,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import apiRequest from "../services/api";
 import * as XLSX from "xlsx";
+import Big from "big.js";
 
 // ── Types matching price.schema.ts response ──────────────────────────
 
@@ -83,9 +84,10 @@ interface ImportRow {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function fmtNum(val: number | null | undefined): string {
+function fmtNum(val: Big | number | null | undefined): string {
 	if (val === null || val === undefined) return "—";
-	return val.toLocaleString(undefined, {
+	const n = val instanceof Big ? Number(val.toFixed(4)) : val;
+	return n.toLocaleString(undefined, {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 4,
 	});
@@ -212,7 +214,11 @@ const Row: React.FC<RowProps> = ({
 				</TableCell>
 				<TableCell align="right" sx={{ minWidth: 120 }}>
 					{pctDiscount != null && row.cost != null
-						? fmtNum(row.cost * (1 - pctDiscount / 100))
+						? fmtNum(
+								new Big(row.cost).times(
+									new Big(1).minus(new Big(pctDiscount).div(100)),
+								),
+							)
 						: "—"}
 				</TableCell>
 				<TableCell>
@@ -515,7 +521,11 @@ const ImportDialog: React.FC<{
 					const invId = String(
 						row.inventory_id ?? row.InventoryID ?? row.InvtID ?? "",
 					).trim();
-					const cost = Number(row.cost ?? row.Cost);
+					// Wrap raw XLSX float in Big and round to 4dp to kill IEEE 754 noise
+					const costRaw = Number(row.cost ?? row.Cost ?? 0);
+					const cost = isNaN(costRaw)
+						? 0
+						: Number(new Big(costRaw).toFixed(4));
 					const unit = String(row.unit ?? row.Unit ?? row.SlsUnit ?? "")
 						.trim()
 						.toUpperCase();
@@ -650,7 +660,7 @@ const ImportDialog: React.FC<{
 										>
 											<TableCell>{r.row}</TableCell>
 											<TableCell>{r.inventory_id}</TableCell>
-											<TableCell align="right">{r.cost}</TableCell>
+											<TableCell align="right">{fmtNum(r.cost)}</TableCell>
 											<TableCell>{r.unit}</TableCell>
 											<TableCell>{r.valid_from}</TableCell>
 											<TableCell>{r.valid_to}</TableCell>

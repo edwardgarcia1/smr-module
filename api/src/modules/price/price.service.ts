@@ -1,6 +1,8 @@
 import { getDb } from "../../config/db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
+import Big from "big.js";
+import { toBig, bigToNumber } from "./price.schema";
 import type {
 	ItemCost,
 	NewItemCost,
@@ -41,27 +43,27 @@ function oneSecondBefore(dtStr: string): string {
  */
 async function normalizeToCsUnit(
 	inventoryId: string,
-	cost: number,
+	cost: Big | number,
 	unit: string,
-): Promise<{ cost: number; unit: string }> {
-	if (unit.toUpperCase() === "CS") return { cost, unit };
+): Promise<{ cost: Big; unit: string }> {
+	if (unit.toUpperCase() === "CS") return { cost: toBig(cost), unit };
 
 	// Forward: found row where FromUnit = current unit, ToUnit = CS
-	// 1 current_unit = factor × CS → cost_per_CS = cost_per_current / factor
+	// 1 current_unit = factor × CS → cost_per_CS = cost_per_current / factor (Big precision)
 	const factor = await findConversionFactor(inventoryId, unit, "CS");
 	if (factor !== null) {
-		return { cost: cost / factor, unit: "CS" };
+		return { cost: toBig(cost).div(factor), unit: "CS" };
 	}
 
 	// Reverse: found row where FromUnit = CS, ToUnit = current unit
-	// 1 CS = reverseFactor × current_unit → cost_per_CS = cost_per_current × reverseFactor
+	// 1 CS = reverseFactor × current_unit → cost_per_CS = cost_per_current × reverseFactor (Big precision)
 	const reverseFactor = await findConversionFactor(inventoryId, "CS", unit);
 	if (reverseFactor !== null) {
-		return { cost: cost * reverseFactor, unit: "CS" };
+		return { cost: toBig(cost).times(reverseFactor), unit: "CS" };
 	}
 
 	// No conversion available — keep original
-	return { cost, unit };
+	return { cost: toBig(cost), unit };
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ export const createItemCost = async (item: NewItemCost): Promise<ItemCost> => {
 	const result = await pool
 		.request()
 		.input("inventory_id", item.inventory_id)
-		.input("cost", normalized.cost)
+		.input("cost", bigToNumber(normalized.cost))
 		.input("unit", normalized.unit)
 		.input("valid_from", validFrom)
 		.input("valid_to", item.valid_to ?? null)
@@ -93,7 +95,10 @@ export const createItemCost = async (item: NewItemCost): Promise<ItemCost> => {
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create ItemCost");
-	return trimStrings(created as ItemCost);
+	return {
+		...trimStrings(created as Record<string, unknown>),
+		cost: toBig((created as Record<string, unknown>).cost),
+	} as unknown as ItemCost;
 };
 
 export const getItemCostById = async (
@@ -106,7 +111,12 @@ export const getItemCostById = async (
 		.query(
 			"SELECT id, inventory_id, cost, unit, valid_from, valid_to FROM SMR_ItemCost WHERE id = @id",
 		);
-	return trimStrings(result.recordset[0] as ItemCost | undefined);
+	const raw = result.recordset[0] as Record<string, unknown> | undefined;
+	if (!raw) return undefined;
+	return {
+		...trimStrings(raw),
+		cost: toBig(raw.cost),
+	} as unknown as ItemCost;
 };
 
 export const getItemCostsByInventoryId = async (
@@ -122,7 +132,11 @@ export const getItemCostsByInventoryId = async (
       WHERE inventory_id = @inventory_id
       ORDER BY valid_from DESC
     `);
-	return trimStrings(result.recordset as ItemCost[]);
+	const raw = result.recordset as Record<string, unknown>[];
+	return raw.map((r) => ({
+		...trimStrings(r),
+		cost: toBig(r.cost),
+	})) as unknown as ItemCost[];
 };
 
 export const updateItemCost = async (
@@ -142,7 +156,7 @@ export const updateItemCost = async (
 	}
 
 	const req = pool.request().input("id", id);
-	if (updates.cost !== undefined) req.input("cost", updates.cost);
+	if (updates.cost !== undefined) req.input("cost", bigToNumber(toBig(updates.cost)));
 	if (updates.unit !== undefined) req.input("unit", updates.unit);
 	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
 
@@ -156,7 +170,11 @@ export const updateItemCost = async (
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemCost ${id} not found`);
 	}
-	return trimStrings(result.recordset[0] as ItemCost);
+	const raw = result.recordset[0] as Record<string, unknown>;
+	return {
+		...trimStrings(raw),
+		cost: toBig(raw.cost),
+	} as unknown as ItemCost;
 };
 
 export const deleteItemCost = async (id: number): Promise<void> => {
@@ -213,7 +231,7 @@ export const createPriceClass = async (
 	const result = await pool
 		.request()
 		.input("price_class", pc.price_class)
-		.input("pct_discount", pc.pct_discount)
+		.input("pct_discount", bigToNumber(toBig(pc.pct_discount)))
 		.input("valid_from", pc.valid_from)
 		.input("valid_to", pc.valid_to ?? null)
 		.query(`
@@ -224,7 +242,11 @@ export const createPriceClass = async (
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create PriceClass");
-	return trimStrings(created as PriceClass);
+	const raw = created as Record<string, unknown>;
+	return {
+		...trimStrings(raw),
+		pct_discount: toBig(raw.pct_discount),
+	} as unknown as PriceClass;
 };
 
 export const getPriceClasses = async (): Promise<PriceClass[]> => {
@@ -236,7 +258,11 @@ export const getPriceClasses = async (): Promise<PriceClass[]> => {
       FROM SMR_PriceClass
       ORDER BY price_class, valid_from DESC
     `);
-	return trimStrings(result.recordset as PriceClass[]);
+	const raw = result.recordset as Record<string, unknown>[];
+	return raw.map((r) => ({
+		...trimStrings(r),
+		pct_discount: toBig(r.pct_discount),
+	})) as unknown as PriceClass[];
 };
 
 export const getCurrentPriceClasses = async (): Promise<PriceClass[]> => {
@@ -249,7 +275,11 @@ export const getCurrentPriceClasses = async (): Promise<PriceClass[]> => {
       WHERE valid_to IS NULL
       ORDER BY price_class
     `);
-	return trimStrings(result.recordset as PriceClass[]);
+	const raw = result.recordset as Record<string, unknown>[];
+	return raw.map((r) => ({
+		...trimStrings(r),
+		pct_discount: toBig(r.pct_discount),
+	})) as unknown as PriceClass[];
 };
 
 /** Returns ALL price class entries (current + history) ordered by price_class, valid_from DESC */
@@ -262,7 +292,11 @@ export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
       FROM SMR_PriceClass
       ORDER BY price_class, valid_from DESC
     `);
-	return trimStrings(result.recordset as PriceClass[]);
+	const raw = result.recordset as Record<string, unknown>[];
+	return raw.map((r) => ({
+		...trimStrings(r),
+		pct_discount: toBig(r.pct_discount),
+	})) as unknown as PriceClass[];
 };
 
 /** Returns all entries (expired + current) for a specific price_class name */
@@ -279,7 +313,11 @@ export const getPriceClassHistory = async (
       WHERE price_class = @price_class
       ORDER BY valid_from DESC
     `);
-	return trimStrings(result.recordset as PriceClass[]);
+	const raw = result.recordset as Record<string, unknown>[];
+	return raw.map((r) => ({
+		...trimStrings(r),
+		pct_discount: toBig(r.pct_discount),
+	})) as unknown as PriceClass[];
 };
 
 export const getDistinctPriceClasses = async (): Promise<string[]> => {
@@ -310,7 +348,7 @@ export const updatePriceClass = async (
 
 	const req = pool.request()
 		.input("id", id);
-	if (updates.pct_discount !== undefined) req.input("pct_discount", updates.pct_discount);
+	if (updates.pct_discount !== undefined) req.input("pct_discount", bigToNumber(toBig(updates.pct_discount)));
 	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
 
 	const result = await req.query(`
@@ -323,7 +361,11 @@ export const updatePriceClass = async (
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`PriceClass ${id} not found`);
 	}
-	return trimStrings(result.recordset[0] as PriceClass);
+	const raw = result.recordset[0] as Record<string, unknown>;
+	return {
+		...trimStrings(raw),
+		pct_discount: toBig(raw.pct_discount),
+	} as unknown as PriceClass;
 };
 
 export const deletePriceClass = async (id: number): Promise<void> => {
@@ -377,34 +419,35 @@ async function findConversionFactor(
 /**
  * Convert a cost value from one unit to another using INUnit.
  * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
+ * Uses Big.js for precise decimal arithmetic.
  * Returns { convertedCost, convertedUnit } or the original if no conversion exists.
  */
 async function convertCost(
 	inventoryId: string,
-	cost: number,
+	cost: Big | number,
 	fromUnit: string,
 	toUnit: string,
-): Promise<{ cost: number; unit: string }> {
-	if (fromUnit === toUnit) return { cost, unit: fromUnit };
+): Promise<{ cost: Big; unit: string }> {
+	if (fromUnit === toUnit) return { cost: toBig(cost), unit: fromUnit };
 
 	// Forward: found row where FromUnit = source unit
 	// 1 source_unit = factor × target_unit
-	// cost_per_target = cost_per_source / factor
+	// cost_per_target = cost_per_source / factor  (Big precision)
 	const factor = await findConversionFactor(inventoryId, fromUnit, toUnit);
 	if (factor !== null) {
-		return { cost: cost / factor, unit: toUnit };
+		return { cost: toBig(cost).div(factor), unit: toUnit };
 	}
 
 	// Reverse: found row where FromUnit = target unit
 	// 1 target_unit = reverseFactor × source_unit
-	// cost_per_target = cost_per_source × reverseFactor
+	// cost_per_target = cost_per_source × reverseFactor  (Big precision)
 	const reverseFactor = await findConversionFactor(inventoryId, toUnit, fromUnit);
 	if (reverseFactor !== null) {
-		return { cost: cost * reverseFactor, unit: toUnit };
+		return { cost: toBig(cost).times(reverseFactor), unit: toUnit };
 	}
 
 	// No conversion found — return original
-	return { cost, unit: fromUnit };
+	return { cost: toBig(cost), unit: fromUnit };
 }
 
 // ─── Price query (the core) ──────────────────────────────────────────
@@ -430,8 +473,12 @@ async function findPriceClassForDate(
         AND (valid_to IS NULL OR valid_to > @target_date)
       ORDER BY valid_from DESC
     `);
-	const row = result.recordset[0] as PriceClass | undefined;
-	return row ? trimStrings(row) : null;
+	const row = result.recordset[0] as Record<string, unknown> | undefined;
+	if (!row) return null;
+	return {
+		...trimStrings(row),
+		pct_discount: toBig(row.pct_discount),
+	} as unknown as PriceClass;
 }
 
 // ─── Main paginated query ─────────────────────────────────────────────
@@ -586,7 +633,7 @@ export const getPricesPaginated = async (
 			existing.push({
 				valid_from: h.valid_from,
 				valid_to: h.valid_to,
-				cost: h.cost,
+				cost: toBig(h.cost),
 				unit: h.unit,
 			});
 			historyMap.set(h.inventory_id, existing);
@@ -596,20 +643,23 @@ export const getPricesPaginated = async (
 	// Build final response
 	const data: PriceRecord[] = [];
 	for (const row of rawRows) {
-		let effectiveCost = row.cost;
+		let effectiveCost: Big | null = row.cost != null ? toBig(row.cost) : null;
 		let effectiveUnit = row.unit;
 
 		// Unit conversion if requested
 		if (reqUnit && row.cost !== null && row.unit) {
 			const converted = await convertCost(
 				row.inventory_id,
-				row.cost,
+				effectiveCost!,
 				row.unit,
 				reqUnit,
 			);
 			effectiveCost = converted.cost;
 			effectiveUnit = converted.unit;
 		}
+
+		const history: PriceHistoryEntry[] =
+			historyMap.get(row.inventory_id) ?? [];
 
 		data.push({
 			item_cost_id: row.item_cost_id,
@@ -618,7 +668,7 @@ export const getPricesPaginated = async (
 			description: row.description,
 			cost: effectiveCost,
 			unit: effectiveUnit,
-			history: historyMap.get(row.inventory_id) ?? [],
+			history,
 		});
 	}
 
@@ -711,7 +761,7 @@ export const importItemCosts = async (
 			await pool
 				.request()
 				.input("inventory_id", item.inventory_id)
-				.input("cost", normalized.cost)
+				.input("cost", bigToNumber(normalized.cost))
 				.input("unit", normalized.unit)
 				.input("valid_from", validFrom)
 				.input("valid_to", item.valid_to ?? null)

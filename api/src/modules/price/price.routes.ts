@@ -24,6 +24,7 @@ import {
 	UnauthorizedError,
 } from "../../middlewares/error";
 import { withCache, invalidateCachePrefix } from "../../utils/cache";
+import { toPlainJson } from "./price.schema";
 
 /** Cache TTL for reference data: 5 minutes */
 const REF_CACHE_TTL = 5 * 60 * 1000;
@@ -72,7 +73,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "PriceClass");
 
-					return getAllPriceClasses();
+					return toPlainJson(await getAllPriceClasses());
 				},
 			)
 
@@ -85,7 +86,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createPriceClass(body);
+					return toPlainJson(await createPriceClass(body));
 				},
 				{
 					body: t.Object({
@@ -113,7 +114,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "update", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updatePriceClass(id, body);
+					return toPlainJson(await updatePriceClass(id, body));
 				},
 				{
 					params: t.Object({
@@ -153,7 +154,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "PriceClass");
 
-					return getPriceClassHistory(priceClass);
+					return toPlainJson(await getPriceClassHistory(priceClass));
 				},
 				{
 					params: t.Object({
@@ -174,7 +175,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 					const cost = await getItemCostById(id);
 					if (!cost) throw new NotFoundError(`ItemCost ${id} not found`);
-					return cost;
+					return toPlainJson(cost);
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
@@ -190,7 +191,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "ItemCost");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createItemCost(body);
+					return toPlainJson(await createItemCost(body));
 				},
 				{
 					body: t.Object({
@@ -238,7 +239,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					});
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return newCost;
+					return toPlainJson(newCost);
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
@@ -307,7 +308,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					const search = query.search;
 					const unit = query.unit;
 
-					return getPricesPaginated(page, limit, search, unit);
+					return toPlainJson(
+						await getPricesPaginated(page, limit, search, unit),
+					);
 				},
 				{
 					query: t.Object({
