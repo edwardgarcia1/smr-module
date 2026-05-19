@@ -92,6 +92,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 				ClassID: t.String({ maxLength: 10 }),
 				ProdMgrID: t.String({ maxLength: 10 }),
 				Descr: t.String({ maxLength: 100 }),
+				StkUnit: t.String({ maxLength: 10 }),
 			}),
 		},
 	)
@@ -112,6 +113,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 				ClassID: t.Optional(t.String({ maxLength: 10 })),
 				ProdMgrID: t.Optional(t.String({ maxLength: 10 })),
 				Descr: t.Optional(t.String({ maxLength: 100 })),
+				StkUnit: t.Optional(t.String({ maxLength: 10 })),
 			}),
 		},
 	)

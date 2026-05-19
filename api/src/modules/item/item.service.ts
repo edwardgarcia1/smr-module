@@ -28,10 +28,11 @@ export const createInventory = async (
 		.input("InvtID", inv.InvtID)
 		.input("ClassID", inv.ClassID)
 		.input("ProdMgrID", inv.ProdMgrID)
-		.input("Descr", inv.Descr).query(`
-      INSERT INTO Inventory (InvtID, ClassID, ProdMgrID, Descr)
-      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr
-      VALUES (@InvtID, @ClassID, @ProdMgrID, @Descr)
+		.input("Descr", inv.Descr)
+		.input("StkUnit", inv.StkUnit).query(`
+      INSERT INTO Inventory (InvtID, ClassID, ProdMgrID, Descr, StkUnit)
+      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
+      VALUES (@InvtID, @ClassID, @ProdMgrID, @Descr, @StkUnit)
     `);
 
 	const created = result.recordset[0];
@@ -47,7 +48,7 @@ export const getInventoryById = async (
 		.request()
 		.input("InvtID", invtId)
 		.query(
-			"SELECT InvtID, ClassID, ProdMgrID, Descr FROM Inventory WHERE InvtID = @InvtID",
+			"SELECT InvtID, ClassID, ProdMgrID, Descr, StkUnit FROM Inventory WHERE InvtID = @InvtID",
 		);
 	return trimStrings(result.recordset[0] as Inventory | undefined);
 };
@@ -56,7 +57,7 @@ export const getAllInventory = async (
 	promoFilter: "all" | "promos" | "non_promos" = "all",
 ): Promise<InventoryWithPromo[]> => {
 	const pool = await getDb();
-	const baseSelect = `SELECT i.InvtID, i.ClassID, i.ProdMgrID, i.Descr`;
+	const baseSelect = `SELECT i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit`;
 
 	const query =
 		promoFilter === "all"
@@ -86,10 +87,11 @@ export const updateInventory = async (
 		.input("InvtID", invtId)
 		.input("ClassID", updates.ClassID ?? null)
 		.input("ProdMgrID", updates.ProdMgrID ?? null)
-		.input("Descr", updates.Descr ?? null).query(`
+		.input("Descr", updates.Descr ?? null)
+		.input("StkUnit", updates.StkUnit ?? null).query(`
       UPDATE Inventory
-      SET ClassID = @ClassID, ProdMgrID = @ProdMgrID, Descr = @Descr
-      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr
+      SET ClassID = @ClassID, ProdMgrID = @ProdMgrID, Descr = @Descr, StkUnit = @StkUnit
+      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
       WHERE InvtID = @InvtID
     `);
 
@@ -349,7 +351,7 @@ export const getInventoryWithComponents = async (): Promise<
 	const pool = await getDb();
 	const result = await pool.request().query(`
       SELECT
-        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
+        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         c.KitID, c.CmpnentID, c.CmpnentQty
       FROM Inventory i
       LEFT JOIN Component c ON i.InvtID = c.KitID
@@ -364,7 +366,7 @@ export const getInventoryWithItemSites = async (): Promise<
 	const pool = await getDb();
 	const result = await pool.request().query(`
       SELECT
-        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
+        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
         s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime
       FROM Inventory i
@@ -395,7 +397,7 @@ export const getInventoryWithComponentsAndItemSites = async (
 
 	const result = await request.query(`
       SELECT
-        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr,
+        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         c.KitID, c.CmpnentID, c.CmpnentQty,
         s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
         s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime

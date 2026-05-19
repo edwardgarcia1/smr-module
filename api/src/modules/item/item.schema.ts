@@ -6,6 +6,7 @@ export interface Inventory {
 	ClassID: string;
 	ProdMgrID: string;
 	Descr: string;
+	StkUnit: string;
 }
 
 export type NewInventory = {
@@ -13,10 +14,11 @@ export type NewInventory = {
 	ClassID: string;
 	ProdMgrID: string;
 	Descr: string;
+	StkUnit: string;
 };
 
 export type InventoryUpdate = Partial<
-	Pick<Inventory, "ClassID" | "ProdMgrID" | "Descr">
+	Pick<Inventory, "ClassID" | "ProdMgrID" | "Descr" | "StkUnit">
 >;
 
 export interface Component {
@@ -110,6 +112,7 @@ BEGIN
     ClassID NVARCHAR(10),
     ProdMgrID NVARCHAR(10),
     Descr NVARCHAR(100),
+    StkUnit NVARCHAR(10),
     CONSTRAINT PK_Inventory PRIMARY KEY (InvtID)
   );
 END

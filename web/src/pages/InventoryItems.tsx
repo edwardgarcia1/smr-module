@@ -33,6 +33,7 @@ interface JoinedInventoryRow {
 	ClassID: string | null;
 	ProdMgrID: string | null;
 	Descr: string | null;
+	StkUnit: string | null;
 	KitID: string | null;
 	CmpnentID: string | null;
 	CmpnentQty: number | null;
@@ -51,6 +52,7 @@ interface InventoryRow {
 	ClassID: string | null;
 	ProdMgrID: string | null;
 	Descr: string | null;
+	StkUnit: string | null;
 	isPromo: number; // 1 = has Components, 0 = no Components
 	SiteID: string | null;
 	QtyAlloc: number;
@@ -61,7 +63,7 @@ interface InventoryRow {
 }
 
 /** Group joined rows by (InvtID, SiteID) — one row per site */
-function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
+	function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
 	const map = new Map<string, InventoryRow>();
 
 	for (const row of rows) {
@@ -73,6 +75,7 @@ function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
 				ClassID: row.ClassID,
 				ProdMgrID: row.ProdMgrID,
 				Descr: row.Descr,
+				StkUnit: row.StkUnit,
 				isPromo: 0,
 				SiteID: row.SiteID,
 				QtyAlloc: row.QtyAlloc ?? 0,
@@ -392,6 +395,7 @@ const InventoryItems: React.FC = () => {
 					item.InvtID.toLowerCase().includes(q) ||
 					(item.SiteID ?? "").toLowerCase().includes(q) ||
 					(item.Descr ?? "").toLowerCase().includes(q) ||
+					(item.StkUnit ?? "").toLowerCase().includes(q) ||
 					(item.ProdMgrID ?? "").toLowerCase().includes(q) ||
 					(item.ClassID ?? "").toLowerCase().includes(q) ||
 					(item.LUpd_DateTime ?? "").toLowerCase().includes(q) ||
@@ -443,6 +447,12 @@ const InventoryItems: React.FC = () => {
 			headerName: "Description",
 			minWidth: 250,
 			flex: 1,
+			valueFormatter: (value: string | null) => value ?? "-",
+		},
+		{
+			field: "StkUnit",
+			headerName: "Unit",
+			width: 80,
 			valueFormatter: (value: string | null) => value ?? "-",
 		},
 		{
