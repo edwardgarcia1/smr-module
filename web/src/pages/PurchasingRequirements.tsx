@@ -13,15 +13,9 @@ import {
 	FormLabel,
 	Autocomplete,
 	IconButton,
-	Dialog,
-	DialogTitle,
-	DialogContent,
-	DialogContentText,
-	DialogActions,
 	Alert,
 	Tooltip,
 	Checkbox,
-	Chip,
 	CircularProgress,
 	Divider,
 	useTheme,
@@ -50,7 +44,6 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
-import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 import apiRequest from "../services/api";
 
@@ -564,13 +557,9 @@ const FORM_STORAGE_KEY = "pr-form-state-v4";
 
 interface PersistedFormState {
 	selectedPrincipal: Principal | null;
-	selectedCategories: Category[];
 	selectedStorage: StorageLocation[];
-	selectedPriceClasses: string[];
 	storageLocations: StorageLocation[];
 	frequency: Frequency;
-	monthlyFactor: number;
-	poRefNbr: string;
 	dateRanges: { from: string | null; to: string | null }[];
 }
 
@@ -640,11 +629,6 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
 		persistedForm?.selectedPrincipal ?? null,
 	);
-	// Category (multi-select)
-	const categoryOptions: Category[] = ["immediate", "secondary", "monitoring"];
-	const [selectedCategories, setSelectedCategories] = useState<Category[]>(
-		persistedForm?.selectedCategories ?? [],
-	);
 	// Fetched principals list
 	const [principals, setPrincipals] = useState<Principal[]>([]);
 
@@ -656,10 +640,6 @@ const PurchasingRequirements: React.FC = () => {
 	);
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
-	);
-	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
-	const [selectedPriceClasses, setSelectedPriceClasses] = useState<string[]>(
-		persistedForm?.selectedPriceClasses ?? [],
 	);
 	// Date range list
 	interface DateRangeItem {
@@ -699,9 +679,8 @@ const PurchasingRequirements: React.FC = () => {
 		let cancelled = false;
 		const fetchOptions = async () => {
 			try {
-				const [sites, classes, principalList] = await Promise.all([
+				const [sites, principalList] = await Promise.all([
 					apiRequest<{ SiteId: string; Name: string }[]>("/inventory"),
-					apiRequest<string[]>("/price/class"),
 					apiRequest<Principal[]>("/principal/ids"),
 				]);
 				if (!cancelled) {
@@ -710,7 +689,6 @@ const PurchasingRequirements: React.FC = () => {
 							.filter((s) => ALLOWED_SITE_IDS.has(s.SiteId))
 							.map((s) => ({ id: s.SiteId, name: s.Name })),
 					);
-					setPriceClassOptions(classes);
 					setPrincipals(principalList);
 				}
 			} catch {
@@ -727,22 +705,6 @@ const PurchasingRequirements: React.FC = () => {
 	const [frequency, setFrequency] = useState<Frequency>(
 		persistedForm?.frequency ?? "monthly",
 	);
-	const [monthlyFactor, setMonthlyFactor] = useState(() => {
-		// Priority: form persistence → global user settings → hardcoded default
-		if (persistedForm?.monthlyFactor != null) return persistedForm.monthlyFactor;
-		try {
-			const saved = localStorage.getItem("userSettings");
-			if (saved) {
-				const settings = JSON.parse(saved);
-				if (settings.monthlyFactor != null) return settings.monthlyFactor;
-			}
-		} catch {
-			/* ignore */
-		}
-		return 1.5;
-	});
-	const [poRefNbr, setPoRefNbr] = useState(persistedForm?.poRefNbr ?? "");
-	const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
 	// Grid data
 	const [rows, setRows] = useState<GridRowsProp>([]);
@@ -750,103 +712,6 @@ const PurchasingRequirements: React.FC = () => {
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
-
-	// ─── Apply Handler ────────────────────────────────────────────────────
-
-	const handleApply = useCallback(async () => {
-		setGridError(null);
-		setApplied(false);
-		setRows([]);
-		setColumns([]);
-		setIsApplying(true);
-
-		if (!selectedPrincipal) {
-			setGridError("Please select a Principal.");
-			setIsApplying(false);
-			return;
-		}
-		if (
-			dateRanges.length === 0 ||
-			dateRanges.some((dr) => !dr.from || !dr.to)
-		) {
-			setGridError("Please fill in all date ranges.");
-			setIsApplying(false);
-			return;
-		}
-		for (const dr of dateRanges) {
-			if (dr.to!.isBefore(dr.from!)) {
-				setGridError("End date must be after start date in each date range.");
-				setIsApplying(false);
-				return;
-			}
-		}
-
-		// Compute overall min/max across all date ranges for column generation
-		const overallFrom = dateRanges.reduce<Dayjs>(
-			(min, dr) => (dr.from!.isBefore(min) ? dr.from! : min),
-			dateRanges[0].from!,
-		);
-		const overallTo = dateRanges.reduce<Dayjs>(
-			(max, dr) => (dr.to!.isAfter(max) ? dr.to! : max),
-			dateRanges[0].to!,
-		);
-
-		// Filter products by Principal, Category, Storage, and Price Class
-		let filtered = placeholderProducts.filter(
-			(p) => p.principalId === selectedPrincipal.ClassID,
-		);
-
-		if (selectedCategories.length > 0) {
-			const catSet = new Set(selectedCategories);
-			filtered = filtered.filter((p) => catSet.has(p.principalCategory));
-		}
-
-		if (selectedStorage.length > 0) {
-			const storageIds = new Set(selectedStorage.map((s) => Number(s.id)));
-			filtered = filtered.filter((p) =>
-				p.storageIds.some((sid) => storageIds.has(sid)),
-			);
-		}
-
-		if (selectedPriceClasses.length > 0) {
-			const pcSet = new Set(selectedPriceClasses);
-			filtered = filtered.filter((p) => pcSet.has(p.priceClass));
-		}
-
-		if (filtered.length === 0) {
-			setGridError(
-				"No products match the selected filters. Try adjusting your criteria.",
-			);
-			setIsApplying(false);
-			return;
-		}
-
-		// Generate month labels
-		const monthLabels = generateMonthLabels(overallFrom, overallTo, frequency);
-		if (monthLabels.length === 0) {
-			setGridError("No months in the selected date range.");
-			setIsApplying(false);
-			return;
-		}
-
-		// Fill demand data using the global monthlyFactor
-		const data = fillDemandData(filtered, monthLabels, monthlyFactor);
-
-		// Build dynamic columns
-		const dynamicCols: GridColDef[] = buildColumns(monthLabels);
-		setColumns(dynamicCols);
-		setRows(data);
-		setApplied(true);
-		setIsApplying(false);
-	}, [
-		selectedPrincipal,
-		selectedCategories,
-		selectedStorage,
-		selectedPriceClasses,
-		dateRanges,
-		frequency,
-		monthlyFactor,
-	]);
 
 	// ─── Build Columns ────────────────────────────────────────────────────
 
@@ -997,6 +862,91 @@ const PurchasingRequirements: React.FC = () => {
 		return cols;
 	}, []);
 
+	// ─── Apply Handler ────────────────────────────────────────────────────
+
+	const handleApply = useCallback(async () => {
+		setGridError(null);
+		setApplied(false);
+		setRows([]);
+		setColumns([]);
+		setIsApplying(true);
+
+		if (!selectedPrincipal) {
+			setGridError("Please select a Principal.");
+			setIsApplying(false);
+			return;
+		}
+		if (
+			dateRanges.length === 0 ||
+			dateRanges.some((dr) => !dr.from || !dr.to)
+		) {
+			setGridError("Please fill in all date ranges.");
+			setIsApplying(false);
+			return;
+		}
+		for (const dr of dateRanges) {
+			if (dr.to!.isBefore(dr.from!)) {
+				setGridError("End date must be after start date in each date range.");
+				setIsApplying(false);
+				return;
+			}
+		}
+
+		// Compute overall min/max across all date ranges for column generation
+		const overallFrom = dateRanges.reduce<Dayjs>(
+			(min, dr) => (dr.from!.isBefore(min) ? dr.from! : min),
+			dateRanges[0].from!,
+		);
+		const overallTo = dateRanges.reduce<Dayjs>(
+			(max, dr) => (dr.to!.isAfter(max) ? dr.to! : max),
+			dateRanges[0].to!,
+		);
+
+		// Filter products by Principal and Storage
+		let filtered = placeholderProducts.filter(
+			(p) => p.principalId === selectedPrincipal.ClassID,
+		);
+
+		if (selectedStorage.length > 0) {
+			const storageIds = new Set(selectedStorage.map((s) => Number(s.id)));
+			filtered = filtered.filter((p) =>
+				p.storageIds.some((sid) => storageIds.has(sid)),
+			);
+		}
+
+		if (filtered.length === 0) {
+			setGridError(
+				"No products match the selected filters. Try adjusting your criteria.",
+			);
+			setIsApplying(false);
+			return;
+		}
+
+		// Generate month labels
+		const monthLabels = generateMonthLabels(overallFrom, overallTo, frequency);
+		if (monthLabels.length === 0) {
+			setGridError("No months in the selected date range.");
+			setIsApplying(false);
+			return;
+		}
+
+		// Fill demand data using default factor
+		const data = fillDemandData(filtered, monthLabels, 1.5);
+
+		// Build dynamic columns
+		const dynamicCols: GridColDef[] = buildColumns(monthLabels);
+		setColumns(dynamicCols);
+		setRows(data);
+		setApplied(true);
+		setIsApplying(false);
+	}, [
+		selectedPrincipal,
+		selectedStorage,
+		dateRanges,
+		frequency,
+		buildColumns,
+	]);
+
 	// ─── Grid Edit Handler ────────────────────────────────────────────────
 
 	const processRowUpdate = useCallback(
@@ -1025,32 +975,6 @@ const PurchasingRequirements: React.FC = () => {
 		},
 		[],
 	);
-
-	// ─── Clear Handlers ──────────────────────────────────────────────────
-
-	const handleClearConfirmOpen = useCallback(() => {
-		setClearConfirmOpen(true);
-	}, []);
-
-	const handleClearConfirmClose = useCallback(() => {
-		setClearConfirmOpen(false);
-	}, []);
-
-	const handleClearAll = useCallback(() => {
-		setSelectedPrincipal(null);
-		setSelectedCategories([]);
-		setSelectedStorage([]);
-		setSelectedPriceClasses([]);
-		setDateRanges([{ from: null, to: null }]);
-		setFrequency("monthly");
-		setMonthlyFactor(1.5);
-		setPoRefNbr("");
-		setRows([]);
-		setColumns([]);
-		setGridError(null);
-		setApplied(false);
-		setClearConfirmOpen(false);
-	}, []);
 
 	// ─── Filter Panel ─────────────────────────────────────────────────────
 
@@ -1083,123 +1007,6 @@ const PurchasingRequirements: React.FC = () => {
 										<TextField
 											{...params}
 											placeholder="Search or select principal"
-											sx={{
-												"& .MuiOutlinedInput-root": { borderRadius: 2 },
-											}}
-										/>
-									)}
-								/>
-							</FormControl>
-						</Grid>
-						{/* Category - half width */}
-						<Grid size={{ xs: 12, md: 6 }}>
-							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Category
-								</FormLabel>
-								<Autocomplete
-									multiple
-									size="small"
-									options={categoryOptions}
-									value={selectedCategories}
-									onChange={(_, newVal) => setSelectedCategories(newVal)}
-									getOptionLabel={(option) => {
-										const labels: Record<Category, string> = {
-											immediate: "Immediate",
-											secondary: "Secondary",
-											monitoring: "Monitoring",
-										};
-										return labels[option];
-									}}
-									disableCloseOnSelect
-									renderValue={(value, getItemProps) => {
-										const labels: Record<Category, string> = {
-											immediate: "Immediate",
-											secondary: "Secondary",
-											monitoring: "Monitoring",
-										};
-										const chipColors: Record<Category, string> = {
-											immediate: "#d32f2f",
-											secondary: "#ed6c02",
-											monitoring: "#0288d1",
-										};
-										const items = Array.isArray(value) ? value : [];
-										return (
-											<Box
-												sx={{
-													display: "flex",
-													flexWrap: "wrap",
-													gap: 0.5,
-													py: 0.25,
-												}}
-											>
-												{items.map((item, index) => {
-													const option = item as Category;
-													const { key, onDelete } = getItemProps({
-														index,
-													});
-													return (
-														<Chip
-															key={key}
-															label={labels[option]}
-															size="small"
-															onDelete={onDelete}
-															sx={{
-																backgroundColor: chipColors[option],
-																color: "#fff",
-																fontWeight: 500,
-																height: 24,
-																"& .MuiChip-label": { px: 1 },
-																"& .MuiChip-deleteIcon": {
-																	color: "rgba(255,255,255,0.7)",
-																	"&:hover": { color: "#fff" },
-																},
-															}}
-														/>
-													);
-												})}
-											</Box>
-										);
-									}}
-									renderOption={(props, option, { selected }) => {
-										const { key, ...rest } = props;
-										const chipColors: Record<Category, string> = {
-											immediate: "#d32f2f",
-											secondary: "#ed6c02",
-											monitoring: "#0288d1",
-										};
-										const labels: Record<Category, string> = {
-											immediate: "Immediate",
-											secondary: "Secondary",
-											monitoring: "Monitoring",
-										};
-										return (
-											<li
-												key={key}
-												{...rest}
-												style={{
-													...rest.style,
-													borderLeft: `4px solid ${chipColors[option]}`,
-													paddingLeft: 12,
-												}}
-											>
-												<Checkbox
-													icon={
-														<CheckBoxOutlineBlankIcon fontSize="small" />
-													}
-													checkedIcon={
-														<CheckBoxIcon fontSize="small" />
-													}
-													checked={selected}
-												/>
-												{labels[option]}
-											</li>
-										);
-									}}
-									renderInput={(params) => (
-										<TextField
-											{...params}
-											placeholder="Select categories"
 											sx={{
 												"& .MuiOutlinedInput-root": { borderRadius: 2 },
 											}}
@@ -1246,42 +1053,6 @@ const PurchasingRequirements: React.FC = () => {
 								/>
 							</FormControl>
 						</Grid>
-						{/* Price Class - half width */}
-						<Grid size={{ xs: 12, md: 6 }}>
-							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Price Class
-								</FormLabel>
-								<Autocomplete
-									multiple
-									size="small"
-									options={priceClassOptions}
-									value={selectedPriceClasses}
-									onChange={(_, newVal) => setSelectedPriceClasses(newVal)}
-									disableCloseOnSelect
-									renderOption={(props, option, { selected }) => {
-										const { key, ...rest } = props;
-										return (
-											<li key={key} {...rest}>
-												<Checkbox
-													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-													checkedIcon={<CheckBoxIcon fontSize="small" />}
-													checked={selected}
-												/>
-												{option}
-											</li>
-										);
-									}}
-									renderInput={(params) => (
-										<TextField
-											{...params}
-											placeholder="Select price classes"
-											sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-										/>
-									)}
-								/>
-							</FormControl>
-						</Grid>
 						{/* Frequency - half width */}
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl>
@@ -1304,64 +1075,6 @@ const PurchasingRequirements: React.FC = () => {
 										label="Weekly"
 									/>
 								</RadioGroup>
-							</FormControl>
-						</Grid>
-						{/* Monthly Factor - half width */}
-						<Grid size={{ xs: 12, md: 6 }}>
-							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Monthly Factor (Default)
-								</FormLabel>
-								<TextField
-									type="number"
-									size="small"
-									value={monthlyFactor}
-									onChange={(e) =>
-										setMonthlyFactor(parseFloat(e.target.value) || 0)
-									}
-									slotProps={{
-										htmlInput: { step: 0.1, min: 0 },
-									}}
-									sx={{
-										"& .MuiOutlinedInput-root": { borderRadius: 2 },
-									}}
-								/>
-							</FormControl>
-						</Grid>
-						{/* PO RefNbr - with Clear button */}
-						<Grid size={{ xs: 12 }}>
-							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									PO RefNbr
-								</FormLabel>
-								<Box sx={{ display: "flex", gap: 1 }}>
-									<TextField
-										size="small"
-										value={poRefNbr}
-										onChange={(e) => setPoRefNbr(e.target.value)}
-										placeholder="Enter PO reference number"
-										sx={{
-											flex: 3,
-											"& .MuiOutlinedInput-root": { borderRadius: 2 },
-										}}
-									/>
-									<Button
-										variant="outlined"
-										color="error"
-										size="small"
-										startIcon={<DeleteSweepIcon />}
-										onClick={handleClearConfirmOpen}
-										sx={{
-											flex: 1,
-											borderRadius: 2,
-											textTransform: "none",
-											fontWeight: 500,
-											fontSize: "0.8125rem",
-										}}
-									>
-										Clear All
-									</Button>
-								</Box>
 							</FormControl>
 						</Grid>
 					</Grid>
@@ -1507,11 +1220,12 @@ const PurchasingRequirements: React.FC = () => {
 	// ─── Custom Toolbar ─────────────────────────────────────────────────
 
 	const handleExcelExport = useCallback(() => {
-		const filename = poRefNbr
-			? `purchase-requirements-${poRefNbr}.xlsx`
-			: "purchase-requirements.xlsx";
-		exportDataGridToExcel(rows as Record<string, unknown>[], columns, filename);
-	}, [rows, columns, poRefNbr]);
+		exportDataGridToExcel(
+			rows as Record<string, unknown>[],
+			columns,
+			"purchase-requirements.xlsx",
+		);
+	}, [rows, columns]);
 
 	const CustomToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
@@ -1595,24 +1309,16 @@ const PurchasingRequirements: React.FC = () => {
 	const persistState = useMemo(
 		() => ({
 			selectedPrincipal,
-			selectedCategories,
 			selectedStorage,
-			selectedPriceClasses,
 			storageLocations,
 			frequency,
-			monthlyFactor,
-			poRefNbr,
 			dateRanges: serializeDateRanges(dateRanges),
 		}),
 		[
 			selectedPrincipal,
-			selectedCategories,
 			selectedStorage,
-			selectedPriceClasses,
 			storageLocations,
 			frequency,
-			monthlyFactor,
-			poRefNbr,
 			dateRanges,
 		],
 	);
@@ -1627,29 +1333,6 @@ const PurchasingRequirements: React.FC = () => {
 		<>
 			{/* Filter Panel */}
 			{filterPanel}
-
-			{/* Clear Confirmation Dialog */}
-			<Dialog
-				open={clearConfirmOpen}
-				onClose={handleClearConfirmClose}
-				maxWidth="xs"
-				fullWidth
-			>
-				<DialogTitle>Clear All Filters?</DialogTitle>
-				<DialogContent>
-					<DialogContentText>
-						This will reset all filters, date ranges, frequency, factor, PO
-						reference number, and the results grid. This action cannot be
-						undone.
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleClearConfirmClose}>Cancel</Button>
-					<Button onClick={handleClearAll} variant="contained" color="error">
-						Clear All
-					</Button>
-				</DialogActions>
-			</Dialog>
 
 			{/* Data Grid */}
 			{applied && columns.length > 0 && (
