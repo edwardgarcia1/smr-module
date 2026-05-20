@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import {
 	Box,
 	Paper,
@@ -57,508 +57,61 @@ interface Principal {
 	User5: string;
 }
 
-type Category = "immediate" | "secondary" | "monitoring";
-
 interface StorageLocation {
 	id: string;
 	name: string;
 }
 
-interface ProductRow {
-	id: number;
-	principalId: string;
-	principalCategory: Category;
-	storageIds: number[];
-	priceClass: string;
-	code: string;
-	description: string;
-	currentLevel: number;
-	inputUoM: string;
+/** Row returned by GET /purchasing/requirements */
+interface RequirementRow {
+	invtID: string;
+	descr: string;
+	stkUnit: string;
+	classID: string;
 	qtyOnHand: number;
-	unreleasedSO: number;
-	incomingPO: number;
-	monthlyDemand: Record<string, number>;
-	highestMonthlyDemand: number;
+	qtyAvail: number;
+	qtyOnPO: number;
+	qtyAlloc: number;
+	periodDemand: Record<string, number>;
+	avgDemand: number;
+	stockCoverCount: number;
 	monthlyFactor: number;
 	suggestedOrder: number;
 	customOrder: number | null;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-/** Only show inventory items / storage locations at these SiteIDs */
-const ALLOWED_SITE_IDS = new Set(["MAIN", "CAB", "3MPMT", "3MPGT"]);
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const placeholderProducts: ProductRow[] = [
-	// ── ZESTO CORPORATION (principal 1) ──
-	{
-		id: 1,
-		principalId: "ZES",
-		principalCategory: "immediate",
-		storageIds: [1],
-		priceClass: "A",
-		code: "ZES030",
-		description: "BB - Zesto Fruit Soda Calamansi 330ml x 24cs",
-		currentLevel: 120,
-		inputUoM: "cs",
-		qtyOnHand: 120,
-		unreleasedSO: 10,
-		incomingPO: 50,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 2,
-		principalId: "ZES",
-		principalCategory: "immediate",
-		storageIds: [1, 2],
-		priceClass: "B",
-		code: "ZES039",
-		description: "BB - Zesto Fruit Soda Calamansi 500ml x 12cs FG",
-		currentLevel: 85,
-		inputUoM: "cs",
-		qtyOnHand: 85,
-		unreleasedSO: 5,
-		incomingPO: 30,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 3,
-		principalId: "ZES",
-		principalCategory: "immediate",
-		storageIds: [1],
-		priceClass: "B",
-		code: "ZES051",
-		description: "BB - Zesto Grape Drink 330ml x 24cs",
-		currentLevel: 200,
-		inputUoM: "cs",
-		qtyOnHand: 200,
-		unreleasedSO: 20,
-		incomingPO: 0,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 4,
-		principalId: "ZES",
-		principalCategory: "immediate",
-		storageIds: [2],
-		priceClass: "A",
-		code: "ZES032",
-		description: "BB - Zesto Light Root Beer 330ml x 24cs",
-		currentLevel: 55,
-		inputUoM: "cs",
-		qtyOnHand: 55,
-		unreleasedSO: 3,
-		incomingPO: 100,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── PRIME GLOBAL CORPORATION (principal 2) ──
-	{
-		id: 5,
-		principalId: "PGC",
-		principalCategory: "immediate",
-		storageIds: [1, 3],
-		priceClass: "A",
-		code: "PGC001",
-		description: "Prime Rice Premium 25kg",
-		currentLevel: 90,
-		inputUoM: "sack",
-		qtyOnHand: 90,
-		unreleasedSO: 15,
-		incomingPO: 200,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 6,
-		principalId: "PGC",
-		principalCategory: "immediate",
-		storageIds: [1],
-		priceClass: "A",
-		code: "PGC002",
-		description: "Prime Cooking Oil 1L x 12s",
-		currentLevel: 60,
-		inputUoM: "cs",
-		qtyOnHand: 60,
-		unreleasedSO: 8,
-		incomingPO: 25,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 7,
-		principalId: "PGC",
-		principalCategory: "immediate",
-		storageIds: [3],
-		priceClass: "C",
-		code: "PGC003",
-		description: "Prime Canned Sardines 155g x 48cs",
-		currentLevel: 300,
-		inputUoM: "cs",
-		qtyOnHand: 300,
-		unreleasedSO: 50,
-		incomingPO: 0,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── ZUELLIG PHARMA CORPORATION (principal 3) ──
-	{
-		id: 8,
-		principalId: "ZPC",
-		principalCategory: "secondary",
-		storageIds: [1],
-		priceClass: "A",
-		code: "ZPC001",
-		description: "Biogesic Paracetamol 500mg x 100s",
-		currentLevel: 45,
-		inputUoM: "box",
-		qtyOnHand: 45,
-		unreleasedSO: 2,
-		incomingPO: 100,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 9,
-		principalId: "ZPC",
-		principalCategory: "secondary",
-		storageIds: [1, 2],
-		priceClass: "B",
-		code: "ZPC003",
-		description: "Decolgen Tablet x 20s",
-		currentLevel: 180,
-		inputUoM: "box",
-		qtyOnHand: 180,
-		unreleasedSO: 25,
-		incomingPO: 500,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 10,
-		principalId: "ZPC",
-		principalCategory: "secondary",
-		storageIds: [1],
-		priceClass: "A",
-		code: "ZPC002",
-		description: "Neozep Forte Tablet x 20s",
-		currentLevel: 30,
-		inputUoM: "box",
-		qtyOnHand: 30,
-		unreleasedSO: 1,
-		incomingPO: 200,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── MULTIRICH FOODS CORPORATION (principal 4) ──
-	{
-		id: 11,
-		principalId: "MFC",
-		principalCategory: "secondary",
-		storageIds: [2],
-		priceClass: "C",
-		code: "MFC001",
-		description: "Multirich Corned Beef 260g x 24cs",
-		currentLevel: 75,
-		inputUoM: "cs",
-		qtyOnHand: 75,
-		unreleasedSO: 12,
-		incomingPO: 60,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 12,
-		principalId: "MFC",
-		principalCategory: "secondary",
-		storageIds: [2, 3],
-		priceClass: "B",
-		code: "MFC002",
-		description: "Multirich Meat Loaf 340g x 24cs",
-		currentLevel: 40,
-		inputUoM: "cs",
-		qtyOnHand: 40,
-		unreleasedSO: 5,
-		incomingPO: 0,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── W.L. FOOD PRODUCTS (principal 5) ──
-	{
-		id: 13,
-		principalId: "WLF",
-		principalCategory: "monitoring",
-		storageIds: [3],
-		priceClass: "C",
-		code: "WLF001",
-		description: "W.L. Premium Coffee 200g x 12",
-		currentLevel: 25,
-		inputUoM: "box",
-		qtyOnHand: 25,
-		unreleasedSO: 0,
-		incomingPO: 50,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 14,
-		principalId: "WLF",
-		principalCategory: "monitoring",
-		storageIds: [1, 3],
-		priceClass: "A",
-		code: "WLF002",
-		description: "W.L. Special Noodles 500g x 20",
-		currentLevel: 150,
-		inputUoM: "box",
-		qtyOnHand: 150,
-		unreleasedSO: 30,
-		incomingPO: 100,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── JIA2 CORPORATION (principal 6) ──
-	{
-		id: 15,
-		principalId: "JIA",
-		principalCategory: "monitoring",
-		storageIds: [1, 2, 3],
-		priceClass: "B",
-		code: "JIA001",
-		description: "Jia2 Soy Sauce 1L x 12",
-		currentLevel: 90,
-		inputUoM: "cs",
-		qtyOnHand: 90,
-		unreleasedSO: 7,
-		incomingPO: 30,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 16,
-		principalId: "JIA",
-		principalCategory: "monitoring",
-		storageIds: [2],
-		priceClass: "C",
-		code: "JIA002",
-		description: "Jia2 Fish Sauce 500ml x 24",
-		currentLevel: 110,
-		inputUoM: "cs",
-		qtyOnHand: 110,
-		unreleasedSO: 9,
-		incomingPO: 0,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── ZESTO CORPORATION (principal 1) - SECONDARY ──
-	{
-		id: 17,
-		principalId: "ZES",
-		principalCategory: "secondary",
-		storageIds: [1, 3],
-		priceClass: "B",
-		code: "ZES061",
-		description: "BB - Zesto Apple Juice Drink 330ml x 24cs",
-		currentLevel: 65,
-		inputUoM: "cs",
-		qtyOnHand: 65,
-		unreleasedSO: 8,
-		incomingPO: 40,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 18,
-		principalId: "ZES",
-		principalCategory: "secondary",
-		storageIds: [2],
-		priceClass: "A",
-		code: "ZES062",
-		description: "BB - Zesto Orange Drink 330ml x 24cs",
-		currentLevel: 45,
-		inputUoM: "cs",
-		qtyOnHand: 45,
-		unreleasedSO: 3,
-		incomingPO: 80,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 19,
-		principalId: "ZES",
-		principalCategory: "secondary",
-		storageIds: [1, 2],
-		priceClass: "C",
-		code: "ZES063",
-		description: "BB - Zesto Pineapple Drink 330ml x 24cs",
-		currentLevel: 35,
-		inputUoM: "cs",
-		qtyOnHand: 35,
-		unreleasedSO: 5,
-		incomingPO: 20,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	// ── ZESTO CORPORATION (principal 1) - MONITORING ──
-	{
-		id: 20,
-		principalId: "ZES",
-		principalCategory: "monitoring",
-		storageIds: [3],
-		priceClass: "B",
-		code: "ZES071",
-		description: "BB - Zesto Ice Cream Vanilla 1L x 12",
-		currentLevel: 20,
-		inputUoM: "cs",
-		qtyOnHand: 20,
-		unreleasedSO: 2,
-		incomingPO: 0,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-	{
-		id: 21,
-		principalId: "ZES",
-		principalCategory: "monitoring",
-		storageIds: [1],
-		priceClass: "A",
-		code: "ZES072",
-		description: "BB - Zesto Ice Cream Chocolate 1L x 12",
-		currentLevel: 15,
-		inputUoM: "cs",
-		qtyOnHand: 15,
-		unreleasedSO: 1,
-		incomingPO: 30,
-		monthlyDemand: {},
-		highestMonthlyDemand: 0,
-		monthlyFactor: 1.5,
-		suggestedOrder: 0,
-		customOrder: null,
-	},
-];
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function generateMonthLabels(
-	from: Dayjs,
-	to: Dayjs,
-	freq: Frequency,
-): string[] {
-	const labels: string[] = [];
-	let current = from.startOf("month");
-	const end = to.startOf("month");
-
-	while (current.isBefore(end) || current.isSame(end, "month")) {
-		labels.push(current.format("MMM YYYY"));
-		if (freq === "monthly") {
-			current = current.add(1, "month");
-		} else {
-			current = current.add(1, "week");
-		}
-	}
-	return labels;
+/**
+ * Extended row used by the DataGrid — adds a synthetic `id` and
+ * aliased getter fields so each period demand column can be referenced.
+ */
+interface GridRow extends RequirementRow {
+	id: number;
 }
 
-function fillDemandData(
-	products: ProductRow[],
-	monthLabels: string[],
-	defaultFactor: number,
-): ProductRow[] {
-	return products.map((product) => {
-		const demand: Record<string, number> = {};
-		monthLabels.forEach((label) => {
-			// Generate semi-random but deterministic placeholder demand
-			const seed = product.id + label.charCodeAt(0) + label.length;
-			demand[label] =
-				Math.round((Math.abs(Math.sin(seed)) * 200 + 20) * 100) / 100;
-		});
+		// ─── Constants ───────────────────────────────────────────────────────────────
 
-		const values = Object.values(demand);
-		const highest = values.length > 0 ? Math.max(...values) : 0;
-		const factor = defaultFactor;
+const ALLOWED_SITE_IDS = new Set(["MAIN", "CAB", "3MPMT", "3MPGT"]);
 
-		return {
-			...product,
-			monthlyDemand: demand,
-			highestMonthlyDemand: highest,
-			monthlyFactor: factor,
-			suggestedOrder: Math.round(highest * factor * 100) / 100,
-		};
-	});
+/** Numeric sort value for period labels — ensures chronological column order */
+function periodSortValue(key: string): number {
+	const monthIdx: Record<string, number> = {
+		Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
+		Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+	};
+	const wm = key.match(/^W(\d+)\s+(\w+)\s+(\d+)$/);
+	if (wm && wm[2] && wm[3]) return Number(wm[3]) * 60 + (monthIdx[wm[2]] ?? 0) * 5 + Number(wm[1]);
+	const mm = key.match(/^(\w+)\s+(\d+)$/);
+	if (mm && mm[1] && mm[2]) return Number(mm[2]) * 12 + (monthIdx[mm[1]] ?? 0);
+	return 0;
 }
 
 // ─── Form State Persistence ───────────────────────────────────────────────────
 
-const FORM_STORAGE_KEY = "pr-form-state-v4";
+const FORM_STORAGE_KEY = "pr-form-state-v5";
 
 interface PersistedFormState {
 	selectedPrincipal: Principal | null;
 	selectedStorage: StorageLocation[];
-	storageLocations: StorageLocation[];
 	frequency: Frequency;
 	dateRanges: { from: string | null; to: string | null }[];
 }
@@ -609,6 +162,9 @@ const PurchasingRequirements: React.FC = () => {
 	// Theme-aware group colors for data grid headers
 	const groupColors = useMemo(
 		() => ({
+			static: {
+				bg: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+			},
 			demand: {
 				bg: darkMode ? "rgba(144, 202, 249, 0.10)" : "rgba(33, 150, 243, 0.07)",
 				color: darkMode ? "#90caf9" : "#1565c0",
@@ -625,23 +181,17 @@ const PurchasingRequirements: React.FC = () => {
 		[darkMode],
 	);
 
-	// Principal (single select from API)
+	// ─── Filter state ─────────────────────────────────────────────────
 	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
 		persistedForm?.selectedPrincipal ?? null,
 	);
-	// Fetched principals list
 	const [principals, setPrincipals] = useState<Principal[]>([]);
 
-	// Filters
-	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
-		persistedForm?.storageLocations?.filter((loc) =>
-			ALLOWED_SITE_IDS.has(loc.id),
-		) ?? [],
-	);
+	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
 	);
-	// Date range list
+
 	interface DateRangeItem {
 		from: Dayjs | null;
 		to: Dayjs | null;
@@ -653,6 +203,10 @@ const PurchasingRequirements: React.FC = () => {
 		}
 		return [{ from: null, to: null }];
 	});
+
+	const [frequency, setFrequency] = useState<Frequency>(
+		persistedForm?.frequency ?? "monthly",
+	);
 
 	const handleAddDateRange = useCallback(() => {
 		setDateRanges((prev) => [...prev, { from: null, to: null }]);
@@ -673,15 +227,17 @@ const PurchasingRequirements: React.FC = () => {
 		[],
 	);
 
-	// ─── Fetch Options from API ───────────────────────────────────────────
+	// ─── Fetch options (sites, principals, price classes) ────────────
+	const [priceClasses, setPriceClasses] = useState<string[]>([]);
 
 	useEffect(() => {
 		let cancelled = false;
 		const fetchOptions = async () => {
 			try {
-				const [sites, principalList] = await Promise.all([
+				const [sites, principalList, pClasses] = await Promise.all([
 					apiRequest<{ SiteId: string; Name: string }[]>("/inventory"),
 					apiRequest<Principal[]>("/principal/ids"),
+					apiRequest<string[]>("/price/class"),
 				]);
 				if (!cancelled) {
 					setStorageLocations(
@@ -690,9 +246,10 @@ const PurchasingRequirements: React.FC = () => {
 							.map((s) => ({ id: s.SiteId, name: s.Name })),
 					);
 					setPrincipals(principalList);
+					setPriceClasses(pClasses ?? []);
 				}
 			} catch {
-				// non-critical; filters just won't have suggestions
+				// non-critical
 			}
 		};
 		fetchOptions();
@@ -701,169 +258,183 @@ const PurchasingRequirements: React.FC = () => {
 		};
 	}, []);
 
-	// Computation
-	const [frequency, setFrequency] = useState<Frequency>(
-		persistedForm?.frequency ?? "monthly",
-	);
-
-	// Grid data
+	// ─── Grid state ──────────────────────────────────────────────────
 	const [rows, setRows] = useState<GridRowsProp>([]);
 	const [columns, setColumns] = useState<GridColDef[]>([]);
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
 
-	// ─── Build Columns ────────────────────────────────────────────────────
+	// Toolbar states
+	const [bulkFactor, setBulkFactor] = useState<string>("1.0");
+	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
+	const [poReference, setPoReference] = useState("");
 
-	const buildColumns = useCallback((monthLabels: string[]): GridColDef[] => {
-		const cols: GridColDef[] = [];
+	// Ref to track period keys for column building
+	const periodKeysRef = useRef<string[]>([]);
 
-		// Group 1: Static product info
-		cols.push({
-			field: "code",
-			headerName: "Code",
-			width: 100,
-			headerClassName: "group-static",
-		});
-		cols.push({
-			field: "description",
-			headerName: "Description",
-			width: 280,
-			headerClassName: "group-static",
-		});
-		cols.push({
-			field: "currentLevel",
-			headerName: "Current Level",
-			width: 120,
-			type: "number",
-			headerClassName: "group-static",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
-		cols.push({
-			field: "inputUoM",
-			headerName: "Input UoM",
-			width: 100,
-			headerClassName: "group-static",
-		});
-		cols.push({
-			field: "qtyOnHand",
-			headerName: "Qty on Hand",
-			width: 110,
-			type: "number",
-			headerClassName: "group-static",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
-		cols.push({
-			field: "unreleasedSO",
-			headerName: "Unreleased SO",
-			width: 120,
-			type: "number",
-			headerClassName: "group-static",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
-		cols.push({
-			field: "incomingPO",
-			headerName: "Incoming PO",
-			width: 110,
-			type: "number",
-			headerClassName: "group-static",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
+	// ─── Build Columns ────────────────────────────────────────────────
+	const buildColumns = useCallback(
+		(periodKeys: string[]): GridColDef[] => {
+			const cols: GridColDef[] = [];
 
-		// Group 2: Monthly Demand (dynamic)
-		monthLabels.forEach((label) => {
-			const fieldKey = `demand_${label.replace(/\s/g, "_")}`;
+			// Group 1: Static product info
+			const staticHeader = { headerClassName: "group-static" };
 			cols.push({
-				field: fieldKey,
-				headerName: label,
-				width: 100,
-				type: "number",
-				headerClassName: "group-demand",
-				valueGetter: (_value, row) =>
-					(row as ProductRow).monthlyDemand[label] ?? 0,
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString() : "",
+				field: "invtID",
+				headerName: "Inventory ID",
+				width: 110,
+				...staticHeader,
 			});
-		});
+			cols.push({
+				field: "descr",
+				headerName: "Description",
+				width: 260,
+				...staticHeader,
+			});
+			cols.push({
+				field: "stkUnit",
+				headerName: "Stock Unit",
+				width: 90,
+				...staticHeader,
+			});
+			cols.push({
+				field: "qtyAlloc",
+				headerName: "Unreleased",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
+			cols.push({
+				field: "qtyOnPO",
+				headerName: "Incoming",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
+			cols.push({
+				field: "qtyOnHand",
+				headerName: "On Hand",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
+			cols.push({
+				field: "qtyAvail",
+				headerName: "Available",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
 
-		// Group 3: Monthly Computation
-		cols.push({
-			field: "highestMonthlyDemand",
-			headerName: "Highest Demand",
-			width: 130,
-			type: "number",
-			headerClassName: "group-computation",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
-		cols.push({
-			field: "monthlyFactor",
-			headerName: "Factor",
-			width: 80,
-			type: "number",
-			editable: true,
-			headerClassName: "group-computation",
-			renderEditCell: (params) => (
-				<input
-					type="number"
-					step={0.1}
-					value={params.value ?? ""}
-					onChange={(e) => {
-						params.api.setEditCellValue({
-							id: params.id,
-							field: params.field,
-							value: parseFloat(e.target.value) || 0,
-						});
-					}}
-					style={{
-						width: "100%",
-						height: "100%",
-						border: "none",
-						outline: "none",
-						textAlign: "center",
-						padding: "0 8px",
-						fontFamily: "inherit",
-						fontSize: "inherit",
-						color: "inherit",
-						background: "transparent",
-					}}
-					autoFocus
-				/>
-			),
-			valueFormatter: (value?: number) =>
-				value != null ? value.toFixed(2) : "",
-		});
-		cols.push({
-			field: "suggestedOrder",
-			headerName: "Suggested Order",
-			width: 140,
-			type: "number",
-			headerClassName: "group-computation",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
+			// Group 2: Monthly/Weekly Demands (dynamic)
+			periodKeys.forEach((key) => {
+				const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
+				cols.push({
+					field: fieldKey,
+					headerName: key,
+					width: 110,
+					type: "number",
+					headerClassName: "group-demand",
+					valueGetter: (_value, row) =>
+						(row as unknown as GridRow).periodDemand[key] ?? 0,
+					valueFormatter: (value?: number) =>
+						value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+				});
+			});
 
-		// Group 4: Custom Order
-		cols.push({
-			field: "customOrder",
-			headerName: "Custom Order",
-			width: 130,
-			type: "number",
-			editable: true,
-			headerClassName: "group-custom",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toLocaleString() : "",
-		});
+			// Group 3: Computation
+			cols.push({
+				field: "stockCoverCount",
+				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
+				field: "avgDemand",
+				headerName: `Average ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				width: 150,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
+			cols.push({
+				field: "monthlyFactor",
+				headerName: "Factor",
+				width: 80,
+				type: "number",
+				editable: true,
+				headerClassName: "group-computation",
+				renderEditCell: (params) => (
+					<input
+						type="number"
+						step={0.1}
+						value={params.value ?? ""}
+						onChange={(e) => {
+							params.api.setEditCellValue({
+								id: params.id,
+								field: params.field,
+								value: parseFloat(e.target.value) || 0,
+							});
+						}}
+						style={{
+							width: "100%",
+							height: "100%",
+							border: "none",
+							outline: "none",
+							textAlign: "center",
+							padding: "0 8px",
+							fontFamily: "inherit",
+							fontSize: "inherit",
+							color: "inherit",
+							background: "transparent",
+						}}
+						autoFocus
+					/>
+				),
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
+				field: "suggestedOrder",
+				headerName: "Suggested Order",
+				width: 140,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
 
-		return cols;
-	}, []);
+			// Group 4: Custom Order
+			cols.push({
+				field: "customOrder",
+				headerName: "Custom Order",
+				width: 130,
+				type: "number",
+				editable: true,
+				headerClassName: "group-custom",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
 
-	// ─── Apply Handler ────────────────────────────────────────────────────
+			return cols;
+		},
+		[frequency],
+	);
 
+	// ─── Apply Handler ────────────────────────────────────────────────
 	const handleApply = useCallback(async () => {
 		setGridError(null);
 		setApplied(false);
@@ -892,82 +463,98 @@ const PurchasingRequirements: React.FC = () => {
 			}
 		}
 
-		// Compute overall min/max across all date ranges for column generation
-		const overallFrom = dateRanges.reduce<Dayjs>(
-			(min, dr) => (dr.from!.isBefore(min) ? dr.from! : min),
-			dateRanges[0].from!,
-		);
-		const overallTo = dateRanges.reduce<Dayjs>(
-			(max, dr) => (dr.to!.isAfter(max) ? dr.to! : max),
-			dateRanges[0].to!,
-		);
+		try {
+			// Build query params
+			const params = new URLSearchParams();
+			params.set("classID", selectedPrincipal.ClassID);
+			params.set("frequency", frequency);
 
-		// Filter products by Principal and Storage
-		let filtered = placeholderProducts.filter(
-			(p) => p.principalId === selectedPrincipal.ClassID,
-		);
-
-		if (selectedStorage.length > 0) {
-			const storageIds = new Set(selectedStorage.map((s) => Number(s.id)));
-			filtered = filtered.filter((p) =>
-				p.storageIds.some((sid) => storageIds.has(sid)),
-			);
-		}
-
-		if (filtered.length === 0) {
-			setGridError(
-				"No products match the selected filters. Try adjusting your criteria.",
-			);
-			setIsApplying(false);
-			return;
-		}
-
-		// Generate month labels
-		const monthLabels = generateMonthLabels(overallFrom, overallTo, frequency);
-		if (monthLabels.length === 0) {
-			setGridError("No months in the selected date range.");
-			setIsApplying(false);
-			return;
-		}
-
-		// Fill demand data using default factor
-		const data = fillDemandData(filtered, monthLabels, 1.5);
-
-		// Build dynamic columns
-		const dynamicCols: GridColDef[] = buildColumns(monthLabels);
-		setColumns(dynamicCols);
-		setRows(data);
-		setApplied(true);
-		setIsApplying(false);
-	}, [
-		selectedPrincipal,
-		selectedStorage,
-		dateRanges,
-		frequency,
-		buildColumns,
-	]);
-
-	// ─── Grid Edit Handler ────────────────────────────────────────────────
-
-	const processRowUpdate = useCallback(
-		(newRow: GridRowModel, oldRow: GridRowModel) => {
-			const updatedRow = { ...newRow } as ProductRow;
-
-			// If monthlyFactor changed, recalculate suggestedOrder
-			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
-				updatedRow.suggestedOrder =
-					Math.round(newRow.highestMonthlyDemand * newRow.monthlyFactor * 100) /
-					100;
+			for (const dr of dateRanges) {
+				if (dr.from && dr.to) {
+					params.append(
+						"dateRange",
+						`${dr.from.format("YYYY-MM-DD")},${dr.to.format("YYYY-MM-DD")}`,
+					);
+				}
+			}
+			for (const s of selectedStorage) {
+				params.append("siteID", s.id);
 			}
 
-			// If customOrder is set, clear it or keep it
-			if (newRow.customOrder === "") {
+			const data = await apiRequest<RequirementRow[]>(
+				`/purchasing/requirements?${params.toString()}`,
+			);
+
+			if (!data || data.length === 0) {
+				setGridError(
+					"No data matches the selected filters. Try adjusting your criteria.",
+				);
+				setIsApplying(false);
+				return;
+			}
+
+			// Collect all period keys from the first row (all rows share same keys)
+			const periodKeys = Object.keys(data[0].periodDemand ?? {}).sort(
+				(a, b) => periodSortValue(a) - periodSortValue(b),
+			);
+			periodKeysRef.current = periodKeys;
+
+			// Build grid rows with synthetic id
+			const gridRows: GridRow[] = data.map((item, idx) => ({
+				...item,
+				id: idx + 1,
+			}));
+
+			// Build columns
+			const dynamicCols = buildColumns(periodKeys);
+			setColumns(dynamicCols);
+			setRows(gridRows);
+			setApplied(true);
+		} catch (err: unknown) {
+			setGridError(
+				err instanceof Error
+					? err.message
+					: "Failed to fetch requirements data.",
+			);
+		} finally {
+			setIsApplying(false);
+		}
+	}, [selectedPrincipal, selectedStorage, dateRanges, frequency, buildColumns]);
+
+	// ─── Bulk factor update ──────────────────────────────────────────
+	const handleBulkFactorApply = useCallback(() => {
+		const factor = parseFloat(bulkFactor);
+		if (isNaN(factor) || factor <= 0) return;
+
+		setRows((prev: readonly GridRowModel[]) =>
+			prev.map((r: GridRowModel) => {
+				const row = r as GridRow;
+				return {
+					...row,
+					monthlyFactor: factor,
+					suggestedOrder: Math.round(row.avgDemand * factor * 100) / 100,
+				};
+			}),
+		);
+	}, [bulkFactor]);
+
+	// ─── Grid Edit Handler ────────────────────────────────────────────
+	const processRowUpdate = useCallback(
+		(newRow: GridRowModel, oldRow: GridRowModel) => {
+			const updatedRow = { ...newRow } as GridRow;
+
+			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
+				updatedRow.suggestedOrder =
+					Math.round(newRow.avgDemand * newRow.monthlyFactor * 100) / 100;
+			}
+
+			if (newRow.customOrder === "" || newRow.customOrder === null) {
 				updatedRow.customOrder = null;
 			}
 
 			setRows((prev: readonly GridRowModel[]) =>
 				prev.map((r: GridRowModel) =>
-					(r as ProductRow).id === newRow.id ? updatedRow : r,
+					(r as GridRow).id === newRow.id ? updatedRow : r,
 				),
 			);
 
@@ -976,8 +563,7 @@ const PurchasingRequirements: React.FC = () => {
 		[],
 	);
 
-	// ─── Filter Panel ─────────────────────────────────────────────────────
-
+	// ─── Filter Panel ─────────────────────────────────────────────────
 	const filterPanel = (
 		<Paper sx={{ width: "100%", mb: 3, p: 3, borderRadius: 2 }}>
 			<Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -1089,12 +675,7 @@ const PurchasingRequirements: React.FC = () => {
 
 				{/* Right column - DateRange (40%) */}
 				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
-					<Box
-						sx={{
-							height: 290,
-							overflowY: "auto",
-						}}
-					>
+					<Box sx={{ height: 290, overflowY: "auto" }}>
 						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
 							Date Range
 						</FormLabel>
@@ -1169,7 +750,6 @@ const PurchasingRequirements: React.FC = () => {
 							mt: 1,
 						}}
 					>
-						{/* Error message - own row on mobile, left side on desktop */}
 						{gridError && (
 							<Alert
 								severity="error"
@@ -1184,11 +764,9 @@ const PurchasingRequirements: React.FC = () => {
 								{gridError}
 							</Alert>
 						)}
-						{/* Spacer when no error (hidden on mobile) */}
 						{!gridError && (
 							<Box sx={{ flex: 1, display: { xs: "none", md: "block" } }} />
 						)}
-						{/* Indicators + Apply on the right */}
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 							{isApplying && <CircularProgress size={22} thickness={2.5} />}
 							{!isApplying && applied && !gridError && (
@@ -1203,10 +781,7 @@ const PurchasingRequirements: React.FC = () => {
 								onClick={handleApply}
 								size="large"
 								disabled={isApplying}
-								sx={{
-									borderRadius: 2,
-									px: 4,
-								}}
+								sx={{ borderRadius: 2, px: 4 }}
 							>
 								Apply
 							</Button>
@@ -1217,8 +792,7 @@ const PurchasingRequirements: React.FC = () => {
 		</Paper>
 	);
 
-	// ─── Custom Toolbar ─────────────────────────────────────────────────
-
+	// ─── Custom Toolbar ─────────────────────────────────────────────
 	const handleExcelExport = useCallback(() => {
 		exportDataGridToExcel(
 			rows as Record<string, unknown>[],
@@ -1229,7 +803,7 @@ const PurchasingRequirements: React.FC = () => {
 
 	const CustomToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
-		const iconSx = {
+		const iconBtnSx = {
 			minWidth: "auto",
 			textTransform: "none",
 			fontSize: "0.8125rem",
@@ -1242,99 +816,164 @@ const PurchasingRequirements: React.FC = () => {
 			<Box
 				sx={{
 					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					px: 2,
-					py: 1,
+					flexDirection: "column",
 					borderBottom: "1px solid",
 					borderColor: "divider",
 				}}
 			>
-				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-					Filtered Products
-				</Typography>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-					<ColumnsPanelTrigger
-						size="small"
-						startIcon={<ViewColumnIcon />}
-						style={iconSx}
-					>
-						<Box component="span" sx={labelSx}>Columns</Box>
-					</ColumnsPanelTrigger>
-					<FilterPanelTrigger
-						size="small"
-						startIcon={<FilterListIcon />}
-						style={iconSx}
-					>
-						<Box component="span" sx={labelSx}>Filters</Box>
-					</FilterPanelTrigger>
-					<ExportCsv
-						size="small"
-						startIcon={<FileDownloadIcon />}
-						style={iconSx}
-					>
-						<Box component="span" sx={labelSx}>CSV</Box>
-					</ExportCsv>
-					<ExportPrint
-						size="small"
-						startIcon={<PrintIcon />}
-						style={iconSx}
-					>
-						<Box component="span" sx={labelSx}>Print</Box>
-					</ExportPrint>
-					<Tooltip title="Export to Excel">
+				{/* Top row: title + export buttons */}
+				<Box
+					sx={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						px: 2,
+						py: 1,
+					}}
+				>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Filtered Products
+					</Typography>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+						<ColumnsPanelTrigger
+							size="small"
+							startIcon={<ViewColumnIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>Columns</Box>
+						</ColumnsPanelTrigger>
+						<FilterPanelTrigger
+							size="small"
+							startIcon={<FilterListIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>Filters</Box>
+						</FilterPanelTrigger>
+						<ExportCsv
+							size="small"
+							startIcon={<FileDownloadIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>CSV</Box>
+						</ExportCsv>
+						<ExportPrint
+							size="small"
+							startIcon={<PrintIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>Print</Box>
+						</ExportPrint>
+						<Tooltip title="Export to Excel">
+							<Button
+								size="small"
+								color="primary"
+								startIcon={<TableChartIcon />}
+								onClick={handleExcelExport}
+								sx={{
+									minWidth: "auto",
+									textTransform: "none",
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+									px: 0.75,
+								}}
+							>
+								<Box component="span" sx={labelSx}>Excel</Box>
+							</Button>
+						</Tooltip>
+					</Box>
+				</Box>
+
+				{/* Bottom row: bulk factor, price class, PO reference */}
+				<Box
+					sx={{
+						display: "flex",
+						flexWrap: "wrap",
+						gap: 2,
+						px: 2,
+						pb: 1.5,
+						alignItems: "center",
+					}}
+				>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+						<TextField
+							size="small"
+							type="number"
+							label="Bulk Factor"
+							value={bulkFactor}
+							onChange={(e) => setBulkFactor(e.target.value)}
+							slotProps={{
+								htmlInput: { step: 0.1, min: 0.1 },
+							}}
+							sx={{ width: 110, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
 						<Button
 							size="small"
-							color="primary"
-							startIcon={<TableChartIcon />}
-							onClick={handleExcelExport}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-							}}
+							variant="outlined"
+							onClick={handleBulkFactorApply}
+							sx={{ textTransform: "none", borderRadius: 2 }}
 						>
-							<Box component="span" sx={labelSx}>Excel</Box>
+							Apply
 						</Button>
-					</Tooltip>
+					</Box>
+
+					<Autocomplete
+						size="small"
+						options={priceClasses}
+						value={selectedPriceClass}
+						onChange={(_, newVal) => setSelectedPriceClass(newVal)}
+						sx={{ width: 180 }}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Price Class"
+								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+						)}
+					/>
+
+					<TextField
+						size="small"
+						label="PO Reference No."
+						value={poReference}
+						onChange={(e) => setPoReference(e.target.value)}
+						sx={{
+							width: 200,
+							"& .MuiOutlinedInput-root": { borderRadius: 2 },
+						}}
+					/>
 				</Box>
 			</Box>
 		);
-	}, [handleExcelExport]);
+	}, [
+		handleExcelExport,
+		bulkFactor,
+		handleBulkFactorApply,
+		priceClasses,
+		selectedPriceClass,
+		poReference,
+		theme.palette.primary.main,
+	]);
 
-	// ─── Persist Form State ──────────────────────────────────────────────
-
+	// ─── Persist Form State ──────────────────────────────────────────
 	const persistState = useMemo(
 		() => ({
 			selectedPrincipal,
 			selectedStorage,
-			storageLocations,
 			frequency,
 			dateRanges: serializeDateRanges(dateRanges),
 		}),
-		[
-			selectedPrincipal,
-			selectedStorage,
-			storageLocations,
-			frequency,
-			dateRanges,
-		],
+		[selectedPrincipal, selectedStorage, frequency, dateRanges],
 	);
 
 	useEffect(() => {
 		persistFormState(persistState);
 	}, [persistState]);
 
-	// ─── Render ───────────────────────────────────────────────────────────
-
+	// ─── Render ───────────────────────────────────────────────────────
 	return (
 		<>
-			{/* Filter Panel */}
 			{filterPanel}
 
-			{/* Data Grid */}
 			{applied && columns.length > 0 && (
 				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
 					<DataGrid
@@ -1348,11 +987,6 @@ const PurchasingRequirements: React.FC = () => {
 						getRowHeight={() => 42}
 						slots={{ toolbar: CustomToolbar }}
 						showToolbar
-						getRowClassName={(params) => {
-							const row = params.row as ProductRow;
-							const category = row.principalCategory;
-							return `row-principal-${category || "default"}`;
-						}}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
 						}}
@@ -1393,51 +1027,6 @@ const PurchasingRequirements: React.FC = () => {
 							},
 							"& .MuiDataGrid-virtualScroller": {
 								minHeight: 300,
-							},
-							"& .row-principal-immediate": {
-								backgroundColor: darkMode
-									? "rgba(239, 83, 80, 0.12)"
-									: "#ffebee",
-								"&:hover": {
-									backgroundColor: darkMode
-										? "rgba(239, 83, 80, 0.20)"
-										: "#ffcdd2",
-								},
-								"&.Mui-selected": {
-									backgroundColor: darkMode
-										? "rgba(239, 83, 80, 0.28) !important"
-										: "#ef9a9a !important",
-								},
-							},
-							"& .row-principal-secondary": {
-								backgroundColor: darkMode
-									? "rgba(255, 183, 77, 0.12)"
-									: "#fff3e0",
-								"&:hover": {
-									backgroundColor: darkMode
-										? "rgba(255, 183, 77, 0.20)"
-										: "#ffe0b2",
-								},
-								"&.Mui-selected": {
-									backgroundColor: darkMode
-										? "rgba(255, 183, 77, 0.28) !important"
-										: "#ffcc80 !important",
-								},
-							},
-							"& .row-principal-monitoring": {
-								backgroundColor: darkMode
-									? "rgba(100, 181, 246, 0.12)"
-									: "#e3f2fd",
-								"&:hover": {
-									backgroundColor: darkMode
-										? "rgba(100, 181, 246, 0.20)"
-										: "#bbdefb",
-								},
-								"&.Mui-selected": {
-									backgroundColor: darkMode
-										? "rgba(100, 181, 246, 0.28) !important"
-										: "#90caf9 !important",
-								},
 							},
 						}}
 						slotProps={{
