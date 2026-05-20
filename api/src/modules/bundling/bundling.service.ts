@@ -11,14 +11,14 @@ import {
 	normaliseQtyCached,
 } from "../../utils/unitConversion";
 import type {
-	RequirementItem,
-	RequirementsQuery,
-} from "./purchasing.schema";
+	BundlingItem,
+	BundlingQuery,
+	ComponentStock,
+} from "./bundling.schema";
 
 // ─── Constants ────────────────────────────────────────────────────────
 
 const ALLOWED_SITE_IDS = ["MAIN", "CAB", "3MPMT", "3MPGT"];
-/** Safety cap — if a principal has more items than this, something is wrong */
 const MAX_SALES_ROWS = 100_000;
 
 // ─── SQL clause helpers ───────────────────────────────────────────────
@@ -62,14 +62,11 @@ function buildDateRangeClause(
 	return { clause: `AND (${conditions.join(" OR ")})`, params };
 }
 
-// ─── INUnit conversion — imported from shared utils
-// buildConversionCache, canConvert, normaliseQtyCached live in ../../utils/unitConversion.ts
-
 // ─── Main ─────────────────────────────────────────────────────────────
 
-export async function getRequirements(
-	query: RequirementsQuery,
-): Promise<RequirementItem[]> {
+export async function getBundlingRequirements(
+	query: BundlingQuery,
+): Promise<BundlingItem[]> {
 	const pool = await getDb();
 	const { classID, siteID, dateRanges, frequency } = query;
 
@@ -80,12 +77,9 @@ export async function getRequirements(
 	const { clause: dateClause, params: dateParams } =
 		buildDateRangeClause(dateRanges);
 
-	// ── Step 1: Aggregated sales query ──────────────────────────────
-	// MSSQL 2008-compatible: GROUP BY with YEAR/MONTH instead of DATETRUNC.
-	// This reduces rows from 1-per-order-line to 1-per-(InvtID,Unit,month).
-	//
-	// i.StkUnit is MAX'd (safe — same value for all rows of an InvtID).
-	// UnitDesc is kept so we can normalise each group's quantity later.
+	// ── Step 1: Aggregated sales query (promo items only) ──────────
+	// Same SQL as purchasing but with EXISTS check for Component table
+	// to only return promo/kit items.
 
 	const groupByPeriod =
 		frequency === "monthly"
@@ -118,8 +112,8 @@ export async function getRequirements(
 			AND sl.CpnyID <> ''
 			AND sh.InvcDate >= CONVERT(DATETIME, '2025-01-01 00:00:00', 102)
 			AND i.ClassID = @classID
-			-- Exclude promo/kit items (items that have Component entries)
-			AND NOT EXISTS (SELECT 1 FROM dbo.Component c WHERE c.KitID = i.InvtID)
+			-- Only promo/kit items (items that HAVE Component entries)
+			AND EXISTS (SELECT 1 FROM dbo.Component c WHERE c.KitID = i.InvtID)
 			${siteClause}
 			${dateClause}
 		GROUP BY sl.InvtID, sl.UnitDesc, ${groupByPeriod}
@@ -135,53 +129,29 @@ export async function getRequirements(
 
 	if (groups.length === 0) return [];
 
-	// ── Step 2: Collect distinct InvtIDs ──────────────────────────
+	// ── Step 2: Collect distinct promo InvtIDs ─────────────────────
 	const invtIDs = [...new Set(groups.map((g) => g.InvtID as string))];
 
-	// ── Step 3: Fetch ItemSite stock levels ───────────────────────
+	// ── Step 3: Fetch ItemSite stock levels for promo items ────────
 	const siteIDsForStock = siteFilter.length > 0 ? siteFilter : ALLOWED_SITE_IDS;
-	const invtPH = invtIDs.map((_, i) => `@invtID${i}`);
-	const sitePH = siteIDsForStock.map((_, i) => `@sf${i}`);
+	const stockMap = await fetchStockLevels(invtIDs, siteIDsForStock, pool);
 
-	const stockSql = `
-		SELECT InvtID, SiteID, QtyOnHand, QtyAvail, QtyOnPO, QtyAlloc
-		FROM dbo.ItemSite
-		WHERE InvtID IN (${invtPH.join(", ")})
-			AND SiteID IN (${sitePH.join(", ")})
-	`;
-	const stockReq = pool.request();
-	for (const [i, id] of invtIDs.entries()) stockReq.input(`invtID${i}`, id);
-	for (const [i, sid] of siteIDsForStock.entries())
-		stockReq.input(`sf${i}`, sid);
+	// ── Step 4: Fetch Component definitions for each promo item ─────
+	const componentDefs = await fetchComponentDefinitions(invtIDs, pool);
 
-	const stockResult = await stockReq.query(stockSql);
-	const stockRows = trimStrings(stockResult.recordset) as Record<string, any>[];
+	// ── Step 5: Collect all component InvtIDs and fetch their stock ──
+	const allComponentIDs = [
+		...new Set(componentDefs.map((c) => c.CmpnentID)),
+	];
+	const componentStockMap = allComponentIDs.length > 0
+		? await fetchStockLevels(allComponentIDs, siteIDsForStock, pool)
+		: new Map<string, { qtyOnHand: number; qtyAvail: number; qtyOnPO: number; qtyAlloc: number }>();
 
-	// Aggregate across sites
-	const stockMap = new Map<
-		string,
-		{ qtyOnHand: number; qtyAvail: number; qtyOnPO: number; qtyAlloc: number }
-	>();
-	for (const r of stockRows) {
-		const id = r.InvtID as string;
-		const s = stockMap.get(id) ?? {
-			qtyOnHand: 0,
-			qtyAvail: 0,
-			qtyOnPO: 0,
-			qtyAlloc: 0,
-		};
-		s.qtyOnHand += Number(r.QtyOnHand) || 0;
-		s.qtyAvail += Number(r.QtyAvail) || 0;
-		s.qtyOnPO += Number(r.QtyOnPO) || 0;
-		s.qtyAlloc += Number(r.QtyAlloc) || 0;
-		stockMap.set(id, s);
-	}
+	// ── Step 6: Build INUnit conversion cache (promo + components) ──
+	const allInvtForConv = [...new Set([...invtIDs, ...allComponentIDs])];
+	const convCache = await buildConversionCache(allInvtForConv);
 
-	// ── Step 4: Bulk INUnit conversion cache ──────────────────────
-	const convCache = await buildConversionCache(invtIDs);
-
-	// ── Step 5: Validate all unit conversions ─────────────────────
-	// Check every unique (InvtID, UnitDesc, StkUnit) triple against the cache.
+	// ── Step 7: Validate all unit conversions ──────────────────────
 	const conversionFailures: {
 		invtID: string;
 		descr: string;
@@ -196,7 +166,6 @@ export async function getRequirements(
 		const stkUnit = (g.StkUnit as string) ?? "";
 		const descr = (g.InventoryDescr as string) ?? "";
 
-		// Skip when units match or either is empty — no conversion needed
 		if (
 			!unitDesc ||
 			!stkUnit ||
@@ -233,10 +202,9 @@ export async function getRequirements(
 		);
 	}
 
-	// ── Step 6: Assemble period demand per item ───────────────────
+	// ── Step 8: Assemble period demand per promo item ──────────────
 	const periodKeys = generatePeriodKeys(dateRanges, frequency);
 
-	// itemId → { meta, periodDemand: Map<periodKey, total> }
 	const demandMap = new Map<
 		string,
 		{
@@ -248,7 +216,6 @@ export async function getRequirements(
 		}
 	>();
 
-	// Initialise every item with zero-filled periods
 	for (const g of groups) {
 		const id = g.InvtID as string;
 		if (!demandMap.has(id)) {
@@ -264,7 +231,6 @@ export async function getRequirements(
 		}
 	}
 
-	// Fill in actual values — each group = (InvtID, UnitDesc, year, month [, week])
 	for (const g of groups) {
 		const id = g.InvtID as string;
 		const entry = demandMap.get(id);
@@ -286,12 +252,16 @@ export async function getRequirements(
 		entry.periodDemand.set(pk, cur + nq);
 	}
 
-	// ── Step 7: Build response ────────────────────────────────────
+	// ── Step 9: Fetch component descriptions ───────────────────────
+	const compDescrMap = allComponentIDs.length > 0
+		? await fetchInventoryDescriptions(allComponentIDs, pool)
+		: new Map<string, string>();
+
+	// ── Step 10: Build response ────────────────────────────────────
 	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
-	// TODO: coverageThreshold is hardcoded to 1 month. Make configurable per-item or globally.
 	const COVERAGE_THRESHOLD_MONTHS = 1;
-	const results: RequirementItem[] = [];
+	const results: BundlingItem[] = [];
 
 	for (const [id, entry] of demandMap) {
 		const stock = stockMap.get(id) ?? {
@@ -318,12 +288,57 @@ export async function getRequirements(
 
 		const suggestedMonthlyOrder =
 			Math.round(avgDemand * defaultFactor * 100) / 100;
-		// Stock-aware: how much to bring stock up to (threshold × projected need)
 		const targetStock = COVERAGE_THRESHOLD_MONTHS * suggestedMonthlyOrder;
 		const suggestedOrder = Math.max(
 			0,
 			Math.round((targetStock - stock.qtyAvail) * 100) / 100,
 		);
+
+		// ── Component analysis ──────────────────────────────────────
+		const compDefsForThis = componentDefs.filter((c) => c.KitID === id);
+		const components: ComponentStock[] = compDefsForThis.map((cd) => {
+			const compStock = componentStockMap.get(cd.CmpnentID) ?? {
+				qtyOnHand: 0,
+				qtyAvail: 0,
+				qtyOnPO: 0,
+				qtyAlloc: 0,
+			};
+			// Convert component qty per bundle if units differ
+			const qtyPerBundle = cd.CmpnentQty;
+			const maxBundles =
+				qtyPerBundle > 0
+					? Math.floor(compStock.qtyAvail / qtyPerBundle)
+					: 0;
+
+			return {
+				cmpnentID: cd.CmpnentID,
+				descr: compDescrMap.get(cd.CmpnentID) ?? "",
+				stkUnit: cd.CmpnentStkUnit ?? "",
+				qtyPerBundle,
+				qtyOnHand: Math.round(compStock.qtyOnHand * 100) / 100,
+				qtyAvail: Math.round(compStock.qtyAvail * 100) / 100,
+				qtyOnPO: Math.round(compStock.qtyOnPO * 100) / 100,
+				qtyAlloc: Math.round(compStock.qtyAlloc * 100) / 100,
+				maxBundlesFromStock: maxBundles,
+			};
+		});
+
+		// Limited by the component with the fewest complete bundles
+		const bundlableQuantity =
+			components.length > 0
+				? Math.min(...components.map((c) => c.maxBundlesFromStock))
+				: 0;
+
+		// Suggested bundles: how many to produce considering demand and stock
+		const suggestedBundles = Math.max(
+			0,
+			Math.min(
+				Math.ceil(avgDemand),
+				bundlableQuantity + Math.ceil(suggestedOrder),
+			),
+		);
+
+		const canFulfillFromBundling = bundlableQuantity >= suggestedOrder || bundlableQuantity >= Math.ceil(avgDemand);
 
 		results.push({
 			invtID: id,
@@ -341,8 +356,115 @@ export async function getRequirements(
 			suggestedMonthlyOrder,
 			suggestedOrder,
 			customOrder: null,
+			components,
+			bundlableQuantity,
+			suggestedBundles,
+			canFulfillFromBundling,
 		});
 	}
 
 	return results;
+}
+
+// ─── Helper: fetch stock levels for a set of InvtIDs ──────────────────
+
+async function fetchStockLevels(
+	invtIDs: string[],
+	siteIDs: string[],
+	pool: Awaited<ReturnType<typeof getDb>>,
+): Promise<
+	Map<string, { qtyOnHand: number; qtyAvail: number; qtyOnPO: number; qtyAlloc: number }>
+> {
+	if (invtIDs.length === 0) return new Map();
+
+	const invtPH = invtIDs.map((_, i) => `@invtID${i}`);
+	const sitePH = siteIDs.map((_, i) => `@sf${i}`);
+
+	const stockSql = `
+		SELECT InvtID, SiteID, QtyOnHand, QtyAvail, QtyOnPO, QtyAlloc
+		FROM dbo.ItemSite
+		WHERE InvtID IN (${invtPH.join(", ")})
+			AND SiteID IN (${sitePH.join(", ")})
+	`;
+	const stockReq = pool.request();
+	for (const [i, id] of invtIDs.entries()) stockReq.input(`invtID${i}`, id);
+	for (const [i, sid] of siteIDs.entries()) stockReq.input(`sf${i}`, sid);
+
+	const stockResult = await stockReq.query(stockSql);
+	const stockRows = trimStrings(stockResult.recordset) as Record<string, any>[];
+
+	const map = new Map<
+		string,
+		{ qtyOnHand: number; qtyAvail: number; qtyOnPO: number; qtyAlloc: number }
+	>();
+	for (const r of stockRows) {
+		const invtId = r.InvtID as string;
+		const s = map.get(invtId) ?? {
+			qtyOnHand: 0,
+			qtyAvail: 0,
+			qtyOnPO: 0,
+			qtyAlloc: 0,
+		};
+		s.qtyOnHand += Number(r.QtyOnHand) || 0;
+		s.qtyAvail += Number(r.QtyAvail) || 0;
+		s.qtyOnPO += Number(r.QtyOnPO) || 0;
+		s.qtyAlloc += Number(r.QtyAlloc) || 0;
+		map.set(invtId, s);
+	}
+	return map;
+}
+
+// ─── Helper: fetch component definitions for promo kit items ─────────
+
+interface ComponentDef {
+	KitID: string;
+	CmpnentID: string;
+	CmpnentQty: number;
+	CmpnentStkUnit: string;
+}
+
+async function fetchComponentDefinitions(
+	kitIDs: string[],
+	pool: Awaited<ReturnType<typeof getDb>>,
+): Promise<ComponentDef[]> {
+	if (kitIDs.length === 0) return [];
+
+	const kitPH = kitIDs.map((_, i) => `@kit${i}`);
+	const sql = `
+		SELECT c.KitID, c.CmpnentID, c.CmpnentQty, i.StkUnit AS CmpnentStkUnit
+		FROM dbo.Component c
+		LEFT JOIN dbo.Inventory i ON c.CmpnentID = i.InvtID
+		WHERE c.KitID IN (${kitPH.join(", ")})
+	`;
+	const req = pool.request();
+	for (const [i, kid] of kitIDs.entries()) req.input(`kit${i}`, kid);
+
+	const result = await req.query(sql);
+	return trimStrings(result.recordset) as ComponentDef[];
+}
+
+// ─── Helper: fetch inventory descriptions for a set of InvtIDs ────────
+
+async function fetchInventoryDescriptions(
+	invtIDs: string[],
+	pool: Awaited<ReturnType<typeof getDb>>,
+): Promise<Map<string, string>> {
+	if (invtIDs.length === 0) return new Map();
+
+	const invtPH = invtIDs.map((_, i) => `@invt${i}`);
+	const sql = `
+		SELECT InvtID, Descr
+		FROM dbo.Inventory
+		WHERE InvtID IN (${invtPH.join(", ")})
+	`;
+	const req = pool.request();
+	for (const [i, id] of invtIDs.entries()) req.input(`invt${i}`, id);
+
+	const result = await req.query(sql);
+	const rows = trimStrings(result.recordset) as { InvtID: string; Descr: string }[];
+	const map = new Map<string, string>();
+	for (const r of rows) {
+		map.set(r.InvtID, r.Descr ?? "");
+	}
+	return map;
 }

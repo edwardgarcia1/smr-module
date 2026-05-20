@@ -196,6 +196,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
+				<Can I="read" a="bundling" ability={ability}>
+					<ListItemButton
+						selected={isActive("/bundling-requirements")}
+						onClick={() => handleNav("/bundling-requirements")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<AssignmentIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Bundling Requirements"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
 				<Can I="read" a="inventory-items" ability={ability}>
 					<ListItemButton
 						selected={isActive("/inventory-items")}
@@ -240,8 +263,8 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							display: collapsed ? "none" : "block",
 						}}
 					/>
-				</ListItemButton>
-			</Can>
+						</ListItemButton>
+					</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
 					<ListItemButton
 						selected={isActive("/purchase-orders")}
