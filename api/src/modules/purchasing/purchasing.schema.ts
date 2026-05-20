@@ -30,6 +30,13 @@ export interface RequirementItem {
 	avgDemand: number; // Average monthly or weekly demand
 	stockCoverCount: number; // How many periods stock will last (qtyAvail / avgDemand)
 	monthlyFactor: number; // Default 1.0, editable
-	suggestedOrder: number; // avgDemand * monthlyFactor
+	/** avgDemand * monthlyFactor — projected monthly need */
+	suggestedMonthlyOrder: number;
+	/**
+	 * Stock-aware order quantity.
+	 * TODO: coverageThreshold (1 month) is hardcoded — make it configurable per-item or globally.
+	 * Formula: max(0, (coverageThreshold * avgDemand * monthlyFactor) - qtyAvail)
+	 */
+	suggestedOrder: number;
 	customOrder: number | null;
 }

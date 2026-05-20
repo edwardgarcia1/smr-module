@@ -447,6 +447,8 @@ export async function getRequirements(
 	// ── Step 7: Build response ────────────────────────────────────
 	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
+	// TODO: coverageThreshold is hardcoded to 1 month. Make configurable per-item or globally.
+	const COVERAGE_THRESHOLD_MONTHS = 1;
 	const results: RequirementItem[] = [];
 
 	for (const [id, entry] of demandMap) {
@@ -472,6 +474,15 @@ export async function getRequirements(
 			periodDemandObj[k] = Math.round(v * 100) / 100;
 		}
 
+		const suggestedMonthlyOrder =
+			Math.round(avgDemand * defaultFactor * 100) / 100;
+		// Stock-aware: how much to bring stock up to (threshold × projected need)
+		const targetStock = COVERAGE_THRESHOLD_MONTHS * suggestedMonthlyOrder;
+		const suggestedOrder = Math.max(
+			0,
+			Math.round((targetStock - stock.qtyAvail) * 100) / 100,
+		);
+
 		results.push({
 			invtID: id,
 			descr: entry.descr,
@@ -485,7 +496,8 @@ export async function getRequirements(
 			avgDemand,
 			stockCoverCount,
 			monthlyFactor: defaultFactor,
-			suggestedOrder: Math.round(avgDemand * defaultFactor * 100) / 100,
+			suggestedMonthlyOrder,
+			suggestedOrder,
 			customOrder: null,
 		});
 	}

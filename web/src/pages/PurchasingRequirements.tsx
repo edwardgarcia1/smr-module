@@ -44,6 +44,8 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 import apiRequest from "../services/api";
 
@@ -76,6 +78,7 @@ interface RequirementRow {
 	avgDemand: number;
 	stockCoverCount: number;
 	monthlyFactor: number;
+	suggestedMonthlyOrder: number;
 	suggestedOrder: number;
 	customOrder: number | null;
 }
@@ -270,6 +273,22 @@ const PurchasingRequirements: React.FC = () => {
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
 	const [poReference, setPoReference] = useState("");
 
+	// Toggle monthly demand columns visibility
+	const [showDemandColumns, setShowDemandColumns] = useState(true);
+
+	// Build column visibility model — hide demand columns (field starts with "pd_")
+	const columnVisibilityModel = useMemo(() => {
+		const model: Record<string, boolean> = {};
+		if (!showDemandColumns) {
+			for (const col of columns) {
+				if (col.field.startsWith("pd_")) {
+					model[col.field] = false;
+				}
+			}
+		}
+		return model;
+	}, [showDemandColumns, columns]);
+
 	// Ref to track period keys for column building
 	const periodKeysRef = useRef<string[]>([]);
 
@@ -408,11 +427,21 @@ const PurchasingRequirements: React.FC = () => {
 					value != null ? value.toFixed(2) : "",
 			});
 			cols.push({
-				field: "suggestedOrder",
-				headerName: "Suggested Order",
-				width: 140,
+				field: "suggestedMonthlyOrder",
+				headerName: `Suggested ${frequency === "monthly" ? "Monthly" : "Weekly"} Order`,
+				width: 150,
 				type: "number",
 				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+			});
+			cols.push({
+				field: "suggestedOrder",
+				headerName: `Suggested Order (${frequency === "monthly" ? "1-mo" : "1-wk"} coverage)`,
+				width: 160,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Stock-aware: fills up to 1 month of projected demand",
 				valueFormatter: (value?: number) =>
 					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
 			});
@@ -529,10 +558,19 @@ const PurchasingRequirements: React.FC = () => {
 		setRows((prev: readonly GridRowModel[]) =>
 			prev.map((r: GridRowModel) => {
 				const row = r as GridRow;
+				const suggestedMonthlyOrder = Math.round(row.avgDemand * factor * 100) / 100;
+				// TODO: coverageThreshold hardcoded to 1 — make configurable
+				const coverageThreshold = 1;
+				const targetStock = coverageThreshold * suggestedMonthlyOrder;
+				const suggestedOrder = Math.max(
+					0,
+					Math.round((targetStock - row.qtyAvail) * 100) / 100,
+				);
 				return {
 					...row,
 					monthlyFactor: factor,
-					suggestedOrder: Math.round(row.avgDemand * factor * 100) / 100,
+					suggestedMonthlyOrder,
+					suggestedOrder,
 				};
 			}),
 		);
@@ -544,8 +582,15 @@ const PurchasingRequirements: React.FC = () => {
 			const updatedRow = { ...newRow } as GridRow;
 
 			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
-				updatedRow.suggestedOrder =
+				updatedRow.suggestedMonthlyOrder =
 					Math.round(newRow.avgDemand * newRow.monthlyFactor * 100) / 100;
+				// TODO: coverageThreshold hardcoded to 1 — make configurable
+				const coverageThreshold = 1;
+				const targetStock = coverageThreshold * updatedRow.suggestedMonthlyOrder;
+				updatedRow.suggestedOrder = Math.max(
+					0,
+					Math.round((targetStock - newRow.qtyAvail) * 100) / 100,
+				);
 			}
 
 			if (newRow.customOrder === "" || newRow.customOrder === null) {
@@ -941,6 +986,16 @@ const PurchasingRequirements: React.FC = () => {
 							"& .MuiOutlinedInput-root": { borderRadius: 2 },
 						}}
 					/>
+
+					<Button
+						size="small"
+						variant="outlined"
+						startIcon={showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />}
+						onClick={() => setShowDemandColumns((v) => !v)}
+						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
+					>
+						{showDemandColumns ? "Hide" : "Show"} Monthly Demand
+					</Button>
 				</Box>
 			</Box>
 		);
@@ -951,6 +1006,7 @@ const PurchasingRequirements: React.FC = () => {
 		priceClasses,
 		selectedPriceClass,
 		poReference,
+		showDemandColumns,
 		theme.palette.primary.main,
 	]);
 
@@ -979,6 +1035,7 @@ const PurchasingRequirements: React.FC = () => {
 					<DataGrid
 						rows={rows}
 						columns={columns}
+						columnVisibilityModel={columnVisibilityModel}
 						editMode="row"
 						processRowUpdate={processRowUpdate}
 						onProcessRowUpdateError={(err) =>
