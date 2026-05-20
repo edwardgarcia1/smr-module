@@ -87,16 +87,23 @@ function periodKeyFromParts(
 function buildSiteClause(siteIDs: string[]): {
 	clause: string;
 	params: Record<string, string>;
+	filteredIDs: string[];
 } {
 	const filtered = (siteIDs ?? []).filter((s) => ALLOWED_SITE_IDS.includes(s));
-	if (filtered.length === 0) return { clause: "", params: {} };
+	if (filtered.length === 0) {
+		return { clause: "", params: {}, filteredIDs: [] };
+	}
 
 	const placeholders = filtered.map((_, i) => `@siteID${i}`);
 	const params: Record<string, string> = {};
 	filtered.forEach((id, i) => {
 		params[`siteID${i}`] = id;
 	});
-	return { clause: `AND sh.SiteID IN (${placeholders.join(", ")})`, params };
+	return {
+		clause: `AND sh.SiteID IN (${placeholders.join(", ")})`,
+		params,
+		filteredIDs: filtered,
+	};
 }
 
 function buildDateRangeClause(
@@ -209,9 +216,10 @@ export async function getRequirements(
 	const pool = await getDb();
 	const { classID, siteID, dateRanges, frequency } = query;
 
-	const { clause: siteClause, params: siteParams } = buildSiteClause(
-		siteID?.filter((s) => ALLOWED_SITE_IDS.includes(s)) ?? [],
-	);
+	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
+		buildSiteClause(
+			siteID?.filter((s) => ALLOWED_SITE_IDS.includes(s)) ?? [],
+		);
 	const { clause: dateClause, params: dateParams } =
 		buildDateRangeClause(dateRanges);
 
@@ -272,8 +280,9 @@ export async function getRequirements(
 	const invtIDs = [...new Set(groups.map((g) => g.InvtID as string))];
 
 	// ── Step 3: Fetch ItemSite stock levels ───────────────────────
+	const siteIDsForStock = siteFilter.length > 0 ? siteFilter : ALLOWED_SITE_IDS;
 	const invtPH = invtIDs.map((_, i) => `@invtID${i}`);
-	const sitePH = ALLOWED_SITE_IDS.map((_, i) => `@sf${i}`);
+	const sitePH = siteIDsForStock.map((_, i) => `@sf${i}`);
 
 	const stockSql = `
 		SELECT InvtID, SiteID, QtyOnHand, QtyAvail, QtyOnPO, QtyAlloc
@@ -283,7 +292,7 @@ export async function getRequirements(
 	`;
 	const stockReq = pool.request();
 	for (const [i, id] of invtIDs.entries()) stockReq.input(`invtID${i}`, id);
-	for (const [i, sid] of ALLOWED_SITE_IDS.entries())
+	for (const [i, sid] of siteIDsForStock.entries())
 		stockReq.input(`sf${i}`, sid);
 
 	const stockResult = await stockReq.query(stockSql);
