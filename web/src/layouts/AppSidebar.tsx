@@ -9,9 +9,7 @@ import {
 	ListItemButton,
 	Typography,
 	Divider,
-	Accordion,
-	AccordionSummary,
-	AccordionDetails,
+	Popover,
 	Dialog,
 	DialogTitle,
 	DialogContent,
@@ -24,7 +22,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import PeopleIcon from "@mui/icons-material/People";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
@@ -116,8 +113,21 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 	};
 
 	const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false);
+	const [userMenuAnchor, setUserMenuAnchor] =
+		React.useState<HTMLElement | null>(null);
+	const userMenuOpen = Boolean(userMenuAnchor);
+	const userMenuTriggerRef = useRef<HTMLDivElement>(null);
+
+	const handleUserMenuClick = (e: React.MouseEvent<HTMLElement>) => {
+		setUserMenuAnchor(e.currentTarget);
+	};
+
+	const handleUserMenuClose = () => {
+		setUserMenuAnchor(null);
+	};
 
 	const handleLogoutClick = () => {
+		setUserMenuAnchor(null);
 		setLogoutDialogOpen(true);
 	};
 
@@ -242,29 +252,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-			<Can I="read" a="principals" ability={ability}>
-				<ListItemButton
-					selected={isActive("/principals")}
-					onClick={() => handleNav("/principals")}
-					sx={getSidebarItemSx(collapsed)}
-				>
-					<ListItemIcon
-						sx={{
-							color: "var(--sidebar-icon)",
-							minWidth: collapsed ? "auto" : 36,
-						}}
+				<Can I="read" a="principals" ability={ability}>
+					<ListItemButton
+						selected={isActive("/principals")}
+						onClick={() => handleNav("/principals")}
+						sx={getSidebarItemSx(collapsed)}
 					>
-						<LocalShippingIcon sx={{ fontSize: 18 }} />
-					</ListItemIcon>
-					<ListItemText
-						primary="Principals"
-						sx={{
-							fontSize: 13,
-							display: collapsed ? "none" : "block",
-						}}
-					/>
-						</ListItemButton>
-					</Can>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<LocalShippingIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Principals"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
 				<Can I="read" a="purchase-orders" ability={ability}>
 					<ListItemButton
 						selected={isActive("/purchase-orders")}
@@ -382,35 +392,25 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				</Can>
 			</List>
 			<Divider sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }} />
-			<Accordion
-				sx={{
-					boxShadow: "none",
-					"&:before": { display: "none" },
-					"&.Mui-expanded": { margin: 0 },
-					bgcolor: "var(--sidebar-bg)",
-				}}
-			>
-				<AccordionSummary
-					expandIcon={<ExpandMoreIcon sx={{ color: "var(--sidebar-icon)" }} />}
+			<Box ref={userMenuTriggerRef}>
+				<ListItemButton
+					onClick={handleUserMenuClick}
 					sx={{
-						minHeight: 40,
-						"&.Mui-expanded": { minHeight: 50 },
-						color: "var(--sidebar-text)",
-						bgcolor: "var(--sidebar-bg)",
+						...getSidebarItemSx(collapsed),
+						mx: 0,
+						borderRadius: 0,
+						px: 2,
+						justifyContent: "flex-start",
+						py: collapsed ? 1.5 : 1,
 					}}
 				>
 					<ListItemIcon
 						sx={{
 							color: "var(--sidebar-icon)",
-							minWidth: collapsed ? "auto" : 36,
-							display: collapsed ? "none" : "block",
+							minWidth: collapsed ? "auto" : 28,
 						}}
 					>
-						<AccountCircleIcon
-							sx={{
-								fontSize: 18,
-							}}
-						/>
+						<AccountCircleIcon sx={{ fontSize: 18 }} />
 					</ListItemIcon>
 					<Box
 						sx={{ overflow: "hidden", display: collapsed ? "none" : "block" }}
@@ -437,50 +437,65 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 							</Typography>
 						)}
 					</Box>
-				</AccordionSummary>
-				<AccordionDetails sx={{ p: 0, bgcolor: "var(--sidebar-bg)" }}>
-					<ListItemButton
-						onClick={() => handleNav("/profile")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
+				</ListItemButton>
+				<Popover
+					open={userMenuOpen}
+					anchorEl={userMenuAnchor}
+					onClose={handleUserMenuClose}
+					anchorOrigin={{
+						vertical: "top",
+						horizontal: "right",
+					}}
+					transformOrigin={{
+						vertical: "top",
+						horizontal: "left",
+					}}
+					slotProps={{
+						paper: {
+							sx: {
+								bgcolor: "var(--sidebar-bg)",
+								color: "var(--sidebar-text)",
+								minWidth: 180,
+								mt: 0.5,
+							},
+						},
+					}}
+				>
+					<List disablePadding>
+						<ListItemButton
+							onClick={() => {
+								handleUserMenuClose();
+								handleNav("/profile");
 							}}
+							sx={getSidebarItemSx(false)}
 						>
-							<AccountCircleIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Profile"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-					<ListItemButton
-						onClick={handleLogoutClick}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
+							<ListItemIcon
+								sx={{
+									color: "var(--sidebar-icon)",
+									minWidth: 36,
+								}}
+							>
+								<AccountCircleIcon sx={{ fontSize: 18 }} />
+							</ListItemIcon>
+							<ListItemText primary="Profile" sx={{ fontSize: 13 }} />
+						</ListItemButton>
+						<ListItemButton
+							onClick={handleLogoutClick}
+							sx={getSidebarItemSx(false)}
 						>
-							<LogoutIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Logout"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</AccordionDetails>
-			</Accordion>
+							<ListItemIcon
+								sx={{
+									color: "var(--sidebar-icon)",
+									minWidth: 36,
+								}}
+							>
+								<LogoutIcon sx={{ fontSize: 18 }} />
+							</ListItemIcon>
+							<ListItemText primary="Logout" sx={{ fontSize: 13 }} />
+						</ListItemButton>
+					</List>
+				</Popover>
+			</Box>
 		</Box>
 	);
 
