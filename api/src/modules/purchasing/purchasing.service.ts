@@ -1,5 +1,6 @@
 import { getDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
+import { BadRequestError } from "../../middlewares/error";
 import type {
 	RequirementItem,
 	RequirementsQuery,
@@ -175,6 +176,22 @@ function getCnvFactor(
 }
 
 /**
+ * Check whether a conversion exists between two units for a given item.
+ */
+function canConvert(
+	cache: Map<string, number>,
+	invtID: string,
+	fromUnit: string,
+	toUnit: string,
+): boolean {
+	const fwd = getCnvFactor(cache, invtID, fromUnit, toUnit);
+	if (fwd !== null && fwd > 0) return true;
+	const rev = getCnvFactor(cache, invtID, toUnit, fromUnit);
+	if (rev !== null && rev > 0) return true;
+	return false;
+}
+
+/**
  * Normalise qty using cached INUnit data.
  * Returns original qty when no conversion is needed or available.
  */
@@ -321,7 +338,60 @@ export async function getRequirements(
 	// ── Step 4: Bulk INUnit conversion cache ──────────────────────
 	const convCache = await buildConversionCache(invtIDs);
 
-	// ── Step 5: Assemble period demand per item ───────────────────
+	// ── Step 5: Validate all unit conversions ─────────────────────
+	// Check every unique (InvtID, UnitDesc, StkUnit) triple against the cache.
+	const conversionFailures: {
+		invtID: string;
+		descr: string;
+		unitDesc: string;
+		stkUnit: string;
+	}[] = [];
+	const seenPairs = new Set<string>();
+
+	for (const g of groups) {
+		const invtID = g.InvtID as string;
+		const unitDesc = (g.UnitDesc as string) ?? "";
+		const stkUnit = (g.StkUnit as string) ?? "";
+		const descr = (g.InventoryDescr as string) ?? "";
+
+		// Skip when units match or either is empty — no conversion needed
+		if (
+			!unitDesc ||
+			!stkUnit ||
+			unitDesc.toUpperCase() === stkUnit.toUpperCase()
+		) {
+			continue;
+		}
+
+		const pairKey = `${invtID}|${unitDesc}->${stkUnit}`;
+		if (seenPairs.has(pairKey)) continue;
+		seenPairs.add(pairKey);
+
+		if (!canConvert(convCache, invtID, unitDesc, stkUnit)) {
+			conversionFailures.push({ invtID, descr, unitDesc, stkUnit });
+		}
+	}
+
+	if (conversionFailures.length > 0) {
+		const lines = conversionFailures
+			.map(
+				(f) =>
+					`• ${f.invtID} — "${f.descr}" — ships in "${f.unitDesc}" but stock unit is "${f.stkUnit}" — no conversion factor found in INUnit`,
+			)
+			.join("\n");
+		const unitDescSet = [
+			...new Set(conversionFailures.map((f) => f.unitDesc)),
+		].join("/");
+		const stkUnitSet = [
+			...new Set(conversionFailures.map((f) => f.stkUnit)),
+		].join(", ");
+		throw new BadRequestError(
+			`Unit conversion is not possible for the following items:\n${lines}\n\n` +
+				`Add missing conversion factors to the INUnit table so that ${unitDescSet} can be converted to ${stkUnitSet}.`,
+		);
+	}
+
+	// ── Step 6: Assemble period demand per item ───────────────────
 	const periodKeys = generatePeriodKeys(dateRanges, frequency);
 
 	// itemId → { meta, periodDemand: Map<periodKey, total> }
@@ -374,7 +444,7 @@ export async function getRequirements(
 		entry.periodDemand.set(pk, cur + nq);
 	}
 
-	// ── Step 6: Build response ────────────────────────────────────
+	// ── Step 7: Build response ────────────────────────────────────
 	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
 	const results: RequirementItem[] = [];
