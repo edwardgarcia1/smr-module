@@ -30,7 +30,7 @@ import {
 	ExportCsv,
 	ExportPrint,
 } from "@mui/x-data-grid";
-import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
+import type { GridColDef, GridRowsProp } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { type Dayjs } from "dayjs";
@@ -90,10 +90,6 @@ interface BundlingRow {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	stockCoverCount: number;
-	monthlyFactor: number;
-	suggestedMonthlyOrder: number;
-	suggestedOrder: number;
-	customOrder: number | null;
 	components: ComponentStock[];
 	bundlableQuantity: number;
 	suggestedBundles: number;
@@ -338,9 +334,6 @@ const BundlingRequirements: React.FC = () => {
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
 
-	// Bulk factor
-	const [bulkFactor, setBulkFactor] = useState<string>("1.0");
-
 	// Period keys ref
 	const periodKeysRef = useRef<string[]>([]);
 
@@ -486,45 +479,26 @@ const BundlingRequirements: React.FC = () => {
 			});
 
 			// Computation columns
-			cols.push({
-				field: "stockCoverCount",
-				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
-				width: 130,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
-			});
-			cols.push({
-				field: "avgDemand",
-				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
-				width: 150,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
-			});
-			cols.push({
-				field: "suggestedMonthlyOrder",
-				headerName: `Suggested ${frequency === "monthly" ? "Monthly" : "Weekly"} Order`,
-				width: 150,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
-			});
-			cols.push({
-				field: "suggestedOrder",
-				headerName: `Suggested Order (${frequency === "monthly" ? "1-mo" : "1-wk"} coverage)`,
-				width: 160,
-				type: "number",
-				headerClassName: "group-computation",
-				description: "Stock-aware: fills up to 1 month of projected demand",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
-			});
+		cols.push({
+			field: "stockCoverCount",
+			headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+			width: 130,
+			type: "number",
+			headerClassName: "group-computation",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toFixed(2) : "",
+		});
+		cols.push({
+			field: "avgDemand",
+			headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+			width: 150,
+			type: "number",
+			headerClassName: "group-computation",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+		});
 
-			return cols;
+		return cols;
 		},
 		[frequency],
 	);
@@ -612,31 +586,6 @@ const BundlingRequirements: React.FC = () => {
 			setIsApplying(false);
 		}
 	}, [selectedPrincipal, selectedStorage, dateRanges, frequency, buildColumns]);
-
-	// ─── Bulk factor update ──────────────────────────────────────────
-	const handleBulkFactorApply = useCallback(() => {
-		const factor = parseFloat(bulkFactor);
-		if (isNaN(factor) || factor <= 0) return;
-
-		setRows((prev: readonly GridRowModel[]) =>
-			prev.map((r: GridRowModel) => {
-				const row = r as GridRow;
-				const suggestedMonthlyOrder = Math.round(row.avgDemand * factor * 100) / 100;
-				const coverageThreshold = 1;
-				const targetStock = coverageThreshold * suggestedMonthlyOrder;
-				const suggestedOrder = Math.max(
-					0,
-					Math.round((targetStock - row.qtyAvail) * 100) / 100,
-				);
-				return {
-					...row,
-					monthlyFactor: factor,
-					suggestedMonthlyOrder,
-					suggestedOrder,
-				};
-			}),
-		);
-	}, [bulkFactor]);
 
 	// ─── Filter Panel ─────────────────────────────────────────────────
 	const filterPanel = (
@@ -950,46 +899,9 @@ const BundlingRequirements: React.FC = () => {
 						</Tooltip>
 					</Box>
 				</Box>
-
-				{/* Bottom row: bulk factor */}
-				<Box
-					sx={{
-						display: "flex",
-						flexWrap: "wrap",
-						gap: 2,
-						px: 2,
-						pb: 1.5,
-						alignItems: "center",
-					}}
-				>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-						<TextField
-							size="small"
-							type="number"
-							label="Bulk Factor"
-							value={bulkFactor}
-							onChange={(e) => setBulkFactor(e.target.value)}
-							slotProps={{
-								htmlInput: { step: 0.1, min: 0.1 },
-							}}
-							sx={{ width: 110, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-						/>
-						<Button
-							size="small"
-							variant="outlined"
-							onClick={handleBulkFactorApply}
-							sx={{ textTransform: "none", borderRadius: 2 }}
-						>
-							Apply
-						</Button>
-					</Box>
-					<Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-						Component stock columns show available quantity per component
-					</Typography>
-				</Box>
 			</Box>
 		);
-	}, [handleExcelExport, bulkFactor, handleBulkFactorApply, theme.palette.primary.main]);
+	}, [handleExcelExport, theme.palette.primary.main]);
 
 	// ─── Persist Form State ──────────────────────────────────────────
 	const persistState = useMemo(

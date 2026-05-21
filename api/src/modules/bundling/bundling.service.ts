@@ -258,9 +258,7 @@ export async function getBundlingRequirements(
 		: new Map<string, string>();
 
 	// ── Step 10: Build response ────────────────────────────────────
-	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
-	const COVERAGE_THRESHOLD_MONTHS = 1;
 	const results: BundlingItem[] = [];
 
 	for (const [id, entry] of demandMap) {
@@ -285,14 +283,6 @@ export async function getBundlingRequirements(
 		for (const [k, v] of entry.periodDemand) {
 			periodDemandObj[k] = Math.round(v * 100) / 100;
 		}
-
-		const suggestedMonthlyOrder =
-			Math.round(avgDemand * defaultFactor * 100) / 100;
-		const targetStock = COVERAGE_THRESHOLD_MONTHS * suggestedMonthlyOrder;
-		const suggestedOrder = Math.max(
-			0,
-			Math.round((targetStock - stock.qtyAvail) * 100) / 100,
-		);
 
 		// ── Component analysis ──────────────────────────────────────
 		const compDefsForThis = componentDefs.filter((c) => c.KitID === id);
@@ -329,16 +319,14 @@ export async function getBundlingRequirements(
 				? Math.min(...components.map((c) => c.maxBundlesFromStock))
 				: 0;
 
-		// Suggested bundles: how many to produce considering demand and stock
-		const suggestedBundles = Math.max(
-			0,
-			Math.min(
-				Math.ceil(avgDemand),
-				bundlableQuantity + Math.ceil(suggestedOrder),
-			),
-		);
+		// Suggested bundles: produce up to demand, limited by component availability
+		const suggestedBundles = bundlableQuantity > 0
+			? Math.max(0, Math.min(Math.ceil(avgDemand), bundlableQuantity))
+			: 0;
 
-		const canFulfillFromBundling = bundlableQuantity >= suggestedOrder || bundlableQuantity >= Math.ceil(avgDemand);
+		// Can fulfill from bundling only if there is actual component stock AND it covers demand
+		const canFulfillFromBundling =
+			bundlableQuantity > 0 && bundlableQuantity >= Math.ceil(avgDemand);
 
 		results.push({
 			invtID: id,
@@ -352,10 +340,6 @@ export async function getBundlingRequirements(
 			periodDemand: periodDemandObj,
 			avgDemand,
 			stockCoverCount,
-			monthlyFactor: defaultFactor,
-			suggestedMonthlyOrder,
-			suggestedOrder,
-			customOrder: null,
 			components,
 			bundlableQuantity,
 			suggestedBundles,

@@ -44,16 +44,12 @@ export interface BundlingItem {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	stockCoverCount: number;
-	monthlyFactor: number;
-	suggestedMonthlyOrder: number;
-	suggestedOrder: number;
-	customOrder: number | null;
 	// Component information
 	components: ComponentStock[];
 	/** How many complete bundles can be made from existing component stock */
 	bundlableQuantity: number;
 	/** Suggested number of bundles to produce (limited by demand and component stock) */
 	suggestedBundles: number;
-	/** True if bundlableQuantity >= suggestedOrder — demand can be met via bundling */
+	/** True if bundlableQuantity >= avg demand — demand can be met via bundling */
 	canFulfillFromBundling: boolean;
 }
