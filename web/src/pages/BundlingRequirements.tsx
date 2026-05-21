@@ -480,15 +480,6 @@ const BundlingRequirements: React.FC = () => {
 
 			// Computation columns
 		cols.push({
-			field: "stockCoverCount",
-			headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
-			width: 130,
-			type: "number",
-			headerClassName: "group-computation",
-			valueFormatter: (value?: number) =>
-				value != null ? value.toFixed(2) : "",
-		});
-		cols.push({
 			field: "avgDemand",
 			headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
 			width: 150,
@@ -496,6 +487,15 @@ const BundlingRequirements: React.FC = () => {
 			headerClassName: "group-computation",
 			valueFormatter: (value?: number) =>
 				value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+		});
+		cols.push({
+			field: "stockCoverCount",
+			headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+			width: 130,
+			type: "number",
+			headerClassName: "group-computation",
+			valueFormatter: (value?: number) =>
+				value != null ? value.toFixed(2) : "",
 		});
 
 		return cols;
