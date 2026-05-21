@@ -564,7 +564,7 @@ const PurchasingRequirements: React.FC = () => {
 				const targetStock = coverageThreshold * suggestedMonthlyOrder;
 				const suggestedOrder = Math.max(
 					0,
-					Math.round((targetStock - row.qtyAvail) * 100) / 100,
+					Math.round((targetStock - row.qtyAvail - row.qtyOnPO) * 100) / 100,
 				);
 				return {
 					...row,
@@ -589,7 +589,7 @@ const PurchasingRequirements: React.FC = () => {
 				const targetStock = coverageThreshold * updatedRow.suggestedMonthlyOrder;
 				updatedRow.suggestedOrder = Math.max(
 					0,
-					Math.round((targetStock - newRow.qtyAvail) * 100) / 100,
+					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) / 100,
 				);
 			}
 

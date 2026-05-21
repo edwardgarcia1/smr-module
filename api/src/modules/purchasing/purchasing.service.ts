@@ -322,7 +322,7 @@ export async function getRequirements(
 		const targetStock = COVERAGE_THRESHOLD_MONTHS * suggestedMonthlyOrder;
 		const suggestedOrder = Math.max(
 			0,
-			Math.round((targetStock - stock.qtyAvail) * 100) / 100,
+			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,
 		);
 
 		results.push({
