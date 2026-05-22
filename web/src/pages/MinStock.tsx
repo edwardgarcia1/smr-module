@@ -25,8 +25,10 @@ import {
 	CircularProgress,
 	Tabs,
 	Tab,
+	Autocomplete,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -407,6 +409,26 @@ const ItemsTab: React.FC = () => {
 	const [saving, setSaving] = useState(false);
 	const [dialogError, setDialogError] = useState<string | null>(null);
 
+	// Filter state
+	const [settingFilter, setSettingFilter] = useState<
+		ItemWithMinStockDetails["setting"][]
+	>([]);
+	const [classIdFilter, setClassIdFilter] = useState<string[]>([]);
+
+	// Derived: unique class IDs and setting options for Autocomplete
+	const classIdOptions = useMemo(
+		() => [...new Set(rows.map((r) => r.ClassID))].sort(),
+		[rows],
+	);
+
+	const settingOptions: ItemWithMinStockDetails["setting"][] = [
+		"Custom",
+		"Principal",
+		"Default",
+	];
+
+	const hasActiveFilters = settingFilter.length > 0 || classIdFilter.length > 0;
+
 	const fetchData = useCallback(async () => {
 		setLoading(true);
 		setError(null);
@@ -430,15 +452,26 @@ const ItemsTab: React.FC = () => {
 	}, [fetchData]);
 
 	const filteredRows = useMemo(() => {
-		if (!searchQuery.trim()) return rows;
-		const q = searchQuery.toLowerCase().trim();
-		return rows.filter(
-			(r) =>
-				r.InvtID.toLowerCase().includes(q) ||
-				r.ClassID.toLowerCase().includes(q) ||
-				r.Descr.toLowerCase().includes(q),
-		);
-	}, [rows, searchQuery]);
+		return rows.filter((r) => {
+			// Text search
+			if (searchQuery.trim()) {
+				const q = searchQuery.toLowerCase().trim();
+				if (
+					!r.InvtID.toLowerCase().includes(q) &&
+					!r.ClassID.toLowerCase().includes(q) &&
+					!r.Descr.toLowerCase().includes(q)
+				)
+					return false;
+			}
+			// Setting filter
+			if (settingFilter.length > 0 && !settingFilter.includes(r.setting))
+				return false;
+			// Class ID filter
+			if (classIdFilter.length > 0 && !classIdFilter.includes(r.ClassID))
+				return false;
+			return true;
+		});
+	}, [rows, searchQuery, settingFilter, classIdFilter]);
 
 	const paginatedRows = useMemo(
 		() =>
@@ -537,7 +570,15 @@ const ItemsTab: React.FC = () => {
 					flexWrap: "wrap",
 				}}
 			>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						gap: 1.5,
+						flexWrap: "wrap",
+						flex: 1,
+					}}
+				>
 					<TextField
 						size="small"
 						placeholder="Search inventory ID, class ID, or description..."
@@ -558,9 +599,95 @@ const ItemsTab: React.FC = () => {
 						sx={{
 							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
 							"& .MuiInputBase-input": { paddingY: 0 },
-							minWidth: 280,
+							minWidth: 220,
 						}}
 					/>
+
+					<Autocomplete
+						multiple
+						size="small"
+						options={settingOptions}
+						value={settingFilter}
+						onChange={(_, newVal) => {
+							setSettingFilter(newVal);
+							setPage(0);
+						}}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								placeholder="Setting"
+								sx={{
+									"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+									minWidth: 140,
+								}}
+							/>
+						)}
+						renderTags={(value, getTagProps) =>
+							value.map((option, index) => (
+								<Chip
+									{...getTagProps({ index })}
+									key={option}
+									label={option}
+									size="small"
+									color={SETTING_COLORS[option] ?? "default"}
+									variant="outlined"
+									sx={{ height: 20, fontSize: "0.7rem" }}
+								/>
+							))
+						}
+						sx={{ minWidth: 140 }}
+					/>
+
+					<Autocomplete
+						multiple
+						size="small"
+						options={classIdOptions}
+						value={classIdFilter}
+						onChange={(_, newVal) => {
+							setClassIdFilter(newVal);
+							setPage(0);
+						}}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								placeholder="Class ID"
+								sx={{
+									"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+									minWidth: 140,
+								}}
+							/>
+						)}
+						renderTags={(value, getTagProps) =>
+							value.map((option, index) => (
+								<Chip
+									{...getTagProps({ index })}
+									key={option}
+									label={option}
+									size="small"
+									variant="outlined"
+									sx={{ height: 20, fontSize: "0.7rem" }}
+								/>
+							))
+						}
+						sx={{ minWidth: 140 }}
+					/>
+
+					{hasActiveFilters && (
+						<IconButton
+							size="small"
+							onClick={() => {
+								setSettingFilter([]);
+								setClassIdFilter([]);
+								setSearchQuery("");
+								setPage(0);
+							}}
+							sx={{ borderRadius: 2 }}
+							title="Clear all filters"
+						>
+							<FilterListIcon fontSize="small" />
+						</IconButton>
+					)}
+
 					<Typography variant="caption" sx={{ color: "text.secondary" }}>
 						{filteredRows.length} item
 						{filteredRows.length !== 1 ? "s" : ""}
