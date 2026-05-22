@@ -101,6 +101,12 @@ const CategoriesCard: React.FC = () => {
 		setError(null);
 		try {
 			const data = await apiRequest<CategoryRow[]>("/min-stock/categories");
+			// Sort into logical order: Immediate → Monitoring → Overstocked
+			const order = ["Immediate", "Monitoring", "Overstocked"];
+			data.sort(
+				(a, b) =>
+					order.indexOf(a.category_name) - order.indexOf(b.category_name),
+			);
 			setCategories(data);
 		} catch (err: unknown) {
 			setError(
