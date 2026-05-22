@@ -146,23 +146,26 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 	};
 
 	const drawer = (
-		<Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-			<Box
-				sx={{
-					p: 2,
-					gap: 1,
-				}}
-			>
-				<Typography
-					variant="h6"
-					component="div"
-					sx={{ color: "var(--sidebar-text)" }}
-				>
-					{collapsed ? abbreviation : appName}
-				</Typography>
+		<Box
+			sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+		>
+			{/* Sticky header */}
+			<Box sx={{ flexShrink: 0, bgcolor: "var(--sidebar-bg)" }}>
+				<Box sx={{ p: 2, gap: 1 }}>
+					<Typography
+						variant="h6"
+						component="div"
+						sx={{ color: "var(--sidebar-text)" }}
+					>
+						{collapsed ? abbreviation : appName}
+					</Typography>
+				</Box>
+				<Divider
+					sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }}
+				/>
 			</Box>
-			<Divider sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }} />
-			<List sx={{ flexGrow: 1 }}>
+			{/* Scrollable nav list */}
+			<List sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden" }}>
 				<ListItemButton
 					selected={isActive("/")}
 					onClick={() => handleNav("/")}
@@ -415,8 +418,12 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					</ListItemButton>
 				</Can>
 			</List>
-			<Divider sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }} />
-			<Box ref={userMenuTriggerRef}>
+			{/* Sticky footer */}
+			<Box sx={{ flexShrink: 0, bgcolor: "var(--sidebar-bg)" }}>
+				<Divider
+					sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }}
+				/>
+				<Box ref={userMenuTriggerRef}>
 				<ListItemButton
 					onClick={handleUserMenuClick}
 					sx={{
@@ -519,6 +526,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</ListItemButton>
 					</List>
 				</Popover>
+				</Box>
 			</Box>
 		</Box>
 	);
