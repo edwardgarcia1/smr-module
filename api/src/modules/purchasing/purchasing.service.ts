@@ -307,6 +307,23 @@ export async function getRequirements(
 	// ── Step 8: Build response ────────────────────────────────────
 	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
+
+	// When frequency is "weekly", convert coverageThreshold from months to weeks
+	// using the actual period ratio from the selected date range.
+	// This preserves the user's intent: minStock=1.2 means "1.2 months of coverage"
+	// even when viewing in weekly mode.
+	const monthToWeekFactor = (() => {
+		if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
+		const uniqueMonths = new Set(
+			periodKeys.map((k) => {
+				const m = k.match(/W\d+\s+(.+)/);
+				return m ? m[1] : k;
+			}),
+		);
+		const nMonths = uniqueMonths.size;
+		return nMonths > 0 ? nPeriods / nMonths : 1.0;
+	})();
+
 	const results: RequirementItem[] = [];
 
 	for (const [id, entry] of demandMap) {
@@ -333,10 +350,11 @@ export async function getRequirements(
 		}
 
 		const coverageThreshold = coverageMap.get(id) ?? 1;
+		const effectiveThreshold = coverageThreshold * monthToWeekFactor;
 		const suggestedMonthlyOrder =
 			Math.round(avgDemand * defaultFactor * 100) / 100;
 		// Stock-aware: how much to bring stock up to (threshold × projected need)
-		const targetStock = coverageThreshold * suggestedMonthlyOrder;
+		const targetStock = effectiveThreshold * suggestedMonthlyOrder;
 		const suggestedOrder = Math.max(
 			0,
 			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,

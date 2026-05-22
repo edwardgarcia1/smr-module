@@ -326,6 +326,20 @@ const PurchasingRequirements: React.FC = () => {
 		(periodKeys: string[]): GridColDef[] => {
 			const cols: GridColDef[] = [];
 
+			// When frequency is weekly, compute factor to convert month-based
+			// coverageThreshold to weeks for display purposes.
+			const displayFactor = (() => {
+				if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
+				const uniqueMonths = new Set(
+					periodKeys.map((k) => {
+						const m = k.match(/W\d+\s+(.+)/);
+						return m ? m[1] : k;
+					}),
+				);
+				const nMonths = uniqueMonths.size;
+				return nMonths > 0 ? periodKeys.length / nMonths : 1.0;
+			})();
+
 			// Group 1: Static product info
 			const staticHeader = { headerClassName: "group-static" };
 			cols.push({
@@ -427,7 +441,7 @@ const PurchasingRequirements: React.FC = () => {
 			// Group 3: Computation
 			cols.push({
 				field: "avgDemand",
-				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (PCS)`,
 				width: 150,
 				type: "number",
 				headerClassName: "group-computation",
@@ -441,7 +455,7 @@ const PurchasingRequirements: React.FC = () => {
 			});
 			cols.push({
 				field: "avgDemandCS",
-				headerName: `Avg Demand (CS)`,
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (CS)`,
 				width: 120,
 				type: "number",
 				headerClassName: "group-computation",
@@ -456,7 +470,7 @@ const PurchasingRequirements: React.FC = () => {
 			});
 			cols.push({
 				field: "coverageThreshold",
-				headerName: "Min Stock",
+				headerName: `Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`,
 				width: 100,
 				type: "number",
 				editable: true,
@@ -488,8 +502,12 @@ const PurchasingRequirements: React.FC = () => {
 						autoFocus
 					/>
 				),
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
+				valueFormatter: (value?: number) => {
+					if (value == null) return "";
+					const displayValue =
+						frequency === "weekly" ? value * displayFactor : value;
+					return displayValue.toFixed(2);
+				},
 			});
 			cols.push({
 				field: "suggestedMonthlyOrder",
@@ -755,11 +773,27 @@ const PurchasingRequirements: React.FC = () => {
 					});
 				}
 
-				// Recalculate locally (only reached if API succeeded)
-				updatedRow.suggestedMonthlyOrder =
-					Math.round(newRow.avgDemand * newRow.coverageThreshold * 100) / 100;
-				const targetStock =
-					newRow.coverageThreshold * updatedRow.suggestedMonthlyOrder;
+				// Recalculate locally to match backend logic in purchasing.service.ts.
+				// Backend: suggestedMonthlyOrder = avgDemand (period baseline, not threshold-scaled),
+				// targetStock = effectiveThreshold × avgDemand.
+				// When frequency is weekly, coverageThreshold (stored as months) is converted
+				// to weeks using the actual period ratio from the date range.
+				const monthToWeekFactor = (() => {
+					if (frequency !== "weekly") return 1.0;
+					const pKeys = periodKeysRef.current;
+					if (pKeys.length === 0) return 1.0;
+					const uniqueMonths = new Set(
+						pKeys.map((k) => {
+							const m = k.match(/W\d+\s+(.+)/);
+							return m ? m[1] : k;
+						}),
+					);
+					const nMonths = uniqueMonths.size;
+					return nMonths > 0 ? pKeys.length / nMonths : 1.0;
+				})();
+				const effectiveThreshold = newRow.coverageThreshold * monthToWeekFactor;
+				updatedRow.suggestedMonthlyOrder = newRow.avgDemand;
+				const targetStock = effectiveThreshold * newRow.avgDemand;
 				updatedRow.suggestedOrder = Math.max(
 					0,
 					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) /
@@ -779,7 +813,7 @@ const PurchasingRequirements: React.FC = () => {
 
 			return updatedRow;
 		},
-		[],
+		[frequency],
 	);
 
 	// ─── Filter Panel ─────────────────────────────────────────────────
