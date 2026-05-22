@@ -28,6 +28,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
 import MoneyIcon from "@mui/icons-material/Money";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import LowPriorityIcon from "@mui/icons-material/LowPriority";
 import { Can } from "@casl/react";
 import { useAbility } from "../config/AbilityProvider";
 import { useAuthStore } from "../store/useAuthStore";
@@ -337,6 +338,29 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</ListItemIcon>
 						<ListItemText
 							primary="Prices"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
+				<Can I="read" a="min-stock" ability={ability}>
+					<ListItemButton
+						selected={isActive("/min-stock")}
+						onClick={() => handleNav("/min-stock")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<LowPriorityIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Min Stock Settings"
 							sx={{
 								fontSize: 13,
 								display: collapsed ? "none" : "block",

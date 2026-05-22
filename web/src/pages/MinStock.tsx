@@ -1,0 +1,788 @@
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import {
+	Box,
+	Paper,
+	Typography,
+	TextField,
+	Button,
+	IconButton,
+	Alert,
+	Select,
+	MenuItem,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogActions,
+	Table,
+	TableBody,
+	TableCell,
+	TableContainer,
+	TableHead,
+	TableRow,
+	TablePagination,
+	InputAdornment,
+	Chip,
+	CircularProgress,
+	Tabs,
+	Tab,
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import EditIcon from "@mui/icons-material/Edit";
+import SaveIcon from "@mui/icons-material/Save";
+import CancelIcon from "@mui/icons-material/Cancel";
+import apiRequest from "../services/api";
+
+// ─── Types matching backend merged responses ────────────────────────
+
+interface PrincipalWithMinStockDetails {
+	ClassID: string;
+	Descr: string;
+	User5: string;
+	VendId: string;
+	VendorAddr1: string;
+	VendorAddr2: string;
+	VendorCity: string;
+	VendorTerms: string;
+	minStock: number;
+	minStockId: number | null;
+}
+
+interface ItemWithMinStockDetails {
+	InvtID: string;
+	ClassID: string;
+	Descr: string;
+	setting: "Custom" | "Principal" | "Default";
+	minStock: number;
+	minStockSettingId: number | null;
+	minStockItemId: number | null;
+}
+
+// ─── Shared constants ────────────────────────────────────────────────
+
+const SETTING_OPTIONS: ItemWithMinStockDetails["setting"][] = [
+	"Custom",
+	"Principal",
+	"Default",
+];
+
+const SETTING_COLORS: Record<
+	ItemWithMinStockDetails["setting"],
+	"primary" | "warning" | "default"
+> = {
+	Custom: "primary",
+	Principal: "warning",
+	Default: "default",
+};
+
+// ─── Tab Panel ───────────────────────────────────────────────────────
+
+interface TabPanelProps {
+	children: React.ReactNode;
+	value: number;
+	index: number;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
+	<Box role="tabpanel" hidden={value !== index} sx={{ pt: 2 }}>
+		{value === index && children}
+	</Box>
+);
+
+// ─── Principals Tab ─────────────────────────────────────────────────
+
+const PrincipalsTab: React.FC = () => {
+	const [rows, setRows] = useState<PrincipalWithMinStockDetails[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [page, setPage] = useState(0);
+	const [rowsPerPage, setRowsPerPage] = useState(10);
+
+	// Inline editing state
+	const [editingId, setEditingId] = useState<string | null>(null); // ClassID being edited
+	const [editValue, setEditValue] = useState("");
+	const [saving, setSaving] = useState(false);
+
+	const fetchData = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data = await apiRequest<PrincipalWithMinStockDetails[]>(
+				"/min-stock/principals-details",
+			);
+			// Sort by ClassID
+			data.sort((a, b) => a.ClassID.localeCompare(b.ClassID));
+			setRows(data);
+		} catch (err: unknown) {
+			setError(
+				err instanceof Error ? err.message : "Failed to fetch principals",
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchData();
+	}, [fetchData]);
+
+	const filteredRows = useMemo(() => {
+		if (!searchQuery.trim()) return rows;
+		const q = searchQuery.toLowerCase().trim();
+		return rows.filter(
+			(r) =>
+				r.ClassID.toLowerCase().includes(q) ||
+				r.Descr.toLowerCase().includes(q),
+		);
+	}, [rows, searchQuery]);
+
+	const paginatedRows = useMemo(
+		() =>
+			filteredRows.slice(
+				page * rowsPerPage,
+				page * rowsPerPage + rowsPerPage,
+			),
+		[filteredRows, page, rowsPerPage],
+	);
+
+	// ── Inline Edit ──────────────────────────────────────────────
+	const handleEditOpen = (row: PrincipalWithMinStockDetails) => {
+		setEditingId(row.ClassID);
+		setEditValue(String(row.minStock));
+	};
+
+	const handleEditSave = async () => {
+		if (!editingId) return;
+		const val = parseFloat(editValue);
+		if (isNaN(val) || val < 0) {
+			setError("Min stock must be a valid non-negative number");
+			return;
+		}
+		setSaving(true);
+		setError(null);
+		try {
+			const row = rows.find((r) => r.ClassID === editingId);
+			if (!row) return;
+
+			if (row.minStockId) {
+				await apiRequest(`/min-stock/principals/${row.minStockId}`, {
+					method: "PUT",
+					body: { min_stock: val },
+				});
+			} else {
+				const created = await apiRequest<{ id: number }>(
+					"/min-stock/principals",
+					{
+						method: "POST",
+						body: { class_id: editingId, min_stock: val },
+					},
+				);
+				setRows((prev) =>
+					prev.map((r) =>
+						r.ClassID === editingId
+							? { ...r, minStock: val, minStockId: created.id }
+							: r,
+					),
+				);
+			}
+
+			setRows((prev) =>
+				prev.map((r) =>
+					r.ClassID === editingId ? { ...r, minStock: val } : r,
+				),
+			);
+			setEditingId(null);
+		} catch (err: unknown) {
+			setError(
+				err instanceof Error
+					? err.message
+					: "Failed to update principal min stock",
+			);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handleEditCancel = () => {
+		setEditingId(null);
+	};
+
+	return (
+		<>
+			{error && (
+				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+					{error}
+				</Alert>
+			)}
+
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 2,
+					gap: 2,
+					flexWrap: "wrap",
+				}}
+			>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<TextField
+						size="small"
+						placeholder="Search class ID or description..."
+						value={searchQuery}
+						onChange={(e) => {
+							setSearchQuery(e.target.value);
+							setPage(0);
+						}}
+						slotProps={{
+							input: {
+								startAdornment: (
+									<InputAdornment position="start">
+										<SearchIcon />
+									</InputAdornment>
+								),
+							},
+						}}
+						sx={{
+							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+							"& .MuiInputBase-input": { paddingY: 0 },
+							minWidth: 280,
+						}}
+					/>
+					<Typography variant="caption" sx={{ color: "text.secondary" }}>
+						{filteredRows.length} principal
+						{filteredRows.length !== 1 ? "s" : ""}
+					</Typography>
+				</Box>
+			</Box>
+
+			<TableContainer>
+				<Table size="small">
+					<TableHead>
+						<TableRow>
+							<TableCell sx={{ fontWeight: 600 }}>Class ID</TableCell>
+							<TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+							<TableCell sx={{ fontWeight: 600 }}>Vendor</TableCell>
+							<TableCell sx={{ fontWeight: 600 }} align="right">
+								Min Stock
+							</TableCell>
+							<TableCell sx={{ fontWeight: 600, width: 120 }} align="right">
+								Actions
+							</TableCell>
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{loading ? (
+							<TableRow>
+								<TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+									<CircularProgress size={24} />
+								</TableCell>
+							</TableRow>
+						) : paginatedRows.length === 0 ? (
+							<TableRow>
+								<TableCell
+									colSpan={5}
+									align="center"
+									sx={{ py: 4, color: "text.secondary" }}
+								>
+									{searchQuery
+										? "No principals match your search."
+										: "No principals found."}
+								</TableCell>
+							</TableRow>
+						) : (
+							paginatedRows.map((row) => (
+								<TableRow key={row.ClassID} hover>
+									<TableCell sx={{ fontWeight: 600 }}>
+										{row.ClassID}
+									</TableCell>
+									<TableCell sx={{ maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+										{row.Descr}
+									</TableCell>
+									<TableCell>{row.VendId}</TableCell>
+									<TableCell align="right">
+										{editingId === row.ClassID ? (
+											<Box
+												sx={{
+													display: "flex",
+													gap: 0.5,
+													alignItems: "center",
+													justifyContent: "flex-end",
+												}}
+											>
+												<TextField
+													size="small"
+													type="number"
+													value={editValue}
+													onChange={(e) => setEditValue(e.target.value)}
+													slotProps={{
+														htmlInput: {
+															step: "0.1",
+															min: 0,
+															style: { textAlign: "right", width: 80 },
+														},
+													}}
+													sx={{ width: 100 }}
+													disabled={saving}
+													autoFocus
+												/>
+												<IconButton
+													size="small"
+													color="primary"
+													onClick={handleEditSave}
+													disabled={saving}
+												>
+													<SaveIcon fontSize="small" />
+												</IconButton>
+												<IconButton
+													size="small"
+													onClick={handleEditCancel}
+													disabled={saving}
+												>
+													<CancelIcon fontSize="small" />
+												</IconButton>
+											</Box>
+										) : (
+											<Typography
+												variant="body2"
+												sx={{ fontVariantNumeric: "tabular-nums" }}
+											>
+												{row.minStock.toLocaleString(undefined, {
+													minimumFractionDigits: 2,
+													maximumFractionDigits: 4,
+												})}
+											</Typography>
+										)}
+									</TableCell>
+									<TableCell align="right">
+										<IconButton
+											size="small"
+											onClick={() => handleEditOpen(row)}
+											disabled={!!editingId}
+										>
+											<EditIcon fontSize="small" />
+										</IconButton>
+									</TableCell>
+								</TableRow>
+							))
+						)}
+					</TableBody>
+				</Table>
+			</TableContainer>
+
+			<TablePagination
+				component="div"
+				count={filteredRows.length}
+				page={page}
+				onPageChange={(_, newPage) => setPage(newPage)}
+				rowsPerPage={rowsPerPage}
+				onRowsPerPageChange={(e) => {
+					setRowsPerPage(parseInt(e.target.value, 10));
+					setPage(0);
+				}}
+				rowsPerPageOptions={[10, 25, 50]}
+				labelRowsPerPage="Rows:"
+			/>
+		</>
+	);
+};
+
+// ─── Items Tab ──────────────────────────────────────────────────────
+
+const ItemsTab: React.FC = () => {
+	const [rows, setRows] = useState<ItemWithMinStockDetails[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
+	const [page, setPage] = useState(0);
+	const [rowsPerPage, setRowsPerPage] = useState(10);
+
+	// Dialog state
+	const [dialogRow, setDialogRow] = useState<ItemWithMinStockDetails | null>(
+		null,
+	);
+	const [dialogSetting, setDialogSetting] =
+		useState<ItemWithMinStockDetails["setting"]>("Default");
+	const [dialogValue, setDialogValue] = useState("");
+	const [saving, setSaving] = useState(false);
+	const [dialogError, setDialogError] = useState<string | null>(null);
+
+	const fetchData = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data = await apiRequest<ItemWithMinStockDetails[]>(
+				"/min-stock/items-details",
+			);
+			data.sort((a, b) => a.InvtID.localeCompare(b.InvtID));
+			setRows(data);
+		} catch (err: unknown) {
+			setError(
+				err instanceof Error ? err.message : "Failed to fetch items",
+			);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchData();
+	}, [fetchData]);
+
+	const filteredRows = useMemo(() => {
+		if (!searchQuery.trim()) return rows;
+		const q = searchQuery.toLowerCase().trim();
+		return rows.filter(
+			(r) =>
+				r.InvtID.toLowerCase().includes(q) ||
+				r.ClassID.toLowerCase().includes(q) ||
+				r.Descr.toLowerCase().includes(q),
+		);
+	}, [rows, searchQuery]);
+
+	const paginatedRows = useMemo(
+		() =>
+			filteredRows.slice(
+				page * rowsPerPage,
+				page * rowsPerPage + rowsPerPage,
+			),
+		[filteredRows, page, rowsPerPage],
+	);
+
+	// ── Dialog Open ────────────────────────────────────────────────
+	const handleEditOpen = (row: ItemWithMinStockDetails) => {
+		setDialogRow(row);
+		setDialogSetting(row.setting);
+		setDialogValue(String(row.minStock));
+		setDialogError(null);
+	};
+
+	const handleEditClose = () => {
+		if (saving) return;
+		setDialogRow(null);
+		setDialogError(null);
+	};
+
+	// ── Dialog Save ───────────────────────────────────────────────
+	const handleSave = async () => {
+		if (!dialogRow) return;
+		const val = parseFloat(dialogValue);
+		if (isNaN(val) || val < 0) {
+			setDialogError("Min stock must be a valid non-negative number");
+			return;
+		}
+		setSaving(true);
+		setDialogError(null);
+		try {
+			const { InvtID } = dialogRow;
+
+			// 1. Always update the setting
+			await apiRequest(`/min-stock/settings/${InvtID}`, {
+				method: "PATCH",
+				body: { min_stock_setting: dialogSetting },
+			});
+
+			// 2. If Custom, persist the min stock value
+			if (dialogSetting === "Custom") {
+				if (dialogRow.minStockItemId) {
+					await apiRequest(`/min-stock/items/${dialogRow.minStockItemId}`, {
+						method: "PUT",
+						body: { min_stock: val },
+					});
+				} else {
+					const created = await apiRequest<{ id: number }>(
+						"/min-stock/items",
+						{
+							method: "POST",
+							body: { inventory_id: InvtID, min_stock: val },
+						},
+					);
+					// Track new id so next edit works
+					setRows((prev) =>
+						prev.map((r) =>
+							r.InvtID === InvtID
+								? { ...r, minStockItemId: created.id }
+								: r,
+						),
+					);
+				}
+			}
+
+			setDialogRow(null);
+			await fetchData();
+		} catch (err: unknown) {
+			setDialogError(
+				err instanceof Error ? err.message : "Failed to save item settings",
+			);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<>
+			{error && (
+				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+					{error}
+				</Alert>
+			)}
+
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					mb: 2,
+					gap: 2,
+					flexWrap: "wrap",
+				}}
+			>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<TextField
+						size="small"
+						placeholder="Search inventory ID, class ID, or description..."
+						value={searchQuery}
+						onChange={(e) => {
+							setSearchQuery(e.target.value);
+							setPage(0);
+						}}
+						slotProps={{
+							input: {
+								startAdornment: (
+									<InputAdornment position="start">
+										<SearchIcon />
+									</InputAdornment>
+								),
+							},
+						}}
+						sx={{
+							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+							"& .MuiInputBase-input": { paddingY: 0 },
+							minWidth: 280,
+						}}
+					/>
+					<Typography variant="caption" sx={{ color: "text.secondary" }}>
+						{filteredRows.length} item
+						{filteredRows.length !== 1 ? "s" : ""}
+					</Typography>
+				</Box>
+			</Box>
+
+			<TableContainer>
+				<Table size="small">
+					<TableHead>
+						<TableRow>
+							<TableCell sx={{ fontWeight: 600 }}>Invt ID</TableCell>
+							<TableCell sx={{ fontWeight: 600 }}>Class ID</TableCell>
+							<TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+							<TableCell sx={{ fontWeight: 600 }}>Setting</TableCell>
+							<TableCell sx={{ fontWeight: 600 }} align="right">
+								Min Stock
+							</TableCell>
+							<TableCell sx={{ fontWeight: 600, width: 80 }} align="right">
+								Actions
+							</TableCell>
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{loading ? (
+							<TableRow>
+								<TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+									<CircularProgress size={24} />
+								</TableCell>
+							</TableRow>
+						) : paginatedRows.length === 0 ? (
+							<TableRow>
+								<TableCell
+									colSpan={6}
+									align="center"
+									sx={{ py: 4, color: "text.secondary" }}
+								>
+									{searchQuery
+										? "No items match your search."
+										: "No items found."}
+								</TableCell>
+							</TableRow>
+						) : (
+							paginatedRows.map((row) => (
+								<TableRow key={row.InvtID} hover>
+									<TableCell sx={{ fontWeight: 600 }}>
+										{row.InvtID}
+									</TableCell>
+									<TableCell>{row.ClassID}</TableCell>
+									<TableCell
+										sx={{
+											maxWidth: 250,
+											overflow: "hidden",
+											textOverflow: "ellipsis",
+											whiteSpace: "nowrap",
+										}}
+									>
+										{row.Descr}
+									</TableCell>
+									<TableCell>
+										<Chip
+											label={row.setting}
+											size="small"
+											color={SETTING_COLORS[row.setting] ?? "default"}
+											variant="outlined"
+											sx={{ fontSize: "0.7rem", height: 20 }}
+										/>
+									</TableCell>
+									<TableCell align="right">
+										<Typography
+											variant="body2"
+											sx={{ fontVariantNumeric: "tabular-nums" }}
+										>
+											{row.minStock.toLocaleString(undefined, {
+												minimumFractionDigits: 2,
+												maximumFractionDigits: 4,
+											})}
+										</Typography>
+									</TableCell>
+									<TableCell align="right">
+										<IconButton
+											size="small"
+											onClick={() => handleEditOpen(row)}
+										>
+											<EditIcon fontSize="small" />
+										</IconButton>
+									</TableCell>
+								</TableRow>
+							))
+						)}
+					</TableBody>
+				</Table>
+			</TableContainer>
+
+			<TablePagination
+				component="div"
+				count={filteredRows.length}
+				page={page}
+				onPageChange={(_, newPage) => setPage(newPage)}
+				rowsPerPage={rowsPerPage}
+				onRowsPerPageChange={(e) => {
+					setRowsPerPage(parseInt(e.target.value, 10));
+					setPage(0);
+				}}
+				rowsPerPageOptions={[10, 25, 50]}
+				labelRowsPerPage="Rows:"
+			/>
+
+			{/* Edit Dialog — single dialog for both setting and min stock */}
+			<Dialog
+				open={dialogRow != null}
+				onClose={handleEditClose}
+				maxWidth="sm"
+				fullWidth
+			>
+				<DialogTitle>
+					Edit Min Stock — {dialogRow?.InvtID}
+				</DialogTitle>
+				<DialogContent>
+					<Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+						{dialogError && (
+							<Alert severity="error" onClose={() => setDialogError(null)}>
+								{dialogError}
+							</Alert>
+						)}
+						<Box>
+							<Typography
+								variant="caption"
+								sx={{ fontWeight: 600, mb: 0.5, display: "block" }}
+							>
+								Min Stock Setting
+							</Typography>
+							<Select
+								size="small"
+								value={dialogSetting}
+								onChange={(e) =>
+									setDialogSetting(
+										e.target.value as ItemWithMinStockDetails["setting"],
+									)
+								}
+								fullWidth
+								disabled={saving}
+							>
+								{SETTING_OPTIONS.map((opt) => (
+									<MenuItem key={opt} value={opt}>
+										{opt}
+									</MenuItem>
+								))}
+							</Select>
+						</Box>
+						<TextField
+							label={
+								dialogSetting === "Custom"
+									? "Min Stock (Custom)"
+									: dialogSetting === "Principal"
+										? "Min Stock (from Principal)"
+										: "Min Stock (from Default)"
+							}
+							type="number"
+							value={dialogValue}
+							onChange={(e) => setDialogValue(e.target.value)}
+							size="small"
+							slotProps={{
+								htmlInput: { step: "0.1", min: 0 },
+							}}
+							disabled={dialogSetting !== "Custom" || saving}
+							helperText={
+								dialogSetting !== "Custom"
+									? "Switch to Custom to edit this value"
+									: undefined
+							}
+						/>
+					</Box>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={handleEditClose} disabled={saving}>
+						Cancel
+					</Button>
+					<Button
+						variant="contained"
+						onClick={handleSave}
+						disabled={saving}
+					>
+						{saving ? "Saving..." : "Save"}
+					</Button>
+				</DialogActions>
+			</Dialog>
+		</>
+	);
+};
+
+// ─── Main Component ─────────────────────────────────────────────────
+
+const MinStock: React.FC = () => {
+	const [tab, setTab] = useState(0);
+
+	return (
+		<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
+			<Tabs
+				value={tab}
+				onChange={(_, newVal) => setTab(newVal)}
+				sx={{
+					borderBottom: 1,
+					borderColor: "divider",
+					px: 2,
+					"& .MuiTab-root": { textTransform: "none", fontWeight: 600 },
+				}}
+			>
+				<Tab label="Principals (Class-Level)" />
+				<Tab label="Items (Per-Item)" />
+			</Tabs>
+
+			<Box sx={{ p: 2 }}>
+				<TabPanel value={tab} index={0}>
+					<PrincipalsTab />
+				</TabPanel>
+				<TabPanel value={tab} index={1}>
+					<ItemsTab />
+				</TabPanel>
+			</Box>
+		</Paper>
+	);
+};
+
+export default MinStock;

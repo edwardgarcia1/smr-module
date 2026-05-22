@@ -4,6 +4,12 @@ import {
 	CREATE_ITEMCOST_TABLE_SQL,
 	CREATE_PRICECLASS_TABLE_SQL,
 } from "./modules/price/price.schema";
+import {
+	CREATE_MIN_STOCK_SETTING_TABLE_SQL,
+	CREATE_MIN_STOCK_ITEM_TABLE_SQL,
+	CREATE_MIN_STOCK_PRINCIPAL_TABLE_SQL,
+	SEED_DEFAULT_MIN_STOCK_SQL,
+} from "./modules/min-stock/min-stock.schema";
 
 const config: sql.config = {
 	server: process.env.DB_HOST || "localhost",
@@ -34,6 +40,22 @@ async function migrate() {
 		// Create SMR_PriceClass table
 		await pool.request().query(CREATE_PRICECLASS_TABLE_SQL);
 		console.log("SMR_PriceClass table ready");
+
+		// Create SMR_MinStockSetting table
+		await pool.request().query(CREATE_MIN_STOCK_SETTING_TABLE_SQL);
+		console.log("SMR_MinStockSetting table ready");
+
+		// Create SMR_MinStockItem table
+		await pool.request().query(CREATE_MIN_STOCK_ITEM_TABLE_SQL);
+		console.log("SMR_MinStockItem table ready");
+
+		// Create SMR_MinStockPrincipal table
+		await pool.request().query(CREATE_MIN_STOCK_PRINCIPAL_TABLE_SQL);
+		console.log("SMR_MinStockPrincipal table ready");
+
+		// Seed default min stock row
+		await pool.request().query(SEED_DEFAULT_MIN_STOCK_SQL);
+		console.log("Default min stock row seeded");
 
 		// Seed superadmin if not exists
 		const username = process.env.SUPERADMIN_USERNAME || "superadmin";
