@@ -1,4 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, {
+	useState,
+	useCallback,
+	useMemo,
+	useEffect,
+	useRef,
+} from "react";
 import {
 	Box,
 	Paper,
@@ -76,11 +82,14 @@ interface RequirementRow {
 	qtyAlloc: number;
 	periodDemand: Record<string, number>;
 	avgDemand: number;
+	avgDemandCS: number;
 	stockCoverCount: number;
 	coverageThreshold: number;
 	monthlyFactor: number;
 	suggestedMonthlyOrder: number;
+	suggestedMonthlyOrderCS: number;
 	suggestedOrder: number;
+	suggestedOrderCS: number;
 	customOrder: number | null;
 }
 
@@ -92,18 +101,29 @@ interface GridRow extends RequirementRow {
 	id: number;
 }
 
-		// ─── Constants ───────────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
 const ALLOWED_SITE_IDS = new Set(["MAIN", "CAB", "3MPMT", "3MPGT"]);
 
 /** Numeric sort value for period labels — ensures chronological column order */
 function periodSortValue(key: string): number {
 	const monthIdx: Record<string, number> = {
-		Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-		Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+		Jan: 0,
+		Feb: 1,
+		Mar: 2,
+		Apr: 3,
+		May: 4,
+		Jun: 5,
+		Jul: 6,
+		Aug: 7,
+		Sep: 8,
+		Oct: 9,
+		Nov: 10,
+		Dec: 11,
 	};
 	const wm = key.match(/^W(\d+)\s+(\w+)\s+(\d+)$/);
-	if (wm && wm[2] && wm[3]) return Number(wm[3]) * 60 + (monthIdx[wm[2]] ?? 0) * 5 + Number(wm[1]);
+	if (wm && wm[2] && wm[3])
+		return Number(wm[3]) * 60 + (monthIdx[wm[2]] ?? 0) * 5 + Number(wm[1]);
 	const mm = key.match(/^(\w+)\s+(\d+)$/);
 	if (mm && mm[1] && mm[2]) return Number(mm[2]) * 12 + (monthIdx[mm[1]] ?? 0);
 	return 0;
@@ -191,7 +211,9 @@ const PurchasingRequirements: React.FC = () => {
 	);
 	const [principals, setPrincipals] = useState<Principal[]>([]);
 
-	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
+		[],
+	);
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
 	);
@@ -271,7 +293,9 @@ const PurchasingRequirements: React.FC = () => {
 
 	// Toolbar states
 	const [bulkFactor, setBulkFactor] = useState<string>("1.0");
-	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
+	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
+		null,
+	);
 	const [poReference, setPoReference] = useState("");
 
 	// Toggle monthly demand columns visibility
@@ -325,7 +349,12 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "qtyOnPO",
@@ -334,7 +363,12 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "qtyOnHand",
@@ -343,7 +377,12 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "qtyAvail",
@@ -352,7 +391,12 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Group 2: Monthly/Weekly Demands (dynamic)
@@ -367,19 +411,44 @@ const PurchasingRequirements: React.FC = () => {
 					valueGetter: (_value, row) =>
 						(row as unknown as GridRow).periodDemand[key] ?? 0,
 					valueFormatter: (value?: number) =>
-						value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+						value != null
+							? value.toLocaleString(undefined, {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2,
+								})
+							: "",
 				});
 			});
 
 			// Group 3: Computation
 			cols.push({
 				field: "avgDemand",
-				headerName: `Average ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
 				width: 150,
 				type: "number",
 				headerClassName: "group-computation",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "avgDemandCS",
+				headerName: `Avg Demand (CS)`,
+				width: 120,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Average demand converted to cases (CS)",
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "monthlyFactor",
@@ -425,7 +494,27 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				headerClassName: "group-computation",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "suggestedMonthlyOrderCS",
+				headerName: `Suggested Order (CS)`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Suggested monthly/weekly order converted to cases (CS)",
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "stockCoverCount",
@@ -448,13 +537,34 @@ const PurchasingRequirements: React.FC = () => {
 			});
 			cols.push({
 				field: "suggestedOrder",
-				headerName: `Suggested Order (min stock coverage)`,
+				headerName: `Suggested Order (PCS)`,
 				width: 180,
 				type: "number",
 				headerClassName: "group-computation",
-				description: "Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
+				description:
+					"Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "suggestedOrderCS",
+				headerName: `Suggested Order (CS)`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Suggested order converted to cases (CS)",
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Group 4: Custom Order
@@ -466,7 +576,12 @@ const PurchasingRequirements: React.FC = () => {
 				editable: true,
 				headerClassName: "group-custom",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			return cols;
@@ -569,7 +684,8 @@ const PurchasingRequirements: React.FC = () => {
 		setRows((prev: readonly GridRowModel[]) =>
 			prev.map((r: GridRowModel) => {
 				const row = r as GridRow;
-				const suggestedMonthlyOrder = Math.round(row.avgDemand * factor * 100) / 100;
+				const suggestedMonthlyOrder =
+					Math.round(row.avgDemand * factor * 100) / 100;
 				const coverageThreshold = row.coverageThreshold ?? 1;
 				const targetStock = coverageThreshold * suggestedMonthlyOrder;
 				const suggestedOrder = Math.max(
@@ -595,10 +711,12 @@ const PurchasingRequirements: React.FC = () => {
 				updatedRow.suggestedMonthlyOrder =
 					Math.round(newRow.avgDemand * newRow.monthlyFactor * 100) / 100;
 				const coverageThreshold = newRow.coverageThreshold ?? 1;
-				const targetStock = coverageThreshold * updatedRow.suggestedMonthlyOrder;
+				const targetStock =
+					coverageThreshold * updatedRow.suggestedMonthlyOrder;
 				updatedRow.suggestedOrder = Math.max(
 					0,
-					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) / 100,
+					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) /
+						100,
 				);
 			}
 
@@ -894,28 +1012,36 @@ const PurchasingRequirements: React.FC = () => {
 							startIcon={<ViewColumnIcon />}
 							style={iconBtnSx}
 						>
-							<Box component="span" sx={labelSx}>Columns</Box>
+							<Box component="span" sx={labelSx}>
+								Columns
+							</Box>
 						</ColumnsPanelTrigger>
 						<FilterPanelTrigger
 							size="small"
 							startIcon={<FilterListIcon />}
 							style={iconBtnSx}
 						>
-							<Box component="span" sx={labelSx}>Filters</Box>
+							<Box component="span" sx={labelSx}>
+								Filters
+							</Box>
 						</FilterPanelTrigger>
 						<ExportCsv
 							size="small"
 							startIcon={<FileDownloadIcon />}
 							style={iconBtnSx}
 						>
-							<Box component="span" sx={labelSx}>CSV</Box>
+							<Box component="span" sx={labelSx}>
+								CSV
+							</Box>
 						</ExportCsv>
 						<ExportPrint
 							size="small"
 							startIcon={<PrintIcon />}
 							style={iconBtnSx}
 						>
-							<Box component="span" sx={labelSx}>Print</Box>
+							<Box component="span" sx={labelSx}>
+								Print
+							</Box>
 						</ExportPrint>
 						<Tooltip title="Export to Excel">
 							<Button
@@ -931,7 +1057,9 @@ const PurchasingRequirements: React.FC = () => {
 									px: 0.75,
 								}}
 							>
-								<Box component="span" sx={labelSx}>Excel</Box>
+								<Box component="span" sx={labelSx}>
+									Excel
+								</Box>
 							</Button>
 						</Tooltip>
 					</Box>
@@ -958,7 +1086,10 @@ const PurchasingRequirements: React.FC = () => {
 							slotProps={{
 								htmlInput: { step: 0.1, min: 0.1 },
 							}}
-							sx={{ width: 110, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							sx={{
+								width: 110,
+								"& .MuiOutlinedInput-root": { borderRadius: 2 },
+							}}
 						/>
 						<Button
 							size="small"
@@ -999,7 +1130,9 @@ const PurchasingRequirements: React.FC = () => {
 					<Button
 						size="small"
 						variant="outlined"
-						startIcon={showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />}
+						startIcon={
+							showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />
+						}
 						onClick={() => setShowDemandColumns((v) => !v)}
 						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
 					>

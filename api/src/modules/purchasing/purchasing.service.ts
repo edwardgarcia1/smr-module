@@ -342,6 +342,18 @@ export async function getRequirements(
 			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,
 		);
 
+		// Convert to CS (cases) using INUnit cache
+		const TARGET_CS = "CS";
+		const avgDemandCS = Math.round(
+			normaliseQtyCached(convCache, id, avgDemand, entry.stkUnit, TARGET_CS) * 100,
+		) / 100;
+		const suggestedMonthlyOrderCS = Math.round(
+			normaliseQtyCached(convCache, id, suggestedMonthlyOrder, entry.stkUnit, TARGET_CS) * 100,
+		) / 100;
+		const suggestedOrderCS = Math.round(
+			normaliseQtyCached(convCache, id, suggestedOrder, entry.stkUnit, TARGET_CS) * 100,
+		) / 100;
+
 		results.push({
 			invtID: id,
 			descr: entry.descr,
@@ -353,11 +365,14 @@ export async function getRequirements(
 			qtyAlloc: Math.round(stock.qtyAlloc * 100) / 100,
 			periodDemand: periodDemandObj,
 			avgDemand,
+			avgDemandCS,
 			stockCoverCount,
 			coverageThreshold,
 			monthlyFactor: defaultFactor,
 			suggestedMonthlyOrder,
+			suggestedMonthlyOrderCS,
 			suggestedOrder,
+			suggestedOrderCS,
 			customOrder: null,
 		});
 	}
