@@ -296,7 +296,7 @@ const PurchasingRequirements: React.FC = () => {
 	const [isApplying, setIsApplying] = useState(false);
 
 	// Toolbar states
-	const [bulkFactor, setBulkFactor] = useState<string>("1.0");
+	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
 		null,
 	);
@@ -455,9 +455,9 @@ const PurchasingRequirements: React.FC = () => {
 						: "",
 			});
 			cols.push({
-				field: "monthlyFactor",
-				headerName: "Factor",
-				width: 80,
+				field: "coverageThreshold",
+				headerName: "Min Stock",
+				width: 100,
 				type: "number",
 				editable: true,
 				headerClassName: "group-computation",
@@ -530,18 +530,8 @@ const PurchasingRequirements: React.FC = () => {
 					value != null ? value.toFixed(2) : "",
 			});
 			cols.push({
-				field: "coverageThreshold",
-				headerName: "Min Stock",
-				width: 100,
-				type: "number",
-				headerClassName: "group-stock",
-				description: "Resolved min stock (coverage threshold in months/weeks)",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
-			});
-			cols.push({
 				field: "suggestedOrder",
-				headerName: `Suggested Order (PCS)`,
+				headerName: "Suggested Order (PCS)",
 				width: 180,
 				type: "number",
 				headerClassName: "group-stock",
@@ -680,43 +670,96 @@ const PurchasingRequirements: React.FC = () => {
 		}
 	}, [selectedPrincipal, selectedStorage, dateRanges, frequency, buildColumns]);
 
-	// ─── Bulk factor update ──────────────────────────────────────────
-	const handleBulkFactorApply = useCallback(() => {
-		const factor = parseFloat(bulkFactor);
-		if (isNaN(factor) || factor <= 0) return;
+	// ─── Bulk min stock update (principal-level) ────────────────────
+	const handleBulkMinStockApply = useCallback(async () => {
+		const val = parseFloat(bulkMinStock);
+		if (isNaN(val) || val <= 0 || !selectedPrincipal) return;
 
-		setRows((prev: readonly GridRowModel[]) =>
-			prev.map((r: GridRowModel) => {
-				const row = r as GridRow;
-				const suggestedMonthlyOrder =
-					Math.round(row.avgDemand * factor * 100) / 100;
-				const coverageThreshold = row.coverageThreshold ?? 1;
-				const targetStock = coverageThreshold * suggestedMonthlyOrder;
-				const suggestedOrder = Math.max(
-					0,
-					Math.round((targetStock - row.qtyAvail - row.qtyOnPO) * 100) / 100,
+		setIsApplying(true);
+		setGridError(null);
+		try {
+			// Find existing principal min stock record
+			let principalId: number | null = null;
+			try {
+				const existing = await apiRequest<{ id: number }>(
+					`/min-stock/principals/class/${selectedPrincipal.ClassID}`,
 				);
-				return {
-					...row,
-					monthlyFactor: factor,
-					suggestedMonthlyOrder,
-					suggestedOrder,
-				};
-			}),
-		);
-	}, [bulkFactor]);
+				principalId = existing.id;
+			} catch {
+				// No existing record — will create
+			}
+
+			if (principalId) {
+				await apiRequest(`/min-stock/principals/${principalId}`, {
+					method: "PUT",
+					body: { min_stock: val },
+				});
+			} else {
+				await apiRequest("/min-stock/principals", {
+					method: "POST",
+					body: { class_id: selectedPrincipal.ClassID, min_stock: val },
+				});
+			}
+
+			// After updating principal-level min stock, re-fetch data
+			// so the backend re-resolves coverageThreshold for all items
+			await handleApply();
+		} catch (err: unknown) {
+			setGridError(
+				err instanceof Error
+					? err.message
+					: "Failed to update principal min stock.",
+			);
+		} finally {
+			setIsApplying(false);
+		}
+	}, [bulkMinStock, selectedPrincipal, handleApply]);
 
 	// ─── Grid Edit Handler ────────────────────────────────────────────
 	const processRowUpdate = useCallback(
-		(newRow: GridRowModel, oldRow: GridRowModel) => {
+		async (newRow: GridRowModel, oldRow: GridRowModel) => {
 			const updatedRow = { ...newRow } as GridRow;
 
-			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
+			if (newRow.coverageThreshold !== oldRow.coverageThreshold) {
+				// Save as Custom item-level min stock via API
+				// If this fails, the error throws and the DataGrid reverts the edit
+				// 1. Set the setting to 'Custom'
+				await apiRequest(`/min-stock/settings/${newRow.invtID}`, {
+					method: "PATCH",
+					body: { min_stock_setting: "Custom" },
+				});
+
+				// 2. Create or update the item-level min stock value
+				let itemId: number | null = null;
+				try {
+					const existing = await apiRequest<{ id: number }>(
+						`/min-stock/items/invt/${newRow.invtID}`,
+					);
+					itemId = existing.id;
+				} catch {
+					// No existing record — will create
+				}
+
+				if (itemId) {
+					await apiRequest(`/min-stock/items/${itemId}`, {
+						method: "PUT",
+						body: { min_stock: newRow.coverageThreshold },
+					});
+				} else {
+					await apiRequest("/min-stock/items", {
+						method: "POST",
+						body: {
+							inventory_id: newRow.invtID,
+							min_stock: newRow.coverageThreshold,
+						},
+					});
+				}
+
+				// Recalculate locally (only reached if API succeeded)
 				updatedRow.suggestedMonthlyOrder =
-					Math.round(newRow.avgDemand * newRow.monthlyFactor * 100) / 100;
-				const coverageThreshold = newRow.coverageThreshold ?? 1;
+					Math.round(newRow.avgDemand * newRow.coverageThreshold * 100) / 100;
 				const targetStock =
-					coverageThreshold * updatedRow.suggestedMonthlyOrder;
+					newRow.coverageThreshold * updatedRow.suggestedMonthlyOrder;
 				updatedRow.suggestedOrder = Math.max(
 					0,
 					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) /
@@ -1084,9 +1127,9 @@ const PurchasingRequirements: React.FC = () => {
 						<TextField
 							size="small"
 							type="number"
-							label="Bulk Factor"
-							value={bulkFactor}
-							onChange={(e) => setBulkFactor(e.target.value)}
+							label="Min Stock"
+							value={bulkMinStock}
+							onChange={(e) => setBulkMinStock(e.target.value)}
 							slotProps={{
 								htmlInput: { step: 0.1, min: 0.1 },
 							}}
@@ -1098,7 +1141,7 @@ const PurchasingRequirements: React.FC = () => {
 						<Button
 							size="small"
 							variant="outlined"
-							onClick={handleBulkFactorApply}
+							onClick={handleBulkMinStockApply}
 							sx={{ textTransform: "none", borderRadius: 2 }}
 						>
 							Apply
@@ -1147,8 +1190,8 @@ const PurchasingRequirements: React.FC = () => {
 		);
 	}, [
 		handleExcelExport,
-		bulkFactor,
-		handleBulkFactorApply,
+		bulkMinStock,
+		handleBulkMinStockApply,
 		priceClasses,
 		selectedPriceClass,
 		poReference,
@@ -1184,9 +1227,14 @@ const PurchasingRequirements: React.FC = () => {
 						columnVisibilityModel={columnVisibilityModel}
 						editMode="row"
 						processRowUpdate={processRowUpdate}
-						onProcessRowUpdateError={(err) =>
-							console.error("Row update error:", err)
-						}
+						onProcessRowUpdateError={(err) => {
+							const msg =
+								err instanceof Error
+									? err.message
+									: "Failed to save min stock for item.";
+							console.error("Row update error:", msg);
+							setGridError(msg);
+						}}
 						getRowHeight={() => 42}
 						slots={{ toolbar: CustomToolbar }}
 						showToolbar
