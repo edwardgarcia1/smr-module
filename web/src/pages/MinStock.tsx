@@ -208,7 +208,7 @@ const CategoriesCard: React.FC = () => {
 								if (row.category_name === "Immediate")
 									description = "ratio < threshold";
 								else if (row.category_name === "Overstocked")
-									description = "ratio >= previous threshold (catch-all)";
+									description = "ratio ≥ threshold (everything above monitoring threshold)";
 								else description = "ratio < threshold";
 
 								return (
@@ -276,13 +276,22 @@ const CategoriesCard: React.FC = () => {
 											)}
 										</TableCell>
 										<TableCell align="right">
-											<IconButton
-												size="small"
-												onClick={() => handleEditOpen(row)}
-												disabled={editingId !== null}
-											>
-												<EditIcon fontSize="small" />
-											</IconButton>
+											{row.category_name === "Overstocked" ? (
+												<Typography
+													variant="caption"
+													sx={{ color: "text.disabled", fontStyle: "italic" }}
+												>
+													Fixed
+												</Typography>
+											) : (
+												<IconButton
+													size="small"
+													onClick={() => handleEditOpen(row)}
+													disabled={editingId !== null}
+												>
+													<EditIcon fontSize="small" />
+												</IconButton>
+											)}
 										</TableCell>
 									</TableRow>
 								);
