@@ -34,7 +34,7 @@ import {
 	ExportCsv,
 	ExportPrint,
 } from "@mui/x-data-grid";
-import type { GridColDef, GridRowModel, GridRowsProp } from "@mui/x-data-grid";
+import type { GridColDef, GridRowModel } from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { type Dayjs } from "dayjs";
@@ -58,6 +58,96 @@ import apiRequest from "../services/api";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Frequency = "weekly" | "monthly";
+
+interface MinStockCategory {
+	id: number;
+	category_name: string;
+	threshold: number | null;
+}
+
+/** All known category names in display/sort order */
+const CATEGORY_NAMES = [
+	"Immediate",
+	"Secondary",
+	"Monitoring",
+	"Ordered",
+	"Overstocked",
+	"No record",
+] as const;
+
+/** Map category name → CSS class name for row highlighting */
+const CATEGORY_CLASS_MAP: Record<string, string> = {
+	Immediate: "row-immediate",
+	Secondary: "row-secondary",
+	Monitoring: "row-monitoring",
+	Ordered: "row-ordered",
+	Overstocked: "row-overstocked",
+	"No record": "row-no-record",
+};
+
+/** Numeric sort order: Immediate (most urgent) first */
+const CATEGORY_ORDER: Record<string, number> = {
+	Immediate: 0,
+	Secondary: 1,
+	Monitoring: 2,
+	Ordered: 3,
+	Overstocked: 4,
+	"No record": 5,
+};
+
+/**
+ * Compute category name for a row.
+ * Flat conditions (checked first, no threshold):
+ *   No record — avgDemand === 0
+ *   Ordered   — would be Immediate but suggestedOrder === 0 (incoming covers need)
+ * Threshold-based (from SMR_MinStockCategory table):
+ *   Immediate — ratio < 0.75
+ *   Secondary — ratio < 1.50
+ *   Monitoring — ratio < 2.00
+ *   Overstocked — ratio >= 2.00 (catch-all)
+ */
+function computeCategoryName(
+	row: {
+		stockCoverCount: number | null | undefined;
+		coverageThreshold: number | null | undefined;
+		avgDemand: number | null | undefined;
+		suggestedOrder: number | null | undefined;
+	},
+	categories: MinStockCategory[],
+): string | null {
+	// Flat condition: no demand data
+	if (row.avgDemand != null && row.avgDemand === 0) {
+		return "No record";
+	}
+
+	// Threshold-based categories
+	if (
+		!categories.length ||
+		row.stockCoverCount == null ||
+		row.coverageThreshold == null ||
+		row.coverageThreshold <= 0
+	) {
+		return null;
+	}
+
+	const ratio = row.stockCoverCount / row.coverageThreshold;
+	for (const cat of categories) {
+		if (cat.threshold != null && ratio < cat.threshold) {
+			// Flat condition: would be Immediate but incoming already covers
+			if (
+				cat.category_name === "Immediate" &&
+				row.suggestedOrder != null &&
+				row.suggestedOrder === 0
+			) {
+				return "Ordered";
+			}
+			return cat.category_name;
+		}
+	}
+
+	// Overstocked catch-all
+	return "Overstocked";
+}
 
 interface Principal {
 	ClassID: string;
@@ -286,11 +376,29 @@ const PurchasingRequirements: React.FC = () => {
 	}, []);
 
 	// ─── Grid state ──────────────────────────────────────────────────
-	const [rows, setRows] = useState<GridRowsProp>([]);
+	const [rows, setRows] = useState<GridRow[]>([]);
 	const [columns, setColumns] = useState<GridColDef[]>([]);
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
+	const [categories, setCategories] = useState<MinStockCategory[]>([]);
+	const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+	const categoryOptions = useMemo(() => [...CATEGORY_NAMES], []);
+
+	// Fetch categories once on mount
+	useEffect(() => {
+		let cancelled = false;
+		apiRequest<MinStockCategory[]>("/min-stock/categories")
+			.then((data) => {
+				if (!cancelled) setCategories(data ?? []);
+			})
+			.catch(() => {
+				/* non-critical */
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// Toolbar states
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
@@ -317,6 +425,8 @@ const PurchasingRequirements: React.FC = () => {
 
 	// Ref to track period keys for column building
 	const periodKeysRef = useRef<string[]>([]);
+	const categoriesRef = useRef(categories);
+	categoriesRef.current = categories;
 
 	// ─── Build Columns ────────────────────────────────────────────────
 	const buildColumns = useCallback(
@@ -577,6 +687,20 @@ const PurchasingRequirements: React.FC = () => {
 						: "",
 			});
 
+			// Group 5: Category (with custom sort order)
+			cols.push({
+				field: "_category",
+				headerName: "Category",
+				width: 130,
+				valueGetter: (_value: unknown, row: GridRow) =>
+					computeCategoryName(row, categoriesRef.current),
+				sortComparator: (v1: string | null, v2: string | null) => {
+					const o1 = v1 ? CATEGORY_ORDER[v1] ?? 99 : 99;
+					const o2 = v2 ? CATEGORY_ORDER[v2] ?? 99 : 99;
+					return o1 - o2;
+				},
+			});
+
 			return cols;
 		},
 		[frequency],
@@ -803,8 +927,8 @@ const PurchasingRequirements: React.FC = () => {
 				updatedRow.customOrder = null;
 			}
 
-			setRows((prev: readonly GridRowModel[]) =>
-				prev.map((r: GridRowModel) =>
+			setRows((prev: GridRow[]) =>
+				prev.map((r: GridRow) =>
 					(r as GridRow).id === newRow.id ? updatedRow : r,
 				),
 			);
@@ -813,6 +937,24 @@ const PurchasingRequirements: React.FC = () => {
 		},
 		[frequency],
 	);
+
+	// ─── Row category class ────────────────────────────────────────────
+	const getRowClassName = useCallback(
+		(params: { row: GridRow }): string => {
+			const cat = computeCategoryName(params.row, categories);
+			return cat ? CATEGORY_CLASS_MAP[cat] ?? "" : "";
+		},
+		[categories],
+	);
+
+	// ─── Filtered rows by selected categories ──────────────────────────
+	const filteredRows = useMemo(() => {
+		if (selectedCategories.length === 0) return rows;
+		return rows.filter((row) => {
+			const cat = computeCategoryName(row, categories);
+			return cat ? selectedCategories.includes(cat) : true;
+		});
+	}, [rows, selectedCategories, categories]);
 
 	// ─── Filter Panel ─────────────────────────────────────────────────
 	const filterPanel = (
@@ -1046,11 +1188,11 @@ const PurchasingRequirements: React.FC = () => {
 	// ─── Custom Toolbar ─────────────────────────────────────────────
 	const handleExcelExport = useCallback(() => {
 		exportDataGridToExcel(
-			rows as Record<string, unknown>[],
+			filteredRows as unknown as Record<string, unknown>[],
 			columns,
 			"purchase-requirements.xlsx",
 		);
-	}, [rows, columns]);
+	}, [filteredRows, columns]);
 
 	const CustomToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
@@ -1227,6 +1369,37 @@ const PurchasingRequirements: React.FC = () => {
 						)}
 					/>
 
+					<Autocomplete
+						multiple
+						size="small"
+						options={categoryOptions}
+						value={selectedCategories}
+						onChange={(_, newVal) => setSelectedCategories(newVal)}
+						disableCloseOnSelect
+						sx={{ width: 220 }}
+						renderOption={(props, option, { selected }) => {
+							const { key, ...rest } = props;
+							return (
+								<li key={key} {...rest}>
+									<Checkbox
+										icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+										checkedIcon={<CheckBoxIcon fontSize="small" />}
+										checked={selected}
+									/>
+									{option}
+								</li>
+							);
+						}}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Category"
+								placeholder="Filter by category"
+								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+						)}
+					/>
+
 					<TextField
 						size="small"
 						label="PO Reference No."
@@ -1287,9 +1460,10 @@ const PurchasingRequirements: React.FC = () => {
 			{applied && columns.length > 0 && (
 				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
 					<DataGrid
-						rows={rows}
+						rows={filteredRows}
 						columns={columns}
 						columnVisibilityModel={columnVisibilityModel}
+						getRowClassName={getRowClassName}
 						editMode="row"
 						processRowUpdate={processRowUpdate}
 						onProcessRowUpdateError={(err) => {
@@ -1305,6 +1479,9 @@ const PurchasingRequirements: React.FC = () => {
 						showToolbar
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
+							sorting: {
+								sortModel: [{ field: "_category", sort: "asc" }],
+							},
 						}}
 						pageSizeOptions={[10, 20, 50]}
 						checkboxSelection
@@ -1335,6 +1512,43 @@ const PurchasingRequirements: React.FC = () => {
 								backgroundColor: groupColors.stock.bg,
 								color: groupColors.stock.color,
 							},
+						// Row category colours (stock cover vs min stock ratio)
+						"& .row-immediate": {
+							backgroundColor: darkMode
+								? "rgba(211, 47, 47, 0.35)"
+								: "#ffcdd2",
+							borderLeft: "5px solid #d32f2f",
+						},
+						"& .row-secondary": {
+							backgroundColor: darkMode
+								? "rgba(255, 193, 7, 0.30)"
+								: "#fff9c4",
+							borderLeft: "5px solid #f9a825",
+						},
+						"& .row-monitoring": {
+							backgroundColor: darkMode
+								? "rgba(33, 150, 243, 0.27)"
+								: "#bbdefb",
+							borderLeft: "5px solid #1976d2",
+						},
+						"& .row-overstocked": {
+							backgroundColor: darkMode
+								? "rgba(76, 175, 80, 0.27)"
+								: "#c8e6c9",
+							borderLeft: "5px solid #388e3c",
+						},
+						"& .row-ordered": {
+							backgroundColor: darkMode
+								? "rgba(156, 39, 176, 0.25)"
+								: "#f3e5f5",
+							borderLeft: "5px solid #7b1fa2",
+						},
+						"& .row-no-record": {
+							backgroundColor: darkMode
+								? "rgba(158, 158, 158, 0.25)"
+								: "#eceff1",
+							borderLeft: "5px solid #616161",
+						},
 							"& .MuiDataGrid-cell:focus": {
 								outline: "none",
 							},

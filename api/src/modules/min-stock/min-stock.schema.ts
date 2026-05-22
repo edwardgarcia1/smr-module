@@ -98,6 +98,19 @@ export interface ItemWithMinStockDetails {
 	minStockItemId: number | null;
 }
 
+// ─── MinStockCategory ──────────────────────────────────────────────────
+// Defines categorisation thresholds for stock cover / min stock ratio.
+//   ratio = stockCoverCount / coverageThreshold
+//   Categories checked in threshold ASC order:
+//     ratio < threshold  → this category
+//     no match           → last category (Overstocked, threshold=NULL)
+
+export interface MinStockCategory {
+	id: number;
+	category_name: string;
+	threshold: number | null;
+}
+
 // ─── DDL ───────────────────────────────────────────────────────────────
 
 export const CREATE_MIN_STOCK_SETTING_TABLE_SQL = `
@@ -147,4 +160,38 @@ IF NOT EXISTS (SELECT 1 FROM SMR_MinStockItem WHERE inventory_id = 'Default')
 BEGIN
   INSERT INTO SMR_MinStockItem (inventory_id, min_stock) VALUES ('Default', 1.0);
 END
+`;
+
+// ─── SMR_Categories ────────────────────────────────────────────────────
+
+export const CREATE_MIN_STOCK_CATEGORY_TABLE_SQL = `
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SMR_MinStockCategory' AND xtype='U')
+BEGIN
+  CREATE TABLE SMR_MinStockCategory (
+    id BIGINT IDENTITY(1,1) NOT NULL,
+    category_name NVARCHAR(50) NOT NULL,
+    threshold NUMERIC(5,2) NULL,
+    CONSTRAINT PK_SMR_MinStockCategory PRIMARY KEY (id),
+    CONSTRAINT UQ_SMR_MinStockCategory_name UNIQUE (category_name)
+  );
+END
+`;
+
+/**
+ * Seed categories for stock cover / min stock ratio categorisation.
+ *   ratio = stockCoverCount / coverageThreshold
+ *   Immediate (Red):   ratio < 0.75   → below 75% of min stock
+ *   Secondary (Yellow): ratio < 1.50  → 75% – 149%
+ *   Monitoring (Blue):  ratio < 2.00  → 150% – 199%
+ *   Overstocked (Green): ratio >= 2.00 → 200% and over (threshold=NULL)
+ */
+export const SEED_MIN_STOCK_CATEGORIES_SQL = `
+IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Immediate')
+  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Immediate', 0.75);
+IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Secondary')
+  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Secondary', 1.50);
+IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Monitoring')
+  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Monitoring', 2.00);
+IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Overstocked')
+  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Overstocked', NULL);
 `;

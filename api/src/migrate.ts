@@ -8,7 +8,9 @@ import {
 	CREATE_MIN_STOCK_SETTING_TABLE_SQL,
 	CREATE_MIN_STOCK_ITEM_TABLE_SQL,
 	CREATE_MIN_STOCK_PRINCIPAL_TABLE_SQL,
+	CREATE_MIN_STOCK_CATEGORY_TABLE_SQL,
 	SEED_DEFAULT_MIN_STOCK_SQL,
+	SEED_MIN_STOCK_CATEGORIES_SQL,
 } from "./modules/min-stock/min-stock.schema";
 
 const config: sql.config = {
@@ -56,6 +58,14 @@ async function migrate() {
 		// Seed default min stock row
 		await pool.request().query(SEED_DEFAULT_MIN_STOCK_SQL);
 		console.log("Default min stock row seeded");
+
+		// Create SMR_MinStockCategory table
+		await pool.request().query(CREATE_MIN_STOCK_CATEGORY_TABLE_SQL);
+		console.log("SMR_MinStockCategory table ready");
+
+		// Seed min stock categories
+		await pool.request().query(SEED_MIN_STOCK_CATEGORIES_SQL);
+		console.log("Min stock categories seeded");
 
 		// Seed superadmin if not exists
 		const username = process.env.SUPERADMIN_USERNAME || "superadmin";

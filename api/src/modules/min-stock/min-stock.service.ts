@@ -19,6 +19,7 @@ import type {
 	ResolvedMinStock,
 	PrincipalWithMinStockDetails,
 	ItemWithMinStockDetails,
+	MinStockCategory,
 } from "./min-stock.schema";
 
 // ─── MinStockSetting CRUD ────────────────────────────────────────────
@@ -543,4 +544,20 @@ export async function resolveManyMinStock(
 	items: { invtID: string; classID: string }[],
 ): Promise<ResolvedMinStock[]> {
 	return Promise.all(items.map((i) => resolveMinStock(i.invtID, i.classID)));
+}
+
+// ─── MinStockCategory ────────────────────────────────────────────────
+
+/**
+ * Get all min stock categories ordered by threshold ASC.
+ * Used by frontend to categorise items based on stock cover / min stock ratio.
+ */
+export async function getAllCategories(): Promise<MinStockCategory[]> {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.query(
+			"SELECT id, category_name, threshold FROM SMR_MinStockCategory ORDER BY threshold ASC",
+		);
+	return result.recordset as MinStockCategory[];
 }

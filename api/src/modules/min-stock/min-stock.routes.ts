@@ -22,6 +22,7 @@ import {
 	getAllPrincipalsWithMinStock,
 	getAllItemsWithMinStock,
 	propagatePrincipalToItems,
+	getAllCategories,
 } from "./min-stock.service";
 import { authGuard } from "../../middlewares/auth";
 import { rateLimitMiddleware } from "../../middlewares/rateLimit";
@@ -402,4 +403,14 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 				}),
 			),
 		},
-	);
+	)
+
+	// ── Categories ──────────────────────────────────────────────────────
+
+	// GET /min-stock/categories — list all categorisation thresholds
+	.get("/categories", async ({ rateLimit, limited, ability, user }) => {
+		if (limited) throw new BadRequestError("Rate limit exceeded");
+		if (!user) throw new UnauthorizedError("Authentication required");
+		checkPermission(ability, "read", "Site");
+		return getAllCategories();
+	});
