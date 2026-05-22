@@ -10,6 +10,7 @@ import {
 	canConvert,
 	normaliseQtyCached,
 } from "../../utils/unitConversion";
+import { resolveManyMinStock } from "../min-stock/min-stock.service";
 import type {
 	RequirementItem,
 	RequirementsQuery,
@@ -180,7 +181,24 @@ export async function getRequirements(
 	// ── Step 4: Bulk INUnit conversion cache ──────────────────────
 	const convCache = await buildConversionCache(invtIDs);
 
-	// ── Step 5: Validate all unit conversions ─────────────────────
+	// ── Step 5: Resolve min stock (coverage threshold) per item ──
+	const invtClassMap = new Map<string, string>();
+	for (const g of groups) {
+		const id = g.InvtID as string;
+		const cid = g.ClassID as string;
+		if (!invtClassMap.has(id)) invtClassMap.set(id, cid);
+	}
+	const minStockPairs = invtIDs.map((id) => ({
+		invtID: id,
+		classID: invtClassMap.get(id) ?? "",
+	}));
+	const resolvedMinStocks = await resolveManyMinStock(minStockPairs);
+	const coverageMap = new Map<string, number>();
+	for (const r of resolvedMinStocks) {
+		coverageMap.set(r.invtID, r.minStock);
+	}
+
+	// ── Step 6: Validate all unit conversions ─────────────────────
 	// Check every unique (InvtID, UnitDesc, StkUnit) triple against the cache.
 	const conversionFailures: {
 		invtID: string;
@@ -233,7 +251,7 @@ export async function getRequirements(
 		);
 	}
 
-	// ── Step 6: Assemble period demand per item ───────────────────
+	// ── Step 7: Assemble period demand per item ───────────────────
 	const periodKeys = generatePeriodKeys(dateRanges, frequency);
 
 	// itemId → { meta, periodDemand: Map<periodKey, total> }
@@ -286,11 +304,9 @@ export async function getRequirements(
 		entry.periodDemand.set(pk, cur + nq);
 	}
 
-	// ── Step 7: Build response ────────────────────────────────────
+	// ── Step 8: Build response ────────────────────────────────────
 	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
-	// TODO: coverageThreshold is hardcoded to 1 month. Make configurable per-item or globally.
-	const COVERAGE_THRESHOLD_MONTHS = 1;
 	const results: RequirementItem[] = [];
 
 	for (const [id, entry] of demandMap) {
@@ -316,10 +332,11 @@ export async function getRequirements(
 			periodDemandObj[k] = Math.round(v * 100) / 100;
 		}
 
+		const coverageThreshold = coverageMap.get(id) ?? 1;
 		const suggestedMonthlyOrder =
 			Math.round(avgDemand * defaultFactor * 100) / 100;
 		// Stock-aware: how much to bring stock up to (threshold × projected need)
-		const targetStock = COVERAGE_THRESHOLD_MONTHS * suggestedMonthlyOrder;
+		const targetStock = coverageThreshold * suggestedMonthlyOrder;
 		const suggestedOrder = Math.max(
 			0,
 			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,
@@ -337,6 +354,7 @@ export async function getRequirements(
 			periodDemand: periodDemandObj,
 			avgDemand,
 			stockCoverCount,
+			coverageThreshold,
 			monthlyFactor: defaultFactor,
 			suggestedMonthlyOrder,
 			suggestedOrder,

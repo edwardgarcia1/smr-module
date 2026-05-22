@@ -33,8 +33,14 @@ export interface RequirementItem {
 	/** avgDemand * monthlyFactor — projected monthly need */
 	suggestedMonthlyOrder: number;
 	/**
+	 * Stock-aware coverage threshold (resolved from min-stock settings).
+	 * Source: Custom → per-item SMR_MinStockItem value
+	 *         Principal → per-class SMR_MinStockPrincipal value
+	 *         Default   → global default (1.0)
+	 */
+	coverageThreshold: number;
+	/**
 	 * Stock-aware order quantity.
-	 * TODO: coverageThreshold (1 month) is hardcoded — make it configurable per-item or globally.
 	 * Formula: max(0, (coverageThreshold * avgDemand * monthlyFactor) - qtyAvail)
 	 */
 	suggestedOrder: number;

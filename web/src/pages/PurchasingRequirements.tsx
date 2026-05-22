@@ -77,6 +77,7 @@ interface RequirementRow {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	stockCoverCount: number;
+	coverageThreshold: number;
 	monthlyFactor: number;
 	suggestedMonthlyOrder: number;
 	suggestedOrder: number;
@@ -372,15 +373,6 @@ const PurchasingRequirements: React.FC = () => {
 
 			// Group 3: Computation
 			cols.push({
-				field: "stockCoverCount",
-				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
-				width: 130,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
-			});
-			cols.push({
 				field: "avgDemand",
 				headerName: `Average ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
 				width: 150,
@@ -436,12 +428,31 @@ const PurchasingRequirements: React.FC = () => {
 					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
 			});
 			cols.push({
-				field: "suggestedOrder",
-				headerName: `Suggested Order (${frequency === "monthly" ? "1-mo" : "1-wk"} coverage)`,
-				width: 160,
+				field: "stockCoverCount",
+				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+				width: 130,
 				type: "number",
 				headerClassName: "group-computation",
-				description: "Stock-aware: fills up to 1 month of projected demand",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
+				field: "coverageThreshold",
+				headerName: "Min Stock",
+				width: 100,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Resolved min stock (coverage threshold in months/weeks)",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
+				field: "suggestedOrder",
+				headerName: `Suggested Order (min stock coverage)`,
+				width: 180,
+				type: "number",
+				headerClassName: "group-computation",
+				description: "Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
 				valueFormatter: (value?: number) =>
 					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
 			});
@@ -559,8 +570,7 @@ const PurchasingRequirements: React.FC = () => {
 			prev.map((r: GridRowModel) => {
 				const row = r as GridRow;
 				const suggestedMonthlyOrder = Math.round(row.avgDemand * factor * 100) / 100;
-				// TODO: coverageThreshold hardcoded to 1 — make configurable
-				const coverageThreshold = 1;
+				const coverageThreshold = row.coverageThreshold ?? 1;
 				const targetStock = coverageThreshold * suggestedMonthlyOrder;
 				const suggestedOrder = Math.max(
 					0,
@@ -584,8 +594,7 @@ const PurchasingRequirements: React.FC = () => {
 			if (newRow.monthlyFactor !== oldRow.monthlyFactor) {
 				updatedRow.suggestedMonthlyOrder =
 					Math.round(newRow.avgDemand * newRow.monthlyFactor * 100) / 100;
-				// TODO: coverageThreshold hardcoded to 1 — make configurable
-				const coverageThreshold = 1;
+				const coverageThreshold = newRow.coverageThreshold ?? 1;
 				const targetStock = coverageThreshold * updatedRow.suggestedMonthlyOrder;
 				updatedRow.suggestedOrder = Math.max(
 					0,
