@@ -23,6 +23,7 @@ import {
 	getAllItemsWithMinStock,
 	propagatePrincipalToItems,
 	getAllCategories,
+	updateCategory,
 } from "./min-stock.service";
 import { authGuard } from "../../middlewares/auth";
 import { rateLimitMiddleware } from "../../middlewares/rateLimit";
@@ -413,4 +414,26 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllCategories();
-	});
+	})
+
+	// PATCH /min-stock/categories/:id — update a category threshold
+	.patch(
+		"/categories/:id",
+		async ({
+			params: { id },
+			body,
+			rateLimit,
+			limited,
+			ability,
+			user,
+		}) => {
+			if (limited) throw new BadRequestError("Rate limit exceeded");
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "update", "Site");
+			return updateCategory(id, body);
+		},
+		{
+			params: t.Object({ id: t.Numeric() }),
+			body: t.Object({ threshold: t.Nullable(t.Number()) }),
+		},
+	);

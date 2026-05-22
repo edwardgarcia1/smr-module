@@ -111,6 +111,10 @@ export interface MinStockCategory {
 	threshold: number | null;
 }
 
+export type MinStockCategoryUpdate = {
+	threshold: number | null;
+};
+
 // ─── DDL ───────────────────────────────────────────────────────────────
 
 export const CREATE_MIN_STOCK_SETTING_TABLE_SQL = `

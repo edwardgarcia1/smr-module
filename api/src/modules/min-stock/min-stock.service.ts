@@ -20,6 +20,7 @@ import type {
 	PrincipalWithMinStockDetails,
 	ItemWithMinStockDetails,
 	MinStockCategory,
+	MinStockCategoryUpdate,
 } from "./min-stock.schema";
 
 // ─── MinStockSetting CRUD ────────────────────────────────────────────
@@ -560,4 +561,25 @@ export async function getAllCategories(): Promise<MinStockCategory[]> {
 			"SELECT id, category_name, threshold FROM SMR_MinStockCategory ORDER BY threshold ASC",
 		);
 	return result.recordset as MinStockCategory[];
+}
+
+export async function updateCategory(
+	id: number,
+	updates: MinStockCategoryUpdate,
+): Promise<MinStockCategory> {
+	const pool = await getDb();
+	const result = await pool
+		.request()
+		.input("id", id)
+		.input("threshold", updates.threshold)
+		.query(`
+      UPDATE SMR_MinStockCategory
+      SET threshold = @threshold
+      OUTPUT INSERTED.id, INSERTED.category_name, INSERTED.threshold
+      WHERE id = @id
+    `);
+	if (result.rowsAffected[0] === 0) {
+		throw new NotFoundError(`MinStockCategory ${id} not found`);
+	}
+	return result.recordset[0] as MinStockCategory;
 }
