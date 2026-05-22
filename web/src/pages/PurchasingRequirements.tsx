@@ -254,6 +254,248 @@ function deserializeDateRanges(
 	}));
 }
 
+// ─── Custom Toolbar Component ────────────────────────────────────────────────
+
+interface PurchasingRequirementsToolbarProps {
+	handleExcelExport: () => void;
+	bulkMinStock: string;
+	setBulkMinStock: (val: string) => void;
+	handleBulkMinStockApply: () => void;
+	priceClasses: string[];
+	selectedPriceClass: string | null;
+	setSelectedPriceClass: (val: string | null) => void;
+	categoryOptions: string[];
+	selectedCategories: string[];
+	setSelectedCategories: (val: string[]) => void;
+	poReference: string;
+	setPoReference: (val: string) => void;
+	showDemandColumns: boolean;
+	setShowDemandColumns: React.Dispatch<React.SetStateAction<boolean>>;
+	frequency: Frequency;
+}
+
+const PurchasingRequirementsToolbar: React.FC<
+	PurchasingRequirementsToolbarProps
+> = ({
+	handleExcelExport,
+	bulkMinStock,
+	setBulkMinStock,
+	handleBulkMinStockApply,
+	priceClasses,
+	selectedPriceClass,
+	setSelectedPriceClass,
+	categoryOptions,
+	selectedCategories,
+	setSelectedCategories,
+	poReference,
+	setPoReference,
+	showDemandColumns,
+	setShowDemandColumns,
+	frequency,
+}) => {
+	const theme = useTheme();
+
+	const labelSx = { display: { xs: "none", md: "inline" } };
+	const iconBtnSx = {
+		minWidth: "auto",
+		textTransform: "none",
+		fontSize: "0.8125rem",
+		fontWeight: 500,
+		paddingLeft: 0.75,
+		paddingRight: 0.75,
+		color: theme.palette.primary.main,
+	};
+
+	return (
+		<Box
+			sx={{
+				display: "flex",
+				flexDirection: "column",
+				borderBottom: "1px solid",
+				borderColor: "divider",
+			}}
+		>
+			{/* Top row: title + export buttons */}
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					px: 2,
+					py: 1,
+				}}
+			>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					Filtered Products
+				</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+					<ColumnsPanelTrigger
+						size="small"
+						startIcon={<ViewColumnIcon />}
+						style={iconBtnSx}
+					>
+						<Box component="span" sx={labelSx}>
+							Columns
+						</Box>
+					</ColumnsPanelTrigger>
+					<FilterPanelTrigger
+						size="small"
+						startIcon={<FilterListIcon />}
+						style={iconBtnSx}
+					>
+						<Box component="span" sx={labelSx}>
+							Filters
+						</Box>
+					</FilterPanelTrigger>
+					<ExportCsv
+						size="small"
+						startIcon={<FileDownloadIcon />}
+						style={iconBtnSx}
+					>
+						<Box component="span" sx={labelSx}>
+							CSV
+						</Box>
+					</ExportCsv>
+					<ExportPrint
+						size="small"
+						startIcon={<PrintIcon />}
+						style={iconBtnSx}
+					>
+						<Box component="span" sx={labelSx}>
+							Print
+						</Box>
+					</ExportPrint>
+					<Tooltip title="Export to Excel">
+						<Button
+							size="small"
+							color="primary"
+							startIcon={<TableChartIcon />}
+							onClick={handleExcelExport}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+							}}
+						>
+							<Box component="span" sx={labelSx}>
+								Excel
+							</Box>
+						</Button>
+					</Tooltip>
+				</Box>
+			</Box>
+
+			{/* Bottom row: bulk min stock, price class, category, PO reference */}
+			<Box
+				sx={{
+					display: "flex",
+					flexWrap: "wrap",
+					gap: 2,
+					px: 2,
+					pb: 1.5,
+					alignItems: "center",
+				}}
+			>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<TextField
+						size="small"
+						type="number"
+						label={`Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`}
+						value={bulkMinStock}
+						onChange={(e) => setBulkMinStock(e.target.value)}
+						slotProps={{
+							htmlInput: { step: 0.1, min: 0.1 },
+						}}
+						sx={{
+							width: 140,
+							"& .MuiOutlinedInput-root": { borderRadius: 2 },
+						}}
+					/>
+					<Button
+						size="small"
+						variant="outlined"
+						onClick={handleBulkMinStockApply}
+						sx={{ textTransform: "none", borderRadius: 2 }}
+					>
+						Apply
+					</Button>
+				</Box>
+
+				<Autocomplete
+					size="small"
+					options={priceClasses}
+					value={selectedPriceClass}
+					onChange={(_, newVal) => setSelectedPriceClass(newVal)}
+					sx={{ width: 180 }}
+					renderInput={(params) => (
+						<TextField
+							{...params}
+							label="Price Class"
+							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
+					)}
+				/>
+
+				<Autocomplete
+					multiple
+					size="small"
+					options={categoryOptions}
+					value={selectedCategories}
+					onChange={(_, newVal) => setSelectedCategories(newVal)}
+					disableCloseOnSelect
+					sx={{ width: 220 }}
+					renderOption={(props, option, { selected }) => {
+						const { key, ...rest } = props;
+						return (
+							<li key={key} {...rest}>
+								<Checkbox
+									icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+									checkedIcon={<CheckBoxIcon fontSize="small" />}
+									checked={selected}
+								/>
+								{option}
+							</li>
+						);
+					}}
+					renderInput={(params) => (
+						<TextField
+							{...params}
+							label="Category"
+							placeholder="Filter by category"
+							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
+					)}
+				/>
+
+				<TextField
+					size="small"
+					label="PO Reference No."
+					value={poReference}
+					onChange={(e) => setPoReference(e.target.value)}
+					sx={{
+						width: 200,
+						"& .MuiOutlinedInput-root": { borderRadius: 2 },
+					}}
+				/>
+
+				<Button
+					size="small"
+					variant="outlined"
+					startIcon={
+						showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />
+					}
+					onClick={() => setShowDemandColumns((v) => !v)}
+					sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
+				>
+					{showDemandColumns ? "Hide" : "Show"} Monthly Demand
+				</Button>
+			</Box>
+		</Box>
+	);
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const PurchasingRequirements: React.FC = () => {
@@ -1194,249 +1436,6 @@ const PurchasingRequirements: React.FC = () => {
 		);
 	}, [filteredRows, columns]);
 
-	const CustomToolbar = useCallback(() => {
-		const labelSx = { display: { xs: "none", md: "inline" } };
-		const iconBtnSx = {
-			minWidth: "auto",
-			textTransform: "none",
-			fontSize: "0.8125rem",
-			fontWeight: 500,
-			paddingLeft: 0.75,
-			paddingRight: 0.75,
-			color: theme.palette.primary.main,
-		};
-
-		// Compute month→week conversion factor for bulk min stock editing
-		const bulkFactor =
-			frequency === "weekly" && periodKeysRef.current.length > 0
-				? (() => {
-						const uniqueMonths = new Set(
-							periodKeysRef.current.map((k) => {
-								const m = k.match(/W\d+\s+(.+)/);
-								return m ? m[1] : k;
-							}),
-						);
-						const nMonths = uniqueMonths.size;
-						return nMonths > 0
-							? periodKeysRef.current.length / nMonths
-							: 1.0;
-					})()
-				: 1.0;
-
-		const bulkDisplayValue = (() => {
-			const raw = parseFloat(bulkMinStock);
-			if (isNaN(raw)) return bulkMinStock;
-			return frequency === "weekly"
-				? (raw * bulkFactor).toFixed(2)
-				: bulkMinStock;
-		})();
-		return (
-			<Box
-				sx={{
-					display: "flex",
-					flexDirection: "column",
-					borderBottom: "1px solid",
-					borderColor: "divider",
-				}}
-			>
-				{/* Top row: title + export buttons */}
-				<Box
-					sx={{
-						display: "flex",
-						justifyContent: "space-between",
-						alignItems: "center",
-						px: 2,
-						py: 1,
-					}}
-				>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-						Filtered Products
-					</Typography>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-						<ColumnsPanelTrigger
-							size="small"
-							startIcon={<ViewColumnIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								Columns
-							</Box>
-						</ColumnsPanelTrigger>
-						<FilterPanelTrigger
-							size="small"
-							startIcon={<FilterListIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								Filters
-							</Box>
-						</FilterPanelTrigger>
-						<ExportCsv
-							size="small"
-							startIcon={<FileDownloadIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								CSV
-							</Box>
-						</ExportCsv>
-						<ExportPrint
-							size="small"
-							startIcon={<PrintIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								Print
-							</Box>
-						</ExportPrint>
-						<Tooltip title="Export to Excel">
-							<Button
-								size="small"
-								color="primary"
-								startIcon={<TableChartIcon />}
-								onClick={handleExcelExport}
-								sx={{
-									minWidth: "auto",
-									textTransform: "none",
-									fontSize: "0.8125rem",
-									fontWeight: 500,
-									px: 0.75,
-								}}
-							>
-								<Box component="span" sx={labelSx}>
-									Excel
-								</Box>
-							</Button>
-						</Tooltip>
-					</Box>
-				</Box>
-
-				{/* Bottom row: bulk factor, price class, PO reference */}
-				<Box
-					sx={{
-						display: "flex",
-						flexWrap: "wrap",
-						gap: 2,
-						px: 2,
-						pb: 1.5,
-						alignItems: "center",
-					}}
-				>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-						<TextField
-							size="small"
-							type="number"
-							label={`Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`}
-							value={bulkDisplayValue}
-							onChange={(e) => {
-								const raw = parseFloat(e.target.value);
-								if (!isNaN(raw) && frequency === "weekly") {
-									setBulkMinStock((raw / bulkFactor).toFixed(2));
-								} else {
-									setBulkMinStock(e.target.value);
-								}
-							}}
-							slotProps={{
-								htmlInput: { step: 0.1, min: 0.1 },
-							}}
-							sx={{
-								width: 140,
-								"& .MuiOutlinedInput-root": { borderRadius: 2 },
-							}}
-						/>
-						<Button
-							size="small"
-							variant="outlined"
-							onClick={handleBulkMinStockApply}
-							sx={{ textTransform: "none", borderRadius: 2 }}
-						>
-							Apply
-						</Button>
-					</Box>
-
-					<Autocomplete
-						size="small"
-						options={priceClasses}
-						value={selectedPriceClass}
-						onChange={(_, newVal) => setSelectedPriceClass(newVal)}
-						sx={{ width: 180 }}
-						renderInput={(params) => (
-							<TextField
-								{...params}
-								label="Price Class"
-								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-							/>
-						)}
-					/>
-
-					<Autocomplete
-						multiple
-						size="small"
-						options={categoryOptions}
-						value={selectedCategories}
-						onChange={(_, newVal) => setSelectedCategories(newVal)}
-						disableCloseOnSelect
-						sx={{ width: 220 }}
-						renderOption={(props, option, { selected }) => {
-							const { key, ...rest } = props;
-							return (
-								<li key={key} {...rest}>
-									<Checkbox
-										icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
-										checkedIcon={<CheckBoxIcon fontSize="small" />}
-										checked={selected}
-									/>
-									{option}
-								</li>
-							);
-						}}
-						renderInput={(params) => (
-							<TextField
-								{...params}
-								label="Category"
-								placeholder="Filter by category"
-								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-							/>
-						)}
-					/>
-
-					<TextField
-						size="small"
-						label="PO Reference No."
-						value={poReference}
-						onChange={(e) => setPoReference(e.target.value)}
-						sx={{
-							width: 200,
-							"& .MuiOutlinedInput-root": { borderRadius: 2 },
-						}}
-					/>
-
-					<Button
-						size="small"
-						variant="outlined"
-						startIcon={
-							showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />
-						}
-						onClick={() => setShowDemandColumns((v) => !v)}
-						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
-					>
-						{showDemandColumns ? "Hide" : "Show"} Monthly Demand
-					</Button>
-				</Box>
-			</Box>
-		);
-	}, [
-		handleExcelExport,
-		bulkMinStock,
-		handleBulkMinStockApply,
-		priceClasses,
-		selectedPriceClass,
-		poReference,
-		showDemandColumns,
-		frequency,
-		theme.palette.primary.main,
-	]);
-
 	// ─── Persist Form State ──────────────────────────────────────────
 	const persistState = useMemo(
 		() => ({
@@ -1475,7 +1474,6 @@ const PurchasingRequirements: React.FC = () => {
 							setGridError(msg);
 						}}
 						getRowHeight={() => 42}
-						slots={{ toolbar: CustomToolbar }}
 						showToolbar
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
@@ -1486,6 +1484,29 @@ const PurchasingRequirements: React.FC = () => {
 						pageSizeOptions={[10, 20, 50]}
 						checkboxSelection
 						disableRowSelectionOnClick
+						slots={{ toolbar: PurchasingRequirementsToolbar as React.ComponentType<any> }}
+						slotProps={{
+							toolbar: {
+								handleExcelExport,
+								bulkMinStock,
+								setBulkMinStock,
+								handleBulkMinStockApply,
+								priceClasses,
+								selectedPriceClass,
+								setSelectedPriceClass,
+								categoryOptions,
+								selectedCategories,
+								setSelectedCategories,
+								poReference,
+								setPoReference,
+								showDemandColumns,
+								setShowDemandColumns,
+								frequency,
+							} as any,
+							pagination: {
+								labelRowsPerPage: "Rows:",
+							},
+						}}
 						sx={{
 							border: "none",
 							"& .MuiDataGrid-columnHeader": {
@@ -1561,11 +1582,6 @@ const PurchasingRequirements: React.FC = () => {
 							},
 							"& .MuiDataGrid-virtualScroller": {
 								minHeight: 300,
-							},
-						}}
-						slotProps={{
-							pagination: {
-								labelRowsPerPage: "Rows:",
 							},
 						}}
 					/>
