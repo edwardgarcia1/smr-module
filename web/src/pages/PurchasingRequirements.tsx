@@ -197,6 +197,10 @@ const PurchasingRequirements: React.FC = () => {
 				bg: darkMode ? "rgba(255, 183, 77, 0.10)" : "rgba(255, 152, 0, 0.07)",
 				color: darkMode ? "#ffb74d" : "#e65100",
 			},
+			stock: {
+				bg: darkMode ? "rgba(186, 104, 200, 0.10)" : "rgba(156, 39, 176, 0.07)",
+				color: darkMode ? "#ce93d8" : "#6a1b9a",
+			},
 			custom: {
 				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
 				color: darkMode ? "#81c784" : "#2e7d32",
@@ -521,7 +525,7 @@ const PurchasingRequirements: React.FC = () => {
 				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
 				width: 130,
 				type: "number",
-				headerClassName: "group-computation",
+				headerClassName: "group-stock",
 				valueFormatter: (value?: number) =>
 					value != null ? value.toFixed(2) : "",
 			});
@@ -530,7 +534,7 @@ const PurchasingRequirements: React.FC = () => {
 				headerName: "Min Stock",
 				width: 100,
 				type: "number",
-				headerClassName: "group-computation",
+				headerClassName: "group-stock",
 				description: "Resolved min stock (coverage threshold in months/weeks)",
 				valueFormatter: (value?: number) =>
 					value != null ? value.toFixed(2) : "",
@@ -540,7 +544,7 @@ const PurchasingRequirements: React.FC = () => {
 				headerName: `Suggested Order (PCS)`,
 				width: 180,
 				type: "number",
-				headerClassName: "group-computation",
+				headerClassName: "group-stock",
 				description:
 					"Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
 				valueFormatter: (value?: number) =>
@@ -556,7 +560,7 @@ const PurchasingRequirements: React.FC = () => {
 				headerName: `Suggested Order (CS)`,
 				width: 130,
 				type: "number",
-				headerClassName: "group-computation",
+				headerClassName: "group-stock",
 				description: "Suggested order converted to cases (CS)",
 				valueFormatter: (value?: number) =>
 					value != null
@@ -1213,6 +1217,10 @@ const PurchasingRequirements: React.FC = () => {
 							"& .group-custom": {
 								backgroundColor: groupColors.custom.bg,
 								color: groupColors.custom.color,
+							},
+							"& .group-stock": {
+								backgroundColor: groupColors.stock.bg,
+								color: groupColors.stock.color,
 							},
 							"& .MuiDataGrid-cell:focus": {
 								outline: "none",
