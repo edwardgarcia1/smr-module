@@ -472,17 +472,29 @@ const PurchasingRequirements: React.FC = () => {
 				type: "number",
 				editable: true,
 				headerClassName: "group-computation",
-				renderEditCell: (params) => (
+				renderEditCell: (params) => {
+					const editDisplayValue =
+						frequency === "weekly" && params.value != null
+							? (Number(params.value) * displayFactor).toFixed(2)
+							: (params.value ?? "");
+					return (
 					<input
 						type="number"
 						step={0.1}
-						value={params.value ?? ""}
+						value={editDisplayValue}
 						onChange={(e) => {
-							params.api.setEditCellValue({
-								id: params.id,
-								field: params.field,
-								value: parseFloat(e.target.value) || 0,
-							});
+							const rawVal = parseFloat(e.target.value);
+							if (!isNaN(rawVal)) {
+								const monthsVal =
+									frequency === "weekly"
+										? rawVal / displayFactor
+										: rawVal;
+								params.api.setEditCellValue({
+									id: params.id,
+									field: params.field,
+									value: monthsVal,
+								});
+							}
 						}}
 						style={{
 							width: "100%",
@@ -498,7 +510,8 @@ const PurchasingRequirements: React.FC = () => {
 						}}
 						autoFocus
 					/>
-				),
+				);
+				},
 				valueFormatter: (value?: number) => {
 					if (value == null) return "";
 					const displayValue =
@@ -506,7 +519,7 @@ const PurchasingRequirements: React.FC = () => {
 					return displayValue.toFixed(2);
 				},
 			});
-		cols.push({
+			cols.push({
 				field: "stockCoverCount",
 				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
 				width: 130,
@@ -658,8 +671,26 @@ const PurchasingRequirements: React.FC = () => {
 
 	// ─── Bulk min stock update (principal-level) ────────────────────
 	const handleBulkMinStockApply = useCallback(async () => {
-		const val = parseFloat(bulkMinStock);
-		if (isNaN(val) || val <= 0 || !selectedPrincipal) return;
+		const raw = parseFloat(bulkMinStock);
+		if (isNaN(raw) || raw <= 0 || !selectedPrincipal) return;
+
+		// Convert from display unit (weeks when weekly) to months for DB storage
+		const monthToWeekFactor =
+			frequency === "weekly" && periodKeysRef.current.length > 0
+				? (() => {
+						const uniqueMonths = new Set(
+							periodKeysRef.current.map((k) => {
+								const m = k.match(/W\d+\s+(.+)/);
+								return m ? m[1] : k;
+							}),
+						);
+						const nMonths = uniqueMonths.size;
+						return nMonths > 0
+							? periodKeysRef.current.length / nMonths
+							: 1.0;
+					})()
+				: 1.0;
+		const val = frequency === "weekly" ? raw / monthToWeekFactor : raw;
 
 		setIsApplying(true);
 		setGridError(null);
@@ -1032,6 +1063,31 @@ const PurchasingRequirements: React.FC = () => {
 			paddingRight: 0.75,
 			color: theme.palette.primary.main,
 		};
+
+		// Compute month→week conversion factor for bulk min stock editing
+		const bulkFactor =
+			frequency === "weekly" && periodKeysRef.current.length > 0
+				? (() => {
+						const uniqueMonths = new Set(
+							periodKeysRef.current.map((k) => {
+								const m = k.match(/W\d+\s+(.+)/);
+								return m ? m[1] : k;
+							}),
+						);
+						const nMonths = uniqueMonths.size;
+						return nMonths > 0
+							? periodKeysRef.current.length / nMonths
+							: 1.0;
+					})()
+				: 1.0;
+
+		const bulkDisplayValue = (() => {
+			const raw = parseFloat(bulkMinStock);
+			if (isNaN(raw)) return bulkMinStock;
+			return frequency === "weekly"
+				? (raw * bulkFactor).toFixed(2)
+				: bulkMinStock;
+		})();
 		return (
 			<Box
 				sx={{
@@ -1128,14 +1184,21 @@ const PurchasingRequirements: React.FC = () => {
 						<TextField
 							size="small"
 							type="number"
-							label="Min Stock"
-							value={bulkMinStock}
-							onChange={(e) => setBulkMinStock(e.target.value)}
+							label={`Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`}
+							value={bulkDisplayValue}
+							onChange={(e) => {
+								const raw = parseFloat(e.target.value);
+								if (!isNaN(raw) && frequency === "weekly") {
+									setBulkMinStock((raw / bulkFactor).toFixed(2));
+								} else {
+									setBulkMinStock(e.target.value);
+								}
+							}}
 							slotProps={{
 								htmlInput: { step: 0.1, min: 0.1 },
 							}}
 							sx={{
-								width: 110,
+								width: 140,
 								"& .MuiOutlinedInput-root": { borderRadius: 2 },
 							}}
 						/>
@@ -1197,6 +1260,7 @@ const PurchasingRequirements: React.FC = () => {
 		selectedPriceClass,
 		poReference,
 		showDemandColumns,
+		frequency,
 		theme.palette.primary.main,
 	]);
 
