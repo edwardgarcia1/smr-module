@@ -30,11 +30,6 @@ export interface RequirementItem {
 	avgDemand: number; // Average monthly or weekly demand (in StkUnit)
 	avgDemandCS: number; // avgDemand converted to CS (cases)
 	stockCoverCount: number; // How many periods stock will last (qtyAvail / avgDemand)
-	monthlyFactor: number; // Default 1.0, editable
-	/** avgDemand * monthlyFactor — projected monthly need (in StkUnit) */
-	suggestedMonthlyOrder: number;
-	/** suggestedMonthlyOrder converted to CS (cases) */
-	suggestedMonthlyOrderCS: number;
 	/**
 	 * Stock-aware coverage threshold (resolved from min-stock settings).
 	 * Source: Custom → per-item SMR_MinStockItem value
@@ -44,7 +39,7 @@ export interface RequirementItem {
 	coverageThreshold: number;
 	/**
 	 * Stock-aware order quantity (in StkUnit).
-	 * Formula: max(0, (coverageThreshold * avgDemand * monthlyFactor) - qtyAvail)
+	 * Formula: max(0, (coverageThreshold * avgDemand) - qtyAvail)
 	 */
 	suggestedOrder: number;
 	/** suggestedOrder converted to CS (cases) */

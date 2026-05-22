@@ -85,9 +85,6 @@ interface RequirementRow {
 	avgDemandCS: number;
 	stockCoverCount: number;
 	coverageThreshold: number;
-	monthlyFactor: number;
-	suggestedMonthlyOrder: number;
-	suggestedMonthlyOrderCS: number;
 	suggestedOrder: number;
 	suggestedOrderCS: number;
 	customOrder: number | null;
@@ -509,36 +506,7 @@ const PurchasingRequirements: React.FC = () => {
 					return displayValue.toFixed(2);
 				},
 			});
-			cols.push({
-				field: "suggestedMonthlyOrder",
-				headerName: `Suggested ${frequency === "monthly" ? "Monthly" : "Weekly"} Order`,
-				width: 150,
-				type: "number",
-				headerClassName: "group-computation",
-				valueFormatter: (value?: number) =>
-					value != null
-						? value.toLocaleString(undefined, {
-								minimumFractionDigits: 2,
-								maximumFractionDigits: 2,
-							})
-						: "",
-			});
-			cols.push({
-				field: "suggestedMonthlyOrderCS",
-				headerName: `Suggested Order (CS)`,
-				width: 130,
-				type: "number",
-				headerClassName: "group-computation",
-				description: "Suggested monthly/weekly order converted to cases (CS)",
-				valueFormatter: (value?: number) =>
-					value != null
-						? value.toLocaleString(undefined, {
-								minimumFractionDigits: 2,
-								maximumFractionDigits: 2,
-							})
-						: "",
-			});
-			cols.push({
+		cols.push({
 				field: "stockCoverCount",
 				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
 				width: 130,
@@ -792,7 +760,6 @@ const PurchasingRequirements: React.FC = () => {
 					return nMonths > 0 ? pKeys.length / nMonths : 1.0;
 				})();
 				const effectiveThreshold = newRow.coverageThreshold * monthToWeekFactor;
-				updatedRow.suggestedMonthlyOrder = newRow.avgDemand;
 				const targetStock = effectiveThreshold * newRow.avgDemand;
 				updatedRow.suggestedOrder = Math.max(
 					0,

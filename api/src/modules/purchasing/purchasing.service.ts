@@ -305,7 +305,6 @@ export async function getRequirements(
 	}
 
 	// ── Step 8: Build response ────────────────────────────────────
-	const defaultFactor = 1.0;
 	const nPeriods = periodKeys.length || 1;
 
 	// When frequency is "weekly", convert coverageThreshold from months to weeks
@@ -351,10 +350,8 @@ export async function getRequirements(
 
 		const coverageThreshold = coverageMap.get(id) ?? 1;
 		const effectiveThreshold = coverageThreshold * monthToWeekFactor;
-		const suggestedMonthlyOrder =
-			Math.round(avgDemand * defaultFactor * 100) / 100;
 		// Stock-aware: how much to bring stock up to (threshold × projected need)
-		const targetStock = effectiveThreshold * suggestedMonthlyOrder;
+		const targetStock = effectiveThreshold * avgDemand;
 		const suggestedOrder = Math.max(
 			0,
 			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,
@@ -364,9 +361,6 @@ export async function getRequirements(
 		const TARGET_CS = "CS";
 		const avgDemandCS = Math.round(
 			normaliseQtyCached(convCache, id, avgDemand, entry.stkUnit, TARGET_CS) * 100,
-		) / 100;
-		const suggestedMonthlyOrderCS = Math.round(
-			normaliseQtyCached(convCache, id, suggestedMonthlyOrder, entry.stkUnit, TARGET_CS) * 100,
 		) / 100;
 		const suggestedOrderCS = Math.round(
 			normaliseQtyCached(convCache, id, suggestedOrder, entry.stkUnit, TARGET_CS) * 100,
@@ -386,9 +380,6 @@ export async function getRequirements(
 			avgDemandCS,
 			stockCoverCount,
 			coverageThreshold,
-			monthlyFactor: defaultFactor,
-			suggestedMonthlyOrder,
-			suggestedMonthlyOrderCS,
 			suggestedOrder,
 			suggestedOrderCS,
 			customOrder: null,
