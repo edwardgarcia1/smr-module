@@ -402,11 +402,7 @@ const PurchasingRequirementsToolbar: React.FC<
 							CSV
 						</Box>
 					</ExportCsv>
-					<ExportPrint
-						size="small"
-						startIcon={<PrintIcon />}
-						style={iconBtnSx}
-					>
+					<ExportPrint size="small" startIcon={<PrintIcon />} style={iconBtnSx}>
 						<Box component="span" sx={labelSx}>
 							Print
 						</Box>
@@ -917,39 +913,37 @@ const PurchasingRequirements: React.FC = () => {
 							? (Number(params.value) * displayFactor).toFixed(2)
 							: (params.value ?? "");
 					return (
-					<input
-						type="number"
-						step={0.1}
-						value={editDisplayValue}
-						onChange={(e) => {
-							const rawVal = parseFloat(e.target.value);
-							if (!isNaN(rawVal)) {
-								const monthsVal =
-									frequency === "weekly"
-										? rawVal / displayFactor
-										: rawVal;
-								params.api.setEditCellValue({
-									id: params.id,
-									field: params.field,
-									value: monthsVal,
-								});
-							}
-						}}
-						style={{
-							width: "100%",
-							height: "100%",
-							border: "none",
-							outline: "none",
-							textAlign: "center",
-							padding: "0 8px",
-							fontFamily: "inherit",
-							fontSize: "inherit",
-							color: "inherit",
-							background: "transparent",
-						}}
-						autoFocus
-					/>
-				);
+						<input
+							type="number"
+							step={0.1}
+							value={editDisplayValue}
+							onChange={(e) => {
+								const rawVal = parseFloat(e.target.value);
+								if (!isNaN(rawVal)) {
+									const monthsVal =
+										frequency === "weekly" ? rawVal / displayFactor : rawVal;
+									params.api.setEditCellValue({
+										id: params.id,
+										field: params.field,
+										value: monthsVal,
+									});
+								}
+							}}
+							style={{
+								width: "100%",
+								height: "100%",
+								border: "none",
+								outline: "none",
+								textAlign: "center",
+								padding: "0 8px",
+								fontFamily: "inherit",
+								fontSize: "inherit",
+								color: "inherit",
+								background: "transparent",
+							}}
+							autoFocus
+						/>
+					);
 				},
 				valueFormatter: (value?: number) => {
 					if (value == null) return "";
@@ -1024,8 +1018,8 @@ const PurchasingRequirements: React.FC = () => {
 				valueGetter: (_value: unknown, row: GridRow) =>
 					computeCategoryName(row, categoriesRef.current),
 				sortComparator: (v1: string | null, v2: string | null) => {
-					const o1 = v1 ? CATEGORY_ORDER[v1] ?? 99 : 99;
-					const o2 = v2 ? CATEGORY_ORDER[v2] ?? 99 : 99;
+					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
+					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
 					return o1 - o2;
 				},
 			});
@@ -1138,9 +1132,7 @@ const PurchasingRequirements: React.FC = () => {
 							}),
 						);
 						const nMonths = uniqueMonths.size;
-						return nMonths > 0
-							? periodKeysRef.current.length / nMonths
-							: 1.0;
+						return nMonths > 0 ? periodKeysRef.current.length / nMonths : 1.0;
 					})()
 				: 1.0;
 		const val = frequency === "weekly" ? raw / monthToWeekFactor : raw;
@@ -1271,7 +1263,7 @@ const PurchasingRequirements: React.FC = () => {
 	const getRowClassName = useCallback(
 		(params: { row: GridRow }): string => {
 			const cat = computeCategoryName(params.row, categories);
-			return cat ? CATEGORY_CLASS_MAP[cat] ?? "" : "";
+			return cat ? (CATEGORY_CLASS_MAP[cat] ?? "") : "";
 		},
 		[categories],
 	);
@@ -1544,7 +1536,14 @@ const PurchasingRequirements: React.FC = () => {
 			{filterPanel}
 
 			{applied && columns.length > 0 && (
-				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
+				<Paper
+					sx={{
+						width: "100%",
+						borderRadius: 2,
+						overflow: "hidden",
+						height: "calc(100dvh - 100px)",
+					}}
+				>
 					<DataGrid
 						rows={filteredRows}
 						columns={columns}
@@ -1571,7 +1570,10 @@ const PurchasingRequirements: React.FC = () => {
 						pageSizeOptions={[10, 20, 50]}
 						checkboxSelection
 						disableRowSelectionOnClick
-						slots={{ toolbar: PurchasingRequirementsToolbar as React.ComponentType<any> }}
+						slots={{
+							toolbar:
+								PurchasingRequirementsToolbar as React.ComponentType<any>,
+						}}
 						slotProps={{
 							toolbar: {
 								handleExcelExport,
@@ -1596,7 +1598,7 @@ const PurchasingRequirements: React.FC = () => {
 							},
 						}}
 						sx={{
-							border: "none",
+							height: "100%",
 							"& .MuiDataGrid-columnHeader": {
 								fontWeight: 600,
 								fontSize: "0.8rem",
@@ -1621,43 +1623,43 @@ const PurchasingRequirements: React.FC = () => {
 								backgroundColor: groupColors.stock.bg,
 								color: groupColors.stock.color,
 							},
-						// Row category colours (stock cover vs min stock ratio)
-						"& .row-immediate": {
-							backgroundColor: darkMode
-								? "rgba(211, 47, 47, 0.35)"
-								: "#ffcdd2",
-							borderLeft: "5px solid #d32f2f",
-						},
-						"& .row-secondary": {
-							backgroundColor: darkMode
-								? "rgba(255, 193, 7, 0.30)"
-								: "#fff9c4",
-							borderLeft: "5px solid #f9a825",
-						},
-						"& .row-monitoring": {
-							backgroundColor: darkMode
-								? "rgba(33, 150, 243, 0.27)"
-								: "#bbdefb",
-							borderLeft: "5px solid #1976d2",
-						},
-						"& .row-overstocked": {
-							backgroundColor: darkMode
-								? "rgba(76, 175, 80, 0.27)"
-								: "#c8e6c9",
-							borderLeft: "5px solid #388e3c",
-						},
-"& .row-ordered": {
-						backgroundColor: darkMode
-							? "rgba(156, 39, 176, 0.25)"
-							: "#e1bee7",
-						borderLeft: "5px solid #7b1fa2",
-					},
-						"& .row-no-record": {
-							backgroundColor: darkMode
-								? "rgba(158, 158, 158, 0.25)"
-								: "#eceff1",
-							borderLeft: "5px solid #616161",
-						},
+							// Row category colours (stock cover vs min stock ratio)
+							"& .row-immediate": {
+								backgroundColor: darkMode
+									? "rgba(211, 47, 47, 0.35)"
+									: "#ffcdd2",
+								borderLeft: "5px solid #d32f2f",
+							},
+							"& .row-secondary": {
+								backgroundColor: darkMode
+									? "rgba(255, 193, 7, 0.30)"
+									: "#fff9c4",
+								borderLeft: "5px solid #f9a825",
+							},
+							"& .row-monitoring": {
+								backgroundColor: darkMode
+									? "rgba(33, 150, 243, 0.27)"
+									: "#bbdefb",
+								borderLeft: "5px solid #1976d2",
+							},
+							"& .row-overstocked": {
+								backgroundColor: darkMode
+									? "rgba(76, 175, 80, 0.27)"
+									: "#c8e6c9",
+								borderLeft: "5px solid #388e3c",
+							},
+							"& .row-ordered": {
+								backgroundColor: darkMode
+									? "rgba(156, 39, 176, 0.25)"
+									: "#e1bee7",
+								borderLeft: "5px solid #7b1fa2",
+							},
+							"& .row-no-record": {
+								backgroundColor: darkMode
+									? "rgba(158, 158, 158, 0.25)"
+									: "#eceff1",
+								borderLeft: "5px solid #616161",
+							},
 							"& .MuiDataGrid-cell:focus": {
 								outline: "none",
 							},
