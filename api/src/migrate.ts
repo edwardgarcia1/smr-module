@@ -1,7 +1,7 @@
 import sql from "mssql";
 import { CREATE_USERS_TABLE_SQL } from "./modules/users/user.schema";
 import {
-	CREATE_ITEMCOST_TABLE_SQL,
+	CREATE_ITEMPRICE_TABLE_SQL,
 	CREATE_PRICECLASS_TABLE_SQL,
 } from "./modules/price/price.schema";
 import {
@@ -35,9 +35,9 @@ async function migrate() {
 		await pool.request().query(CREATE_USERS_TABLE_SQL);
 		console.log("SMR_Users table ready");
 
-		// Create SMR_ItemCost table
-		await pool.request().query(CREATE_ITEMCOST_TABLE_SQL);
-		console.log("SMR_ItemCost table ready");
+		// Create SMR_ItemPrice table (renamed from SMR_ItemCost)
+		await pool.request().query(CREATE_ITEMPRICE_TABLE_SQL);
+		console.log("SMR_ItemPrice table ready");
 
 		// Create SMR_PriceClass table
 		await pool.request().query(CREATE_PRICECLASS_TABLE_SQL);

@@ -1,13 +1,14 @@
 import { Elysia, t } from "elysia";
-import { createItemCost,
-	getItemCostById,
-	expireItemCost,
-	deleteItemCost,
-	importItemCosts,
+import {
+	createItemPrice,
+	getItemPriceById,
+	expireItemPrice,
+	deleteItemPrice,
+	importItemPrices,
 	createPriceClass,
 	getAllPriceClasses,
 	getCurrentPriceClasses,
-	getPriceClassHistory,
+	getPriceClassById,
 	getDistinctPriceClasses,
 	updatePriceClass,
 	deletePriceClass,
@@ -49,7 +50,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				async ({ rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemCost");
+					checkPermission(ability, "read", "PriceClass");
 
 					return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctPriceClasses);
 				},
@@ -63,9 +64,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			.use(caslMiddleware)
 			.use(rateLimitMiddleware())
 
-			// ── Price Class CRUD ─────────────────────────────────────
+			// ── Price Class CRUD (simplified lookup) ─────────────────────
 
-			// GET /price/classes — all price classes (with history), ordered by price_class, valid_from DESC
+			// GET /price/classes — all price classes
 			.get(
 				"/classes",
 				async ({ rateLimit, limited, ability, user }) => {
@@ -90,15 +91,13 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				},
 				{
 					body: t.Object({
-						price_class: t.String({ maxLength: 30 }),
-						pct_discount: t.Number(),
-						valid_from: t.String({ maxLength: 19 }), // ISO datetime YYYY-MM-DD HH:MM:SS
-						valid_to: t.Optional(t.String({ maxLength: 19 })),
+						id: t.String({ maxLength: 30 }),
+						description: t.Optional(t.String({ maxLength: 150 })),
 					}),
 				},
 			)
 
-			// PUT /price/classes/:id — update price class (expire by id)
+			// PUT /price/classes/:id — update price class description
 			.put(
 				"/classes/:id",
 				async ({
@@ -118,11 +117,10 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				},
 				{
 					params: t.Object({
-						id: t.Numeric(),
+						id: t.String({ maxLength: 30 }),
 					}),
 					body: t.Object({
-						pct_discount: t.Optional(t.Number()),
-						valid_to: t.Optional(t.Union([t.String({ maxLength: 19 }), t.Null()])),
+						description: t.Optional(t.Union([t.String({ maxLength: 150 }), t.Null()])),
 					}),
 				},
 			)
@@ -137,74 +135,58 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deletePriceClass(id);
-					return { message: `PriceClass ${id} deleted` };
+					return { message: `PriceClass '${id}' deleted` };
 				},
 				{
 					params: t.Object({
-						id: t.Numeric(),
+						id: t.String({ maxLength: 30 }),
 					}),
 				},
 			)
 
-			// GET /price/classes/:priceClass/history — history for a specific price class
-			.get(
-				"/classes/:priceClass/history",
-				async ({ params: { priceClass }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "PriceClass");
+			// ── Item Price CRUD (renamed from ItemCost) ───────────────────
 
-					return toPlainJson(await getPriceClassHistory(priceClass));
-				},
-				{
-					params: t.Object({
-						priceClass: t.String(),
-					}),
-				},
-			)
-
-			// ── Item Cost CRUD ────────────────────────────────────────
-
-			// GET /price/items — get item cost by id
+			// GET /price/items/:id — get item price by id
 			.get(
 				"/items/:id",
 				async ({ params: { id }, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemCost");
+					checkPermission(ability, "read", "ItemPrice");
 
-					const cost = await getItemCostById(id);
-					if (!cost) throw new NotFoundError(`ItemCost ${id} not found`);
-					return toPlainJson(cost);
+					const price = await getItemPriceById(id);
+					if (!price) throw new NotFoundError(`ItemPrice ${id} not found`);
+					return toPlainJson(price);
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
 				},
 			)
 
-			// POST /price/items — create item cost
+			// POST /price/items — create item price
 			.post(
 				"/items",
 				async ({ body, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "ItemCost");
+					checkPermission(ability, "create", "ItemPrice");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await createItemCost(body));
+					return toPlainJson(await createItemPrice(body));
 				},
 				{
 					body: t.Object({
 						inventory_id: t.String({ maxLength: 30 }),
-						cost: t.Number(),
+						price: t.Number(),
 						unit: t.String({ maxLength: 10 }),
+						price_class: t.String({ maxLength: 30 }),
 						valid_from: t.Optional(t.String({ maxLength: 19 })), // defaults to current DATETIME
-						valid_to: t.Optional(t.String({ maxLength: 19 })),
+						valid_to: t.Optional(t.Union([t.String({ maxLength: 19 }), t.Null()])),
 					}),
 				},
 			)
 
-			// PUT /price/items/:id — replace item cost (expires old, creates new)
+			// PUT /price/items/:id — replace item price (expires old, creates new)
 			.put(
 				"/items/:id",
 				async ({
@@ -217,76 +199,79 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				}) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "ItemCost");
+					checkPermission(ability, "update", "ItemPrice");
 
 					// Fetch existing record to get inventory_id
-					const existing = await getItemCostById(id);
-					if (!existing) throw new NotFoundError(`ItemCost ${id} not found`);
+					const existing = await getItemPriceById(id);
+					if (!existing) throw new NotFoundError(`ItemPrice ${id} not found`);
 
-					// Expire old cost — set valid_to to 1 second before current time
+					// Expire old price — set valid_to to 1 second before current time
 					const now = new Date();
 					const nowStr = now.toISOString().slice(0, 19).replace("T", " ");
 					const oneSecBefore = new Date(now.getTime() - 1000);
 					const oneSecBeforeStr = oneSecBefore.toISOString().slice(0, 19).replace("T", " ");
-					await expireItemCost(id, oneSecBeforeStr);
+					await expireItemPrice(id, oneSecBeforeStr);
 
-					// Create new cost entry with updated values
-					const newCost = await createItemCost({
+					// Create new price entry with updated values
+					const newPrice = await createItemPrice({
 						inventory_id: existing.inventory_id,
-						cost: body.cost ?? existing.cost,
+						price: body.price ?? existing.price,
 						unit: body.unit ?? existing.unit,
+						price_class: body.price_class ?? existing.price_class,
 						valid_from: nowStr,
 					});
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(newCost);
+					return toPlainJson(newPrice);
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
 					body: t.Object({
-						cost: t.Optional(t.Number()),
+						price: t.Optional(t.Number()),
 						unit: t.Optional(t.String({ maxLength: 10 })),
+						price_class: t.Optional(t.String({ maxLength: 30 })),
 					}),
 				},
 			)
 
-			// DELETE /price/items/:id — delete item cost
+			// DELETE /price/items/:id — delete item price
 			.delete(
 				"/items/:id",
 				async ({ params: { id }, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "ItemCost");
+					checkPermission(ability, "delete", "ItemPrice");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteItemCost(id);
-					return { message: `ItemCost ${id} deleted` };
+					await deleteItemPrice(id);
+					return { message: `ItemPrice ${id} deleted` };
 				},
 				{
 					params: t.Object({ id: t.Numeric() }),
 				},
 			)
 
-			// POST /price/items/import — bulk import item costs from Excel data
+			// POST /price/items/import — bulk import item prices from Excel data
 			.post(
 				"/items/import",
 				async ({ body, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "ItemCost");
+					checkPermission(ability, "create", "ItemPrice");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return importItemCosts(body.items);
+					return importItemPrices(body.items);
 				},
 				{
 					body: t.Object({
 						items: t.Array(
 							t.Object({
 								inventory_id: t.String({ maxLength: 30 }),
-								cost: t.Number(),
+								price: t.Number(),
 								unit: t.String({ maxLength: 10 }),
+								price_class: t.String({ maxLength: 30 }),
 								valid_from: t.Optional(t.String({ maxLength: 19 })),
-								valid_to: t.Optional(t.String({ maxLength: 19 })),
+								valid_to: t.Optional(t.Union([t.String({ maxLength: 19 }), t.Null()])),
 							}),
 						),
 					}),
@@ -295,13 +280,13 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 
 			// ── Main price listing ───────────────────────────────────
 
-			// GET /price — paginated price records with search, unit, price_class
+			// GET /price — paginated price records with search, unit
 			.get(
 				"/",
 				async ({ query, rateLimit, limited, ability, user }) => {
 					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemCost");
+					checkPermission(ability, "read", "ItemPrice");
 
 					const page = clamp(Number(query.page) || 1, 1, Infinity);
 					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);

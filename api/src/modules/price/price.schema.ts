@@ -1,9 +1,9 @@
-// ── New tables for refactored price module ────────────────────────────
-// SMR_ItemCost: cost per inventory item with unit and validity dates
-// SMR_PriceClass: price class with discount percentage and validity dates
-// Joins: Inventory (InvtID), INUnit (InvtId), SMR_ItemCost (inventory_id), SMR_PriceClass (price_class)
+// ── Refactored tables ─────────────────────────────────────────────────
+// SMR_ItemPrice: price per inventory item with unit, price_class, and validity dates
+// SMR_PriceClass: simple lookup table of valid price classes
+// Joins: Inventory (InvtID), INUnit (InvtId), SMR_ItemPrice (inventory_id, price_class)
 //
-// All cost / pct_discount fields typed as `Big` for precise decimal arithmetic.
+// All price fields typed as `Big` for precise decimal arithmetic.
 // Convert at boundaries only:
 //   DB  → Big: toBig(rawNumber)
 //   Big → JSON: bigToNumber(bigVal)  (via toPlainJson)
@@ -45,48 +45,44 @@ export function toPlainJson<T>(val: T): T {
 	return val;
 }
 
-// ─── SMR_ItemCost ─────────────────────────────────────────────────────
+// ─── SMR_ItemPrice (renamed from SMR_ItemCost) ────────────────────────
 
-export interface ItemCost {
+export interface ItemPrice {
 	id: number;
 	inventory_id: string;
-	cost: Big;
+	price: Big;
 	unit: string;
+	price_class: string;
 	valid_from: string; // DATETIME
 	valid_to: string | null; // DATETIME, NULL = current
 }
 
-/** `cost` accepts `Big | number` so API body numbers work as-is. */
-export type NewItemCost = {
+/** `price` accepts `Big | number` so API body numbers work as-is. */
+export type NewItemPrice = {
 	inventory_id: string;
-	cost: Big | number;
+	price: Big | number;
 	unit: string;
+	price_class: string;
 	valid_from?: string; // defaults to current DATETIME
 	valid_to?: string | null;
 };
 
-export type ItemCostUpdate = Partial<Pick<ItemCost, "cost" | "unit" | "valid_to">>;
+export type ItemPriceUpdate = Partial<Pick<ItemPrice, "price" | "unit" | "price_class" | "valid_to">>;
 
-// ─── SMR_PriceClass ───────────────────────────────────────────────────
+// ─── SMR_PriceClass (simplified lookup) ───────────────────────────────
 
 export interface PriceClass {
-	id: number;
-	price_class: string;
-	pct_discount: Big;
-	valid_from: string; // DATETIME
-	valid_to: string | null; // DATETIME, NULL = current
+	id: string;       // the price class name (NVARCHAR PK)
+	description: string | null;
 }
 
 export type NewPriceClass = {
-	price_class: string;
-	pct_discount: Big | number;
-	valid_from: string;
-	valid_to?: string | null;
+	id: string;
+	description?: string | null;
 };
 
 export type PriceClassUpdate = {
-	pct_discount?: Big | number;
-	valid_to?: string | null;
+	description?: string | null;
 };
 
 // ─── History entry ────────────────────────────────────────────────────
@@ -94,19 +90,20 @@ export type PriceClassUpdate = {
 export interface PriceHistoryEntry {
 	valid_from: string;
 	valid_to: string | null;
-	cost: Big;
+	price: Big;
 	unit: string;
 }
 
-// ─── Price record — response shape per the plan ──────────────────────
+// ─── Price record — response shape ────────────────────────────────────
 
 export interface PriceRecord {
-	item_cost_id: number | null; // SMR_ItemCost.id (for editing)
+	item_price_id: number | null; // SMR_ItemPrice.id (for editing)
 	inventory_id: string;
 	class_id: string | null;
 	description: string | null;
-	cost: Big | null;
+	price: Big | null;
 	unit: string | null;
+	price_class: string | null;
 	history: PriceHistoryEntry[];
 }
 
@@ -117,7 +114,7 @@ export interface PaginatedResponse<T> {
 	page: number;
 	limit: number;
 	totalPages: number;
-	withoutCostCount: number; // inventory items with no current cost
+	withoutPriceCount: number; // inventory items with no current price
 }
 
 /** Query params accepted by GET /price */
@@ -128,11 +125,12 @@ export interface PriceQuery {
 	unit?: string;
 }
 
-/** Row from Excel import — must have inventory_id, cost, unit */
+/** Row from Excel import — must have inventory_id, price, unit, price_class */
 export interface BulkImportItem {
 	inventory_id: string;
-	cost: Big | number;
+	price: Big | number;
 	unit: string;
+	price_class: string;
 	valid_from?: string; // defaults to current DATETIME
 	valid_to?: string | null;
 }
@@ -145,38 +143,49 @@ export interface ImportResult {
 	errors: Array<{ row: number; message: string }>;
 }
 
-// ─── Backward-compat aliases (for lookups.service.ts) ─────────────────
+// ─── Backward-compat aliases ──────────────────────────────────────────
 
 export type { Inventory };
 
+/** @deprecated Use ItemPrice instead */
+export type ItemCost = ItemPrice;
+
+/** @deprecated Use NewItemPrice instead */
+export type NewItemCost = NewItemPrice;
+
 // ─── DDL ──────────────────────────────────────────────────────────────
 
-/** MSSQL 2008 compatible DDL for SMR_ItemCost table */
-export const CREATE_ITEMCOST_TABLE_SQL = `
-IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SMR_ItemCost' AND xtype='U')
+/** MSSQL 2008 compatible DDL for SMR_ItemPrice table (renamed from SMR_ItemCost) */
+export const CREATE_ITEMPRICE_TABLE_SQL = `
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SMR_ItemPrice' AND xtype='U')
 BEGIN
-  CREATE TABLE SMR_ItemCost (
+  CREATE TABLE SMR_ItemPrice (
     id BIGINT IDENTITY(1,1) NOT NULL,
     inventory_id NVARCHAR(30) NOT NULL,
-    cost NUMERIC(18, 4) NOT NULL,
+    price NUMERIC(18, 4) NOT NULL,
     unit NVARCHAR(10) NOT NULL,
+    price_class NVARCHAR(30) NOT NULL,
     valid_from DATETIME NOT NULL,
     valid_to DATETIME NULL,
-    CONSTRAINT PK_SMR_ItemCost PRIMARY KEY (id)
+    CONSTRAINT PK_SMR_ItemPrice PRIMARY KEY (id)
   );
+
+  CREATE NONCLUSTERED INDEX IX_SMR_ItemPrice_inventory_id ON SMR_ItemPrice (inventory_id);
+  CREATE NONCLUSTERED INDEX IX_SMR_ItemPrice_price_class ON SMR_ItemPrice (price_class);
+  CREATE NONCLUSTERED INDEX IX_SMR_ItemPrice_valid_from ON SMR_ItemPrice (valid_from);
 END
 `;
 
-/** MSSQL 2008 compatible DDL for SMR_PriceClass table */
+/** @deprecated Use CREATE_ITEMPRICE_TABLE_SQL instead */
+export const CREATE_ITEMCOST_TABLE_SQL = CREATE_ITEMPRICE_TABLE_SQL;
+
+/** MSSQL 2008 compatible DDL for SMR_PriceClass table (simplified lookup) */
 export const CREATE_PRICECLASS_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='SMR_PriceClass' AND xtype='U')
 BEGIN
   CREATE TABLE SMR_PriceClass (
-    id BIGINT IDENTITY(1,1) NOT NULL,
-    price_class NVARCHAR(30) NOT NULL,
-    pct_discount NUMERIC(18, 4) NOT NULL,
-    valid_from DATETIME NOT NULL,
-    valid_to DATETIME NULL,
+    id NVARCHAR(30) NOT NULL,
+    description NVARCHAR(150) NULL,
     CONSTRAINT PK_SMR_PriceClass PRIMARY KEY (id)
   );
 END

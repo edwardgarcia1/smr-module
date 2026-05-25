@@ -1,12 +1,12 @@
-import { getDb, withDb } from "../../config/db";
+import { getDb } from "../../config/db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import Big from "big.js";
 import { toBig, bigToNumber } from "./price.schema";
 import type {
-	ItemCost,
-	NewItemCost,
-	ItemCostUpdate,
+	ItemPrice,
+	NewItemPrice,
+	ItemPriceUpdate,
 	PriceClass,
 	NewPriceClass,
 	PriceClassUpdate,
@@ -38,32 +38,32 @@ function oneSecondBefore(dtStr: string): string {
 /**
  * Normalize unit to "CS" if a conversion factor exists in INUnit.
  * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
- * Returns { cost, unit } with CS unit and converted cost if possible,
+ * Returns { price, unit } with CS unit and converted price if possible,
  * otherwise returns the original values.
  */
 async function normalizeToCsUnit(
 	inventoryId: string,
-	cost: Big | number,
+	price: Big | number,
 	unit: string,
-): Promise<{ cost: Big; unit: string }> {
-	if (unit.toUpperCase() === "CS") return { cost: toBig(cost), unit };
+): Promise<{ price: Big; unit: string }> {
+	if (unit.toUpperCase() === "CS") return { price: toBig(price), unit };
 
 	// Forward: found row where FromUnit = current unit, ToUnit = CS
-	// 1 current_unit = factor × CS → cost_per_CS = cost_per_current / factor (Big precision)
+	// 1 current_unit = factor × CS → price_per_CS = price_per_current / factor (Big precision)
 	const factor = await findConversionFactor(inventoryId, unit, "CS");
 	if (factor !== null) {
-		return { cost: toBig(cost).div(factor), unit: "CS" };
+		return { price: toBig(price).div(factor), unit: "CS" };
 	}
 
 	// Reverse: found row where FromUnit = CS, ToUnit = current unit
-	// 1 CS = reverseFactor × current_unit → cost_per_CS = cost_per_current × reverseFactor (Big precision)
+	// 1 CS = reverseFactor × current_unit → price_per_CS = price_per_current × reverseFactor (Big precision)
 	const reverseFactor = await findConversionFactor(inventoryId, "CS", unit);
 	if (reverseFactor !== null) {
-		return { cost: toBig(cost).times(reverseFactor), unit: "CS" };
+		return { price: toBig(price).times(reverseFactor), unit: "CS" };
 	}
 
 	// No conversion available — keep original
-	return { cost: toBig(cost), unit };
+	return { price: toBig(price), unit };
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────
@@ -71,304 +71,254 @@ async function normalizeToCsUnit(
 const MAX_LIMIT = 10_000;
 const DEFAULT_LIMIT = 500;
 
-// ─── SMR_ItemCost CRUD ────────────────────────────────────────────────
+// ─── SMR_ItemPrice CRUD (renamed from SMR_ItemCost) ───────────────────
 
-export const createItemCost = async (item: NewItemCost): Promise<ItemCost> => {
+export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> => {
 	const pool = await getDb();
 	const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
 	// Normalize unit to CS if possible
-	const normalized = await normalizeToCsUnit(item.inventory_id, item.cost, item.unit);
+	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
 	const result = await pool
 		.request()
 		.input("inventory_id", item.inventory_id)
-		.input("cost", bigToNumber(normalized.cost))
+		.input("price", bigToNumber(normalized.price))
 		.input("unit", normalized.unit)
+		.input("price_class", item.price_class)
 		.input("valid_from", validFrom)
 		.input("valid_to", item.valid_to ?? null)
 		.query(`
-      INSERT INTO SMR_ItemCost (inventory_id, cost, unit, valid_from, valid_to)
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.cost, INSERTED.unit, INSERTED.valid_from, INSERTED.valid_to
-      VALUES (@inventory_id, @cost, @unit, @valid_from, @valid_to)
+      INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
+      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
+      VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
     `);
 
 	const created = result.recordset[0];
-	if (!created) throw new Error("Failed to create ItemCost");
+	if (!created) throw new Error("Failed to create ItemPrice");
 	return {
 		...trimStrings(created as Record<string, unknown>),
-		cost: toBig((created as Record<string, unknown>).cost),
-	} as unknown as ItemCost;
+		price: toBig((created as Record<string, unknown>).price),
+	} as unknown as ItemPrice;
 };
 
-export const getItemCostById = async (
+export const getItemPriceById = async (
 	id: number,
-): Promise<ItemCost | undefined> => {
+): Promise<ItemPrice | undefined> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.input("id", id)
 		.query(
-			"SELECT id, inventory_id, cost, unit, valid_from, valid_to FROM SMR_ItemCost WHERE id = @id",
+			"SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to FROM SMR_ItemPrice WHERE id = @id",
 		);
 	const raw = result.recordset[0] as Record<string, unknown> | undefined;
 	if (!raw) return undefined;
 	return {
 		...trimStrings(raw),
-		cost: toBig(raw.cost),
-	} as unknown as ItemCost;
+		price: toBig(raw.price),
+	} as unknown as ItemPrice;
 };
 
-export const getItemCostsByInventoryId = async (
+export const getItemPricesByInventoryId = async (
 	inventoryId: string,
-): Promise<ItemCost[]> => {
+): Promise<ItemPrice[]> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.input("inventory_id", inventoryId)
 		.query(`
-      SELECT id, inventory_id, cost, unit, valid_from, valid_to
-      FROM SMR_ItemCost
+      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+      FROM SMR_ItemPrice
       WHERE inventory_id = @inventory_id
       ORDER BY valid_from DESC
     `);
 	const raw = result.recordset as Record<string, unknown>[];
 	return raw.map((r) => ({
 		...trimStrings(r),
-		cost: toBig(r.cost),
-	})) as unknown as ItemCost[];
+		price: toBig(r.price),
+	})) as unknown as ItemPrice[];
 };
 
-export const updateItemCost = async (
+export const updateItemPrice = async (
 	id: number,
-	updates: ItemCostUpdate,
-): Promise<ItemCost> => {
+	updates: ItemPriceUpdate,
+): Promise<ItemPrice> => {
 	const pool = await getDb();
 	const setClauses: string[] = [];
-	if (updates.cost !== undefined) setClauses.push("cost = @cost");
+	if (updates.price !== undefined) setClauses.push("price = @price");
 	if (updates.unit !== undefined) setClauses.push("unit = @unit");
+	if (updates.price_class !== undefined) setClauses.push("price_class = @price_class");
 	if (updates.valid_to !== undefined) setClauses.push("valid_to = @valid_to");
 
 	if (setClauses.length === 0) {
-		const existing = await getItemCostById(id);
-		if (!existing) throw new NotFoundError(`ItemCost ${id} not found`);
+		const existing = await getItemPriceById(id);
+		if (!existing) throw new NotFoundError(`ItemPrice ${id} not found`);
 		return existing;
 	}
 
 	const req = pool.request().input("id", id);
-	if (updates.cost !== undefined) req.input("cost", bigToNumber(toBig(updates.cost)));
+	if (updates.price !== undefined) req.input("price", bigToNumber(toBig(updates.price)));
 	if (updates.unit !== undefined) req.input("unit", updates.unit);
+	if (updates.price_class !== undefined) req.input("price_class", updates.price_class);
 	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
 
 	const result = await req.query(`
-      UPDATE SMR_ItemCost
+      UPDATE SMR_ItemPrice
       SET ${setClauses.join(", ")}
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.cost, INSERTED.unit, INSERTED.valid_from, INSERTED.valid_to
+      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
       WHERE id = @id
     `);
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`ItemCost ${id} not found`);
+		throw new NotFoundError(`ItemPrice ${id} not found`);
 	}
 	const raw = result.recordset[0] as Record<string, unknown>;
 	return {
 		...trimStrings(raw),
-		cost: toBig(raw.cost),
-	} as unknown as ItemCost;
+		price: toBig(raw.price),
+	} as unknown as ItemPrice;
 };
 
-export const deleteItemCost = async (id: number): Promise<void> => {
+export const deleteItemPrice = async (id: number): Promise<void> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.input("id", id)
-		.query("DELETE FROM SMR_ItemCost OUTPUT DELETED.id WHERE id = @id");
+		.query("DELETE FROM SMR_ItemPrice OUTPUT DELETED.id WHERE id = @id");
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`ItemCost ${id} not found`);
+		throw new NotFoundError(`ItemPrice ${id} not found`);
 	}
 };
 
 /**
- * Set valid_to on an existing ItemCost (used when replacing with a newer entry).
- * This expires the old cost record 1 second before the new cost's valid_from.
+ * Set valid_to on an existing ItemPrice (used when replacing with a newer entry).
+ * This expires the old price record 1 second before the new price's valid_from.
  */
-export const expireItemCost = async (id: number, validTo: string): Promise<void> => {
+export const expireItemPrice = async (id: number, validTo: string): Promise<void> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.input("id", id)
 		.input("valid_to", validTo)
-		.query("UPDATE SMR_ItemCost SET valid_to = @valid_to WHERE id = @id");
+		.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`ItemCost ${id} not found`);
+		throw new NotFoundError(`ItemPrice ${id} not found`);
 	}
 };
 
-// ─── SMR_PriceClass CRUD ─────────────────────────────────────────────
+// ─── SMR_PriceClass CRUD (simplified lookup) ──────────────────────────
 
 export const createPriceClass = async (
 	pc: NewPriceClass,
 ): Promise<PriceClass> => {
 	const pool = await getDb();
 
-	// Prevent duplicate active price_class name
+	// Check for duplicate
 	const existing = await pool
 		.request()
-		.input("price_class", pc.price_class)
+		.input("id", pc.id)
 		.query(`
       SELECT COUNT(*) AS _cnt
       FROM SMR_PriceClass
-      WHERE price_class = @price_class AND valid_to IS NULL
+      WHERE id = @id
     `);
 	if (Number(existing.recordset[0]?._cnt) > 0) {
-		throw new BadRequestError(
-			`Price class '${pc.price_class}' already has an active entry. Expire it first before creating a new one.`,
-		);
+		throw new BadRequestError(`Price class '${pc.id}' already exists.`);
 	}
 
 	const result = await pool
 		.request()
-		.input("price_class", pc.price_class)
-		.input("pct_discount", bigToNumber(toBig(pc.pct_discount)))
-		.input("valid_from", pc.valid_from)
-		.input("valid_to", pc.valid_to ?? null)
+		.input("id", pc.id)
+		.input("description", pc.description ?? null)
 		.query(`
-      INSERT INTO SMR_PriceClass (price_class, pct_discount, valid_from, valid_to)
-      OUTPUT INSERTED.id, INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
-      VALUES (@price_class, @pct_discount, @valid_from, @valid_to)
+      INSERT INTO SMR_PriceClass (id, description)
+      OUTPUT INSERTED.id, INSERTED.description
+      VALUES (@id, @description)
     `);
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create PriceClass");
-	const raw = created as Record<string, unknown>;
-	return {
-		...trimStrings(raw),
-		pct_discount: toBig(raw.pct_discount),
-	} as unknown as PriceClass;
+	return trimStrings(created as Record<string, unknown>) as unknown as PriceClass;
 };
 
-export const getPriceClasses = async (): Promise<PriceClass[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(`
-      SELECT price_class, pct_discount, valid_from, valid_to
-      FROM SMR_PriceClass
-      ORDER BY price_class, valid_from DESC
-    `);
-	const raw = result.recordset as Record<string, unknown>[];
-	return raw.map((r) => ({
-		...trimStrings(r),
-		pct_discount: toBig(r.pct_discount),
-	})) as unknown as PriceClass[];
-};
-
-export const getCurrentPriceClasses = async (): Promise<PriceClass[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(`
-      SELECT id, price_class, pct_discount, valid_from, valid_to
-      FROM SMR_PriceClass
-      WHERE valid_to IS NULL
-      ORDER BY price_class
-    `);
-	const raw = result.recordset as Record<string, unknown>[];
-	return raw.map((r) => ({
-		...trimStrings(r),
-		pct_discount: toBig(r.pct_discount),
-	})) as unknown as PriceClass[];
-};
-
-/** Returns ALL price class entries (current + history) ordered by price_class, valid_from DESC */
+/** Returns all price classes ordered by id */
 export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.query(`
-      SELECT id, price_class, pct_discount, valid_from, valid_to
+      SELECT id, description
       FROM SMR_PriceClass
-      ORDER BY price_class, valid_from DESC
+      ORDER BY id
     `);
-	const raw = result.recordset as Record<string, unknown>[];
-	return raw.map((r) => ({
-		...trimStrings(r),
-		pct_discount: toBig(r.pct_discount),
-	})) as unknown as PriceClass[];
+	return trimStrings(result.recordset as Record<string, unknown>[]) as unknown as PriceClass[];
 };
 
-/** Returns all entries (expired + current) for a specific price_class name */
-export const getPriceClassHistory = async (
-	priceClass: string,
-): Promise<PriceClass[]> => {
+/** Legacy alias — returns all price classes */
+export const getPriceClasses = getAllPriceClasses;
+
+/** Legacy alias — returns all price classes (no distinction between current/history anymore) */
+export const getCurrentPriceClasses = getAllPriceClasses;
+
+/** Returns the price class for a specific id */
+export const getPriceClassById = async (
+	id: string,
+): Promise<PriceClass | undefined> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
-		.input("price_class", priceClass)
+		.input("id", id)
 		.query(`
-      SELECT id, price_class, pct_discount, valid_from, valid_to
+      SELECT id, description
       FROM SMR_PriceClass
-      WHERE price_class = @price_class
-      ORDER BY valid_from DESC
+      WHERE id = @id
     `);
-	const raw = result.recordset as Record<string, unknown>[];
-	return raw.map((r) => ({
-		...trimStrings(r),
-		pct_discount: toBig(r.pct_discount),
-	})) as unknown as PriceClass[];
+	const raw = result.recordset[0] as Record<string, unknown> | undefined;
+	if (!raw) return undefined;
+	return trimStrings(raw) as unknown as PriceClass;
 };
 
+/** Returns just the list of price class IDs */
 export const getDistinctPriceClasses = async (): Promise<string[]> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
 		.query(`
-      SELECT DISTINCT price_class
+      SELECT id
       FROM SMR_PriceClass
-      ORDER BY price_class
+      ORDER BY id
     `);
-	const rows = result.recordset as Array<{ price_class: string }>;
-	return trimStrings(rows.map((r) => r.price_class));
+	const rows = result.recordset as Array<{ id: string }>;
+	return trimStrings(rows.map((r) => r.id));
 };
 
 export const updatePriceClass = async (
-	id: number,
+	id: string,
 	updates: PriceClassUpdate,
 ): Promise<PriceClass> => {
 	const pool = await getDb();
-	const setClauses: string[] = [];
-	if (updates.pct_discount !== undefined) setClauses.push("pct_discount = @pct_discount");
-	if (updates.valid_to !== undefined) setClauses.push("valid_to = @valid_to");
 
-	if (setClauses.length === 0) {
-		throw new NotFoundError(`No updates provided for PriceClass ${id}`);
-	}
-
-	const req = pool.request()
-		.input("id", id);
-	if (updates.pct_discount !== undefined) req.input("pct_discount", bigToNumber(toBig(updates.pct_discount)));
-	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
-
-	const result = await req.query(`
+	const result = await pool
+		.request()
+		.input("id", id)
+		.input("description", updates.description ?? null)
+		.query(`
       UPDATE SMR_PriceClass
-      SET ${setClauses.join(", ")}
-      OUTPUT INSERTED.id, INSERTED.price_class, INSERTED.pct_discount, INSERTED.valid_from, INSERTED.valid_to
+      SET description = @description
+      OUTPUT INSERTED.id, INSERTED.description
       WHERE id = @id
     `);
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`PriceClass ${id} not found`);
+		throw new NotFoundError(`PriceClass '${id}' not found`);
 	}
-	const raw = result.recordset[0] as Record<string, unknown>;
-	return {
-		...trimStrings(raw),
-		pct_discount: toBig(raw.pct_discount),
-	} as unknown as PriceClass;
+	return trimStrings(result.recordset[0] as Record<string, unknown>) as unknown as PriceClass;
 };
 
-export const deletePriceClass = async (id: number): Promise<void> => {
+export const deletePriceClass = async (id: string): Promise<void> => {
 	const pool = await getDb();
 	const result = await pool
 		.request()
@@ -380,7 +330,7 @@ export const deletePriceClass = async (id: number): Promise<void> => {
     `);
 
 	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`PriceClass ${id} not found`);
+		throw new NotFoundError(`PriceClass '${id}' not found`);
 	}
 };
 
@@ -417,68 +367,37 @@ async function findConversionFactor(
 }
 
 /**
- * Convert a cost value from one unit to another using INUnit.
+ * Convert a price value from one unit to another using INUnit.
  * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
  * Uses Big.js for precise decimal arithmetic.
- * Returns { convertedCost, convertedUnit } or the original if no conversion exists.
+ * Returns { convertedPrice, convertedUnit } or the original if no conversion exists.
  */
-async function convertCost(
+async function convertPrice(
 	inventoryId: string,
-	cost: Big | number,
+	price: Big | number,
 	fromUnit: string,
 	toUnit: string,
-): Promise<{ cost: Big; unit: string }> {
-	if (fromUnit === toUnit) return { cost: toBig(cost), unit: fromUnit };
+): Promise<{ price: Big; unit: string }> {
+	if (fromUnit === toUnit) return { price: toBig(price), unit: fromUnit };
 
 	// Forward: found row where FromUnit = source unit
 	// 1 source_unit = factor × target_unit
-	// cost_per_target = cost_per_source / factor  (Big precision)
+	// price_per_target = price_per_source / factor  (Big precision)
 	const factor = await findConversionFactor(inventoryId, fromUnit, toUnit);
 	if (factor !== null) {
-		return { cost: toBig(cost).div(factor), unit: toUnit };
+		return { price: toBig(price).div(factor), unit: toUnit };
 	}
 
 	// Reverse: found row where FromUnit = target unit
 	// 1 target_unit = reverseFactor × source_unit
-	// cost_per_target = cost_per_source × reverseFactor  (Big precision)
+	// price_per_target = price_per_source × reverseFactor  (Big precision)
 	const reverseFactor = await findConversionFactor(inventoryId, toUnit, fromUnit);
 	if (reverseFactor !== null) {
-		return { cost: toBig(cost).times(reverseFactor), unit: toUnit };
+		return { price: toBig(price).times(reverseFactor), unit: toUnit };
 	}
 
 	// No conversion found — return original
-	return { cost: toBig(cost), unit: fromUnit };
-}
-
-// ─── Price query (the core) ──────────────────────────────────────────
-
-/**
- * Determine which SMR_PriceClass row applies for a given date.
- * Uses valid_from <= targetDate AND (valid_to IS NULL OR valid_to > targetDate).
- */
-async function findPriceClassForDate(
-	priceClass: string,
-	targetDate: string,
-): Promise<PriceClass | null> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("price_class", priceClass)
-		.input("target_date", targetDate)
-		.query(`
-      SELECT price_class, pct_discount, valid_from, valid_to
-      FROM SMR_PriceClass
-      WHERE price_class = @price_class
-        AND valid_from <= @target_date
-        AND (valid_to IS NULL OR valid_to > @target_date)
-      ORDER BY valid_from DESC
-    `);
-	const row = result.recordset[0] as Record<string, unknown> | undefined;
-	if (!row) return null;
-	return {
-		...trimStrings(row),
-		pct_discount: toBig(row.pct_discount),
-	} as unknown as PriceClass;
+	return { price: toBig(price), unit: fromUnit };
 }
 
 // ─── Main paginated query ─────────────────────────────────────────────
@@ -486,13 +405,13 @@ async function findPriceClassForDate(
 /**
  * Fetch paginated price records.
  *
- * For each inventory item, returns the current cost (valid_to IS NULL)
+ * For each inventory item, returns the current price (valid_to IS NULL)
  * along with its history (valid_to IS NOT NULL).
  *
  * @param page    Page number (1-based).
  * @param limit   Rows per page.
  * @param search  Optional search across InvtID, ClassID, Descr.
- * @param reqUnit Optional target unit to convert costs into.
+ * @param reqUnit Optional target unit to convert prices into.
  */
 export const getPricesPaginated = async (
 	page: number,
@@ -513,14 +432,14 @@ export const getPricesPaginated = async (
 	const whereClause =
 		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-	// Current cost subquery: only rows where valid_to IS NULL
-	// Pick one cost per inventory_id (latest id)
-	const currentCostSubQ = `
-    SELECT id, inventory_id, cost, unit, valid_from, valid_to
+	// Current price subquery: only rows where valid_to IS NULL
+	// Pick one price per inventory_id (latest id)
+	const currentPriceSubQ = `
+    SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
     FROM (
-      SELECT id, inventory_id, cost, unit, valid_from, valid_to,
+      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to,
         ROW_NUMBER() OVER (PARTITION BY inventory_id ORDER BY id DESC) AS _rn
-      FROM SMR_ItemCost
+      FROM SMR_ItemPrice
       WHERE valid_to IS NULL
     ) _cc
     WHERE _rn = 1
@@ -533,18 +452,19 @@ export const getPricesPaginated = async (
     ${whereClause}
   `;
 
-	// Data query with current costs
+	// Data query with current prices
 	const dataQuery = `
     SELECT * FROM (
       SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
-        ic.id AS item_cost_id,
+        ip.id AS item_price_id,
         i.InvtID AS inventory_id,
         i.ClassID AS class_id,
         i.Descr AS description,
-        ic.cost,
-        ic.unit
+        ip.price,
+        ip.unit,
+        ip.price_class
       FROM Inventory i
-      LEFT JOIN (${currentCostSubQ}) ic ON i.InvtID = ic.inventory_id
+      LEFT JOIN (${currentPriceSubQ}) ip ON i.InvtID = ip.inventory_id
       ${whereClause}
     ) AS _paginated
     WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
@@ -557,23 +477,23 @@ export const getPricesPaginated = async (
 	const countResult = await countReq.query(countQuery);
 	const total = Number(countResult.recordset[0]?._total) || 0;
 
-	// Count of inventory items without any current cost
-	const noCostCountQuery = `
+	// Count of inventory items without any current price
+	const noPriceCountQuery = `
     SELECT COUNT(*) AS _cnt
     FROM Inventory i
     WHERE NOT EXISTS (
-      SELECT 1 FROM SMR_ItemCost ic
-      WHERE ic.inventory_id = i.InvtID AND ic.valid_to IS NULL
+      SELECT 1 FROM SMR_ItemPrice ip
+      WHERE ip.inventory_id = i.InvtID AND ip.valid_to IS NULL
     )
     ${hasSearch ? `AND (i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)` : ``}
   `;
-	const noCostReq = pool.request();
-	if (hasSearch) noCostReq.input("search", `%${search.trim()}%`);
-	const noCostResult = await noCostReq.query(noCostCountQuery);
-	const withoutCostCount = Number(noCostResult.recordset[0]?._cnt) || 0;
+	const noPriceReq = pool.request();
+	if (hasSearch) noPriceReq.input("search", `%${search.trim()}%`);
+	const noPriceResult = await noPriceReq.query(noPriceCountQuery);
+	const withoutPriceCount = Number(noPriceResult.recordset[0]?._cnt) || 0;
 
 	if (total === 0) {
-		return { data: [], total: 0, page, limit, totalPages: 1, withoutCostCount };
+		return { data: [], total: 0, page, limit, totalPages: 1, withoutPriceCount };
 	}
 
 	// Execute data
@@ -584,12 +504,13 @@ export const getPricesPaginated = async (
 	const dataResult = await dataReq.query(dataQuery);
 
 	type RawRow = {
-		item_cost_id: number | null;
+		item_price_id: number | null;
 		inventory_id: string;
 		class_id: string | null;
 		description: string | null;
-		cost: number | null;
+		price: number | null;
 		unit: string | null;
+		price_class: string | null;
 	};
 
 	const rawRows = trimStrings(dataResult.recordset as RawRow[]);
@@ -609,19 +530,19 @@ export const getPricesPaginated = async (
 
 		const historyResult = await historyReq.query(`
       SELECT
-        ic.inventory_id,
-        ic.cost,
-        ic.unit,
-        ic.valid_from,
-        ic.valid_to
-      FROM SMR_ItemCost ic
-      WHERE ic.inventory_id IN (${idParams.join(", ")})
-      ORDER BY ic.inventory_id, ic.valid_from DESC
+        ip.inventory_id,
+        ip.price,
+        ip.unit,
+        ip.valid_from,
+        ip.valid_to
+      FROM SMR_ItemPrice ip
+      WHERE ip.inventory_id IN (${idParams.join(", ")})
+      ORDER BY ip.inventory_id, ip.valid_from DESC
     `);
 
 		type HistoryRaw = {
 			inventory_id: string;
-			cost: number;
+			price: number;
 			unit: string;
 			valid_from: string;
 			valid_to: string | null;
@@ -633,7 +554,7 @@ export const getPricesPaginated = async (
 			existing.push({
 				valid_from: h.valid_from,
 				valid_to: h.valid_to,
-				cost: toBig(h.cost),
+				price: toBig(h.price),
 				unit: h.unit,
 			});
 			historyMap.set(h.inventory_id, existing);
@@ -643,18 +564,18 @@ export const getPricesPaginated = async (
 	// Build final response
 	const data: PriceRecord[] = [];
 	for (const row of rawRows) {
-		let effectiveCost: Big | null = row.cost != null ? toBig(row.cost) : null;
+		let effectivePrice: Big | null = row.price != null ? toBig(row.price) : null;
 		let effectiveUnit = row.unit;
 
 		// Unit conversion if requested
-		if (reqUnit && row.cost !== null && row.unit) {
-			const converted = await convertCost(
+		if (reqUnit && row.price !== null && row.unit) {
+			const converted = await convertPrice(
 				row.inventory_id,
-				effectiveCost!,
+				effectivePrice!,
 				row.unit,
 				reqUnit,
 			);
-			effectiveCost = converted.cost;
+			effectivePrice = converted.price;
 			effectiveUnit = converted.unit;
 		}
 
@@ -662,12 +583,13 @@ export const getPricesPaginated = async (
 			historyMap.get(row.inventory_id) ?? [];
 
 		data.push({
-			item_cost_id: row.item_cost_id,
+			item_price_id: row.item_price_id,
 			inventory_id: row.inventory_id,
 			class_id: row.class_id,
 			description: row.description,
-			cost: effectiveCost,
+			price: effectivePrice,
 			unit: effectiveUnit,
+			price_class: row.price_class,
 			history,
 		});
 	}
@@ -675,7 +597,7 @@ export const getPricesPaginated = async (
 	return {
 		data,
 		total,
-		withoutCostCount,
+		withoutPriceCount,
 		page,
 		limit,
 		totalPages: Math.ceil(total / limit) || 1,
@@ -689,19 +611,19 @@ export { MAX_LIMIT, DEFAULT_LIMIT };
 // ─── Bulk import ──────────────────────────────────────────────────────
 
 /**
- * Import item costs from an array of rows (parsed from Excel).
+ * Import item prices from an array of rows (parsed from Excel).
  *
  * For each row:
- *  - If inventory_id already has a current cost (valid_to IS NULL), expire it.
- *    Set the old current cost's valid_to to 1 second before the new valid_from,
- *    then insert the new cost.
- *  - If no current cost exists, insert a new row.
+ *  - If inventory_id already has a current price (valid_to IS NULL), expire it.
+ *    Set the old current price's valid_to to 1 second before the new valid_from,
+ *    then insert the new price.
+ *  - If no current price exists, insert a new row.
  *  - Unit is normalized to "CS" if a conversion factor exists in INUnit.
  *  - valid_from defaults to current datetime if not provided.
  *
  * Returns a summary of processed/inserted/updated/errors.
  */
-export const importItemCosts = async (
+export const importItemPrices = async (
 	items: BulkImportItem[],
 ): Promise<ImportResult> => {
 	const pool = await getDb();
@@ -714,8 +636,8 @@ export const importItemCosts = async (
 		const item = items[i]!;
 		const rowNum = i + 2; // Excel rows are 1-based + header
 
-		if (!item.inventory_id || item.cost == null || !item.unit) {
-			errors.push({ row: rowNum, message: "Missing required fields (inventory_id, cost, unit)" });
+		if (!item.inventory_id || item.price == null || !item.unit || !item.price_class) {
+			errors.push({ row: rowNum, message: "Missing required fields (inventory_id, price, unit, price_class)" });
 			continue;
 		}
 
@@ -730,44 +652,55 @@ export const importItemCosts = async (
 				continue;
 			}
 
+			// Check if price_class exists
+			const pcCheck = await pool
+				.request()
+				.input("priceClass", item.price_class)
+				.query("SELECT COUNT(*) AS _cnt FROM SMR_PriceClass WHERE id = @priceClass");
+			if (Number(pcCheck.recordset[0]?._cnt) === 0) {
+				errors.push({ row: rowNum, message: `Price class '${item.price_class}' not found` });
+				continue;
+			}
+
 			// Default valid_from to current datetime
 			const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
 			// Normalize unit to CS if possible
-			const normalized = await normalizeToCsUnit(item.inventory_id, item.cost, item.unit);
+			const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
-			// Find current cost for this inventory item
+			// Find current price for this inventory item
 			const current = await pool
 				.request()
 				.input("invId", item.inventory_id)
 				.query(`
-          SELECT id, cost, unit, valid_from, valid_to
-          FROM SMR_ItemCost
+          SELECT id, price, unit, price_class, valid_from, valid_to
+          FROM SMR_ItemPrice
           WHERE inventory_id = @invId AND valid_to IS NULL
         `);
 
 			if (current.recordset.length > 0) {
-				// Expire the old current cost — 1 second before new valid_from
+				// Expire the old current price — 1 second before new valid_from
 				const oldValidTo = oneSecondBefore(validFrom);
 				await pool
 					.request()
 					.input("id", current.recordset[0].id)
 					.input("valid_to", oldValidTo)
-					.query("UPDATE SMR_ItemCost SET valid_to = @valid_to WHERE id = @id");
+					.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
 				updated++;
 			}
 
-			// Insert new cost
+			// Insert new price
 			await pool
 				.request()
 				.input("inventory_id", item.inventory_id)
-				.input("cost", bigToNumber(normalized.cost))
+				.input("price", bigToNumber(normalized.price))
 				.input("unit", normalized.unit)
+				.input("price_class", item.price_class)
 				.input("valid_from", validFrom)
 				.input("valid_to", item.valid_to ?? null)
 				.query(`
-          INSERT INTO SMR_ItemCost (inventory_id, cost, unit, valid_from, valid_to)
-          VALUES (@inventory_id, @cost, @unit, @valid_from, @valid_to)
+          INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
+          VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
         `);
 			inserted++;
 		} catch (err) {
@@ -784,7 +717,7 @@ export const importItemCosts = async (
 	};
 };
 
-// ─── Backward-compat exports (for lookups.service.ts and any other importers) ──
+// ─── Backward-compat exports ──────────────────────────────────────────
 
 /**
  * Legacy alias — returns distinct price_class values from SMR_PriceClass.
@@ -793,3 +726,27 @@ export const importItemCosts = async (
 export const getDistinctCatalogNbr = async (): Promise<string[]> => {
 	return getDistinctPriceClasses();
 };
+
+/** @deprecated Use createItemPrice instead */
+export const createItemCost = createItemPrice;
+
+/** @deprecated Use getItemPriceById instead */
+export const getItemCostById = getItemPriceById;
+
+/** @deprecated Use getItemPricesByInventoryId instead */
+export const getItemCostsByInventoryId = getItemPricesByInventoryId;
+
+/** @deprecated Use updateItemPrice instead */
+export const updateItemCost = updateItemPrice;
+
+/** @deprecated Use deleteItemPrice instead */
+export const deleteItemCost = deleteItemPrice;
+
+/** @deprecated Use expireItemPrice instead */
+export const expireItemCost = expireItemPrice;
+
+/** @deprecated Use importItemPrices instead */
+export const importItemCosts = importItemPrices;
+
+/** @deprecated Use getPriceClassById instead */
+export const getPriceClassHistory = getPriceClassById;

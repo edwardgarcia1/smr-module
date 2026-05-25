@@ -46,22 +46,23 @@ import apiRequest from "../services/api";
 import * as XLSX from "xlsx";
 import Big from "big.js";
 
-// ── Types matching price.schema.ts response ──────────────────────────
+// ── Types matching refactored price.schema.ts ─────────────────────────
 
 interface PriceHistoryEntry {
 	valid_from: string;
 	valid_to: string | null;
-	cost: number;
+	price: number;
 	unit: string;
 }
 
 interface PriceRecord {
-	item_cost_id: number | null;
+	item_price_id: number | null;
 	inventory_id: string;
 	class_id: string | null;
 	description: string | null;
-	cost: number | null;
+	price: number | null;
 	unit: string | null;
+	price_class: string | null;
 	history: PriceHistoryEntry[];
 }
 
@@ -71,13 +72,14 @@ interface PaginatedResponse<T> {
 	page: number;
 	limit: number;
 	totalPages: number;
-	withoutCostCount: number;
+	withoutPriceCount: number;
 }
 
 interface ImportRow {
 	inventory_id: string;
-	cost: number;
+	price: number;
 	unit: string;
+	price_class: string;
 	valid_from?: string;
 	valid_to?: string | null;
 }
@@ -125,36 +127,40 @@ interface RowProps {
 	row: PriceRecord;
 	editRowId: number | null;
 	editInventoryId: string | null;
-	editCost: string;
+	editPrice: string;
 	editUnit: string;
+	editPriceClass: string;
 	onStartEdit: (row: PriceRecord) => void;
 	onCancelEdit: () => void;
 	onSaveEdit: () => Promise<void>;
-	onEditCostChange: (val: string) => void;
+	onEditPriceChange: (val: string) => void;
 	onEditUnitChange: (val: string) => void;
+	onEditPriceClassChange: (val: string) => void;
+	priceClassOptions: string[];
 	saving: boolean;
-	pctDiscount: number | null;
 }
 
 const Row: React.FC<RowProps> = ({
 	row,
 	editRowId,
 	editInventoryId,
-	editCost,
+	editPrice,
 	editUnit,
+	editPriceClass,
 	onStartEdit,
 	onCancelEdit,
 	onSaveEdit,
-	onEditCostChange,
+	onEditPriceChange,
 	onEditUnitChange,
+	onEditPriceClassChange,
+	priceClassOptions,
 	saving,
-	pctDiscount,
 }) => {
 	const [open, setOpen] = useState(false);
 	const hasHistory = row.history.length > 0;
 	const isEditing =
 		editRowId !== null &&
-		(editRowId === row.item_cost_id ||
+		(editRowId === row.item_price_id ||
 			(editRowId === -1 && editInventoryId === row.inventory_id));
 
 	return (
@@ -200,8 +206,8 @@ const Row: React.FC<RowProps> = ({
 						<TextField
 							size="small"
 							type="number"
-							value={editCost}
-							onChange={(e) => onEditCostChange(e.target.value)}
+							value={editPrice}
+							onChange={(e) => onEditPriceChange(e.target.value)}
 							sx={{ width: 110 }}
 							slotProps={{
 								htmlInput: { step: "1.0", style: { textAlign: "right" } },
@@ -209,17 +215,8 @@ const Row: React.FC<RowProps> = ({
 							disabled={saving}
 						/>
 					) : (
-						fmtNum(row.cost)
+						fmtNum(row.price)
 					)}
-				</TableCell>
-				<TableCell align="right" sx={{ minWidth: 120 }}>
-					{pctDiscount != null && row.cost != null
-						? fmtNum(
-								new Big(row.cost).times(
-									new Big(1).minus(new Big(pctDiscount).div(100)),
-								),
-							)
-						: "—"}
 				</TableCell>
 				<TableCell>
 					{isEditing ? (
@@ -237,7 +234,30 @@ const Row: React.FC<RowProps> = ({
 							))}
 						</Select>
 					) : (
-						(row.unit ?? "—")
+						row.unit ?? "—"
+					)}
+				</TableCell>
+				<TableCell>
+					{isEditing ? (
+						<Autocomplete
+							size="small"
+							freeSolo
+							options={priceClassOptions}
+							value={editPriceClass}
+							onChange={(_, newVal) => onEditPriceClassChange(newVal ?? "")}
+							onInputChange={(_, newVal) => onEditPriceClassChange(newVal)}
+							renderInput={(params) => (
+								<TextField
+									{...params}
+									sx={{ width: 130 }}
+									slotProps={{ htmlInput: { ...params.inputProps, maxLength: 30 } }}
+								/>
+							)}
+							sx={{ width: 130 }}
+							disabled={saving}
+						/>
+					) : (
+						row.price_class ?? "—"
 					)}
 				</TableCell>
 				<TableCell
@@ -299,14 +319,14 @@ const Row: React.FC<RowProps> = ({
 								component="div"
 								sx={{ color: "text.secondary" }}
 							>
-								Cost History
+								Price History
 							</Typography>
 							<Table size="small" aria-label="price history">
 								<TableHead>
 									<TableRow>
 										<TableCell>Valid From</TableCell>
 										<TableCell>Valid To</TableCell>
-										<TableCell align="right">Cost</TableCell>
+										<TableCell align="right">Price</TableCell>
 										<TableCell>Unit</TableCell>
 									</TableRow>
 								</TableHead>
@@ -315,7 +335,7 @@ const Row: React.FC<RowProps> = ({
 										<TableRow key={`${h.valid_from}__${idx}`}>
 											<TableCell>{fmtDate(h.valid_from)}</TableCell>
 											<TableCell>{fmtDate(h.valid_to)}</TableCell>
-											<TableCell align="right">{fmtNum(h.cost)}</TableCell>
+											<TableCell align="right">{fmtNum(h.price)}</TableCell>
 											<TableCell>{h.unit}</TableCell>
 										</TableRow>
 									))}
@@ -339,7 +359,7 @@ interface PricesToolbarProps {
 	clearSearch: () => void;
 	isSearching: boolean;
 	totalCount: number;
-	withoutCostCount: number;
+	withoutPriceCount: number;
 	unit: string | null;
 	unitOptions: string[];
 	onUnitChange: (value: string | null) => void;
@@ -357,7 +377,7 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	clearSearch,
 	isSearching,
 	totalCount,
-	withoutCostCount,
+	withoutPriceCount,
 	unit,
 	unitOptions,
 	onUnitChange,
@@ -384,12 +404,12 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 				</Typography>
 				<Typography variant="caption" sx={{ color: "text.secondary" }}>
 					{totalCount} records
-					{withoutCostCount > 0 && (
+					{withoutPriceCount > 0 && (
 						<Box
 							component="span"
 							sx={{ ml: 1, color: "warning.main", fontWeight: 600 }}
 						>
-							({withoutCostCount} without cost)
+							({withoutPriceCount} without price)
 						</Box>
 					)}
 				</Typography>
@@ -486,8 +506,9 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 interface ImportPreviewRow {
 	row: number;
 	inventory_id: string;
-	cost: number;
+	price: number;
 	unit: string;
+	price_class: string;
 	valid_from: string;
 	valid_to: string;
 	error?: string;
@@ -522,13 +543,16 @@ const ImportDialog: React.FC<{
 						row.inventory_id ?? row.InventoryID ?? row.InvtID ?? "",
 					).trim();
 					// Wrap raw XLSX float in Big and round to 4dp to kill IEEE 754 noise
-					const costRaw = Number(row.cost ?? row.Cost ?? 0);
-					const cost = isNaN(costRaw)
+					const priceRaw = Number(row.price ?? row.Price ?? row.Cost ?? 0);
+					const price = isNaN(priceRaw)
 						? 0
-						: Number(new Big(costRaw).toFixed(4));
+						: Number(new Big(priceRaw).toFixed(4));
 					const unit = String(row.unit ?? row.Unit ?? row.SlsUnit ?? "")
 						.trim()
 						.toUpperCase();
+					const priceClass = String(
+						row.price_class ?? row.PriceClass ?? row.priceClass ?? "",
+					).trim();
 					const vf = String(
 						row.valid_from ?? row.ValidFrom ?? row.validFrom ?? "",
 					).trim();
@@ -537,15 +561,16 @@ const ImportDialog: React.FC<{
 					).trim();
 
 					const err =
-						!invId || isNaN(cost) || !unit
+						!invId || isNaN(price) || !unit || !priceClass
 							? "Missing required fields"
 							: undefined;
 
 					return {
 						row: r,
 						inventory_id: invId,
-						cost: isNaN(cost) ? 0 : cost,
+						price: isNaN(price) ? 0 : price,
 						unit,
+						price_class: priceClass,
 						valid_from: vf,
 						valid_to: vt,
 						error: err,
@@ -570,8 +595,9 @@ const ImportDialog: React.FC<{
 		await onImport(
 			validRows.map((r) => ({
 				inventory_id: r.inventory_id,
-				cost: r.cost,
+				price: r.price,
 				unit: r.unit,
+				price_class: r.price_class,
 				valid_from: r.valid_from || undefined,
 				valid_to: r.valid_to || undefined,
 			})),
@@ -590,14 +616,14 @@ const ImportDialog: React.FC<{
 
 	return (
 		<Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-			<DialogTitle>Import Item Costs from Excel</DialogTitle>
+			<DialogTitle>Import Item Prices from Excel</DialogTitle>
 			<DialogContent>
 				<Box sx={{ mb: 2, mt: 1 }}>
 					<Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
 						Select an Excel file (.xlsx, .xls) with columns:{" "}
-						<strong>inventory_id</strong>, <strong>cost</strong>,{" "}
-						<strong>unit</strong> (optional: <strong>valid_from</strong>,{" "}
-						<strong>valid_to</strong>).
+						<strong>inventory_id</strong>, <strong>price</strong>,{" "}
+						<strong>unit</strong>, <strong>price_class</strong>{" "}
+						(optional: <strong>valid_from</strong>, <strong>valid_to</strong>).
 					</Typography>
 					<Button variant="contained" component="label">
 						Choose File
@@ -640,8 +666,9 @@ const ImportDialog: React.FC<{
 									<TableRow>
 										<TableCell>#</TableCell>
 										<TableCell>Inventory ID</TableCell>
-										<TableCell align="right">Cost</TableCell>
+										<TableCell align="right">Price</TableCell>
 										<TableCell>Unit</TableCell>
+										<TableCell>Price Class</TableCell>
 										<TableCell>Valid From</TableCell>
 										<TableCell>Valid To</TableCell>
 										{hasErrors && <TableCell>Error</TableCell>}
@@ -660,8 +687,9 @@ const ImportDialog: React.FC<{
 										>
 											<TableCell>{r.row}</TableCell>
 											<TableCell>{r.inventory_id}</TableCell>
-											<TableCell align="right">{fmtNum(r.cost)}</TableCell>
+											<TableCell align="right">{fmtNum(r.price)}</TableCell>
 											<TableCell>{r.unit}</TableCell>
+											<TableCell>{r.price_class}</TableCell>
 											<TableCell>{r.valid_from}</TableCell>
 											<TableCell>{r.valid_to}</TableCell>
 											{hasErrors && <TableCell>{r.error ?? ""}</TableCell>}
@@ -687,17 +715,14 @@ const ImportDialog: React.FC<{
 	);
 };
 
-// ── Price Class Types ──────────────────────────────────────────────
+// ── Price Class Types (simplified lookup) ──────────────────────────
 
 interface PriceClassItem {
-	id: number;
-	price_class: string;
-	pct_discount: number;
-	valid_from: string;
-	valid_to: string | null;
+	id: string;
+	description: string | null;
 }
 
-// ── PriceClass Dialog ──────────────────────────────────────────────
+// ── PriceClass Dialog (simplified) ────────────────────────────────
 
 interface PriceClassDialogProps {
 	open: boolean;
@@ -715,21 +740,15 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	onError,
 }) => {
 	const isEdit = editItem != null;
-	const [className, setClassName] = useState("");
-	const [discount, setDiscount] = useState("");
-	const [validFrom, setValidFrom] = useState("");
+	const [classId, setClassId] = useState("");
+	const [description, setDescription] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	// Sync state when dialog opens with a different editItem
-	// (useState initializer only runs once — useEffect handles subsequent opens)
 	useEffect(() => {
-		setClassName(isEdit ? editItem.price_class : "");
-		setDiscount(isEdit ? String(editItem.pct_discount) : "");
-		const now = new Date();
-		const offset = now.getTimezoneOffset();
-		const local = new Date(now.getTime() - offset * 60000);
-		setValidFrom(local.toISOString().slice(0, 16));
+		setClassId(isEdit ? editItem.id : "");
+		setDescription(isEdit ? editItem.description ?? "" : "");
 		setDialogError(null);
 	}, [open, isEdit, editItem]);
 
@@ -742,60 +761,28 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	const handleSave = async () => {
 		setDialogError(null);
 
-		if (!className.trim()) {
-			setDialogError("Price class name is required");
+		if (!classId.trim()) {
+			setDialogError("Price class ID is required");
 			return;
 		}
 
-		// Require an explicit discount value — empty string or whitespace-only is invalid
-		if (!discount.trim()) {
-			setDialogError("Discount is required. Enter 0 if no discount.");
-			return;
-		}
-
-		const discountNum = Number(discount);
-		if (!isFinite(discountNum) || isNaN(discountNum)) {
-			setDialogError("Discount must be a valid number");
-			return;
-		}
-
-		if (!validFrom) {
-			setDialogError("Valid from date is required");
-			return;
-		}
 		setSaving(true);
 
-		// Current timestamp in MSSQL format (YYYY-MM-DD HH:MM:SS)
-		const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-
-		// In edit mode, always use current timestamp for the new entry's valid_from
-		const newValidFrom = isEdit
-			? now
-			: new Date(validFrom).toISOString().slice(0, 19).replace("T", " ");
-
-		// Track whether we expired the old entry (for rollback)
-		let expiredOld = false;
-		const oldItem = isEdit ? editItem : null;
-
 		try {
-			if (isEdit && oldItem) {
-				// Step 1: Expire the old price class by setting valid_to = now
-				await apiRequest(`/price/classes/${oldItem.id}`, {
+			if (isEdit) {
+				await apiRequest(`/price/classes/${encodeURIComponent(classId)}`, {
 					method: "PUT",
-					body: { valid_to: now },
+					body: { description: description.trim() || null },
 				});
-				expiredOld = true;
+			} else {
+				await apiRequest("/price/classes", {
+					method: "POST",
+					body: {
+						id: classId.trim(),
+						description: description.trim() || null,
+					},
+				});
 			}
-
-			// Step 2: Create a new price class entry with updated values
-			await apiRequest("/price/classes", {
-				method: "POST",
-				body: {
-					price_class: className.trim(),
-					pct_discount: discountNum,
-					valid_from: newValidFrom,
-				},
-			});
 
 			onSaved();
 			onClose();
@@ -803,7 +790,6 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 			const msg =
 				err instanceof Error ? err.message : "Failed to save price class";
 			setDialogError(msg);
-			// Also bubble up for parent-level logging if needed
 			onError(msg);
 		} finally {
 			setSaving(false);
@@ -833,10 +819,10 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 						</Alert>
 					)}
 					<TextField
-						label="Price Class"
-						value={className}
+						label="Price Class ID"
+						value={classId}
 						onChange={(e) => {
-							setClassName(e.target.value);
+							setClassId(e.target.value);
 							setDialogError(null);
 						}}
 						disabled={isEdit}
@@ -844,40 +830,16 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 						required
 					/>
 					<TextField
-						label="Discount %"
-						type="number"
-						value={discount}
+						label="Description"
+						value={description}
 						onChange={(e) => {
-							setDiscount(e.target.value);
+							setDescription(e.target.value);
 							setDialogError(null);
 						}}
 						size="small"
-						required
-						slotProps={{
-							htmlInput: { step: "0.1" },
-						}}
+						multiline
+						rows={2}
 					/>
-					{isEdit ? (
-						<Typography
-							variant="body2"
-							sx={{ color: "text.secondary", fontStyle: "italic" }}
-						>
-							New entry will use current timestamp as valid_from.
-						</Typography>
-					) : (
-						<TextField
-							label="Valid From"
-							type="datetime-local"
-							value={validFrom}
-							onChange={(e) => {
-								setValidFrom(e.target.value);
-								setDialogError(null);
-							}}
-							size="small"
-							slotProps={{ inputLabel: { shrink: true } }}
-							required
-						/>
-					)}
 				</Box>
 			</DialogContent>
 			<DialogActions>
@@ -892,13 +854,11 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	);
 };
 
-// ── PriceClass Row (collapsible with history) ──────────────────────
+// ── PriceClass Row (simplified — no history, no discount) ─────────
 
 interface PriceClassRowProps {
 	pc: PriceClassItem;
-	history: PriceClassItem[];
-	isFallback?: boolean;
-	editingId: number | null;
+	editingId: string | null;
 	onEdit: (item: PriceClassItem) => void;
 	onDelete: (item: PriceClassItem) => void;
 	deleting: boolean;
@@ -906,155 +866,43 @@ interface PriceClassRowProps {
 
 const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 	pc,
-	history,
-	isFallback,
 	editingId,
 	onEdit,
 	onDelete,
 	deleting,
 }) => {
-	const [open, setOpen] = useState(false);
 	const isEditing = editingId === pc.id;
 
 	return (
-		<React.Fragment>
-			<TableRow
-				selected={isEditing}
-				sx={{
-					"& > *": { borderBottom: "unset" },
-					...(isFallback ? { opacity: 0.65, fontStyle: "italic" } : {}),
-				}}
-			>
-				<TableCell sx={{ width: 48, px: 1 }}>
-					<IconButton
-						aria-label="expand row"
-						size="small"
-						onClick={() => setOpen(!open)}
-						disabled={history.length === 0}
-					>
-						{history.length > 0 ? (
-							open ? (
-								<KeyboardArrowUpIcon />
-							) : (
-								<KeyboardArrowDownIcon />
-							)
-						) : (
-							<Box sx={{ width: 24 }} />
-						)}
-					</IconButton>
-				</TableCell>
-				<TableCell sx={{ fontWeight: 600 }}>
-					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-						{pc.price_class}
-						{isFallback && (
-							<Typography
-								component="span"
-								variant="caption"
-								sx={{
-									color: "warning.main",
-									fontWeight: 400,
-									fontStyle: "italic",
-								}}
-							>
-								(Expired)
-							</Typography>
-						)}
-					</Box>
-				</TableCell>
-				<TableCell align="right">
-					{pc.pct_discount.toLocaleString(undefined, {
-						minimumFractionDigits: 2,
-						maximumFractionDigits: 4,
-					})}
-					%
-				</TableCell>
-				<TableCell>{fmtDate(pc.valid_from)}</TableCell>
-				<TableCell>
-					{pc.valid_to ? (
-						fmtDate(pc.valid_to)
-					) : (
-						<Typography
-							component="span"
-							variant="body2"
-							sx={{ color: "success.main", fontWeight: 600 }}
-						>
-							Current
-						</Typography>
-					)}
-				</TableCell>
-				<TableCell align="right" sx={{ width: 100 }}>
-					{!isFallback && (
-						<IconButton
-							size="small"
-							onClick={() => onEdit(pc)}
-							disabled={deleting}
-							aria-label={`edit ${pc.price_class}`}
-						>
-							<EditIcon fontSize="small" />
-						</IconButton>
-					)}
-					<IconButton
-						size="small"
-						onClick={() => onDelete(pc)}
-						disabled={deleting}
-						aria-label={`delete ${pc.price_class}`}
-					>
-						<DeleteIcon fontSize="small" />
-					</IconButton>
-				</TableCell>
-			</TableRow>
-			<TableRow>
-				<TableCell
-					sx={{
-						paddingBottom: 0,
-						paddingTop: 0,
-						borderBottom: open ? undefined : "unset",
-					}}
-					colSpan={6}
+		<TableRow
+			selected={isEditing}
+			sx={{ "& > *": { borderBottom: "unset" } }}
+		>
+			<TableCell sx={{ fontWeight: 600 }}>{pc.id}</TableCell>
+			<TableCell>{pc.description ?? "—"}</TableCell>
+			<TableCell align="right" sx={{ width: 100 }}>
+				<IconButton
+					size="small"
+					onClick={() => onEdit(pc)}
+					disabled={deleting}
+					aria-label={`edit ${pc.id}`}
 				>
-					<Collapse in={open} timeout="auto" unmountOnExit>
-						<Box sx={{ margin: 1 }}>
-							<Typography
-								variant="subtitle2"
-								gutterBottom
-								component="div"
-								sx={{ color: "text.secondary" }}
-							>
-								History
-							</Typography>
-							<Table size="small" aria-label="price class history">
-								<TableHead>
-									<TableRow>
-										<TableCell>Valid From</TableCell>
-										<TableCell>Valid To</TableCell>
-										<TableCell align="right">Discount %</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{history.map((h, idx) => (
-										<TableRow key={`${h.valid_from}__${idx}`}>
-											<TableCell>{fmtDate(h.valid_from)}</TableCell>
-											<TableCell>{fmtDate(h.valid_to)}</TableCell>
-											<TableCell align="right">
-												{h.pct_discount.toLocaleString(undefined, {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: 4,
-												})}
-												%
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</Box>
-					</Collapse>
-				</TableCell>
-			</TableRow>
-		</React.Fragment>
+					<EditIcon fontSize="small" />
+				</IconButton>
+				<IconButton
+					size="small"
+					onClick={() => onDelete(pc)}
+					disabled={deleting}
+					aria-label={`delete ${pc.id}`}
+				>
+					<DeleteIcon fontSize="small" />
+				</IconButton>
+			</TableCell>
+		</TableRow>
 	);
 };
 
-// ── PriceClass Card ─────────────────────────────────────────────────
+// ── PriceClass Card (simplified) ──────────────────────────────────
 
 interface PriceClassCardProps {
 	classes: PriceClassItem[];
@@ -1097,7 +945,9 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 		setDeleting(true);
 		setDeleteConfirmItem(null);
 		try {
-			await apiRequest(`/price/classes/${item.id}`, { method: "DELETE" });
+			await apiRequest(`/price/classes/${encodeURIComponent(item.id)}`, {
+				method: "DELETE",
+			});
 			await onRefresh();
 		} catch (err: unknown) {
 			onError(
@@ -1115,35 +965,6 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 	const handleSaved = async () => {
 		await onRefresh();
 	};
-
-	// Group entries by price_class: current (valid_to IS NULL) + history
-	const groupedRows = useMemo(() => {
-		const map = new Map<
-			string,
-			{ current: PriceClassItem | null; history: PriceClassItem[] }
-		>();
-		for (const pc of classes) {
-			const group = map.get(pc.price_class) ?? { current: null, history: [] };
-			if (pc.valid_to === null) {
-				group.current = pc;
-			} else {
-				group.history.push(pc);
-			}
-			map.set(pc.price_class, group);
-		}
-		// Sort history by valid_from DESC within each group
-		for (const group of map.values()) {
-			group.history.sort((a, b) => b.valid_from.localeCompare(a.valid_from));
-		}
-		return map;
-	}, [classes]);
-
-	// Array of rows sorted by price_class name
-	const groupedArray = useMemo(() => {
-		return Array.from(groupedRows.entries())
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([_, group]) => group);
-	}, [groupedRows]);
 
 	return (
 		<Paper sx={{ mb: 2, overflow: "hidden" }}>
@@ -1164,8 +985,8 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 						</Typography>
 						{!loading && (
 							<Typography variant="caption" sx={{ color: "text.secondary" }}>
-								{groupedArray.length}{" "}
-								{groupedArray.length === 1 ? "class" : "classes"}
+								{classes.length}{" "}
+								{classes.length === 1 ? "class" : "classes"}
 							</Typography>
 						)}
 					</Box>
@@ -1194,17 +1015,10 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 
 			{loading ? (
 				<TableSkeleton
-					cols={[
-						{ icon: true },
-						{},
-						{ align: "right" },
-						{},
-						{},
-						{ icon: true, align: "right" },
-					]}
+					cols={[{}, {}, { icon: true, align: "right" }]}
 					rows={4}
 				/>
-			) : groupedArray.length === 0 ? (
+			) : classes.length === 0 ? (
 				<Typography
 					variant="body2"
 					sx={{ color: "text.secondary", px: 2, pb: 1.5 }}
@@ -1219,38 +1033,24 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 					>
 						<TableHead>
 							<TableRow>
-								<TableCell sx={{ width: 48, px: 1 }} />
 								<TableCell>Price Class</TableCell>
-								<TableCell align="right">Discount %</TableCell>
-								<TableCell>Valid From</TableCell>
-								<TableCell>Valid To</TableCell>
+								<TableCell>Description</TableCell>
 								<TableCell align="right" sx={{ width: 100 }}>
 									Actions
 								</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{groupedArray.map(({ current, history }) => {
-								// Fallback: if no current entry exists, use the most recent history entry as the row
-								const displayRow = current ?? history[0] ?? null;
-								if (!displayRow) return null;
-								// When using a fallback, exclude that entry from the history sub-table
-								const displayHistory = current
-									? history
-									: history.filter((h) => h.id !== displayRow.id);
-								return (
-									<PriceClassRowComponent
-										key={displayRow.price_class}
-										pc={displayRow}
-										history={displayHistory}
-										isFallback={!current}
-										editingId={editItem?.id ?? null}
-										onEdit={handleEdit}
-										onDelete={handleDelete}
-										deleting={deleting}
-									/>
-								);
-							})}
+							{classes.map((pc) => (
+								<PriceClassRowComponent
+									key={pc.id}
+									pc={pc}
+									editingId={editItem?.id ?? null}
+									onEdit={handleEdit}
+									onDelete={handleDelete}
+									deleting={deleting}
+								/>
+							))}
 						</TableBody>
 					</Table>
 				</TableContainer>
@@ -1275,8 +1075,8 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 				<DialogContent>
 					<DialogContentText>
 						Are you sure you want to delete price class{" "}
-						<strong>{deleteConfirmItem?.price_class}</strong> (valid from{" "}
-						{deleteConfirmItem?.valid_from})? This action cannot be undone.
+						<strong>{deleteConfirmItem?.id}</strong>? This action cannot be
+						undone.
 					</DialogContentText>
 				</DialogContent>
 				<DialogActions>
@@ -1300,15 +1100,11 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 // ── Table Skeleton ─────────────────────────────────────────────────
 
 interface SkeletonCol {
-	/** Column alignment. Defaults to 'left'. */
 	align?: "left" | "right" | "center";
-	/** When true, renders a narrow fixed-width skeleton (icon/button columns). */
 	icon?: boolean;
-	/** When true, renders an empty cell (zero-width spacer columns). */
 	spacer?: boolean;
 }
 
-/** Deterministic pseudo-random width (40‑90%) based on row/col indices. */
 function skelWidthPct(row: number, col: number): number {
 	return 40 + ((row * 7 + col * 13 + col * 3) % 51);
 }
@@ -1372,7 +1168,7 @@ const Prices: React.FC = () => {
 	const [page, setPage] = useState(0);
 	const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 	const [rowCount, setRowCount] = useState(0);
-	const [withoutCostCount, setWithoutCostCount] = useState(0);
+	const [withoutPriceCount, setWithoutPriceCount] = useState(0);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchInputValue, setSearchInputValue] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
@@ -1384,9 +1180,6 @@ const Prices: React.FC = () => {
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
 		null,
 	);
-	const [selectedPctDiscount, setSelectedPctDiscount] = useState<number | null>(
-		null,
-	);
 
 	// Shared full classes data (for PriceClassCard + filter derivation)
 	const [allClasses, setAllClasses] = useState<PriceClassItem[]>([]);
@@ -1396,8 +1189,9 @@ const Prices: React.FC = () => {
 	// Edit state
 	const [editRowId, setEditRowId] = useState<number | null>(null);
 	const [editInventoryId, setEditInventoryId] = useState<string | null>(null);
-	const [editCost, setEditCost] = useState("");
+	const [editPrice, setEditPrice] = useState("");
 	const [editUnit, setEditUnit] = useState("");
+	const [editPriceClass, setEditPriceClass] = useState("");
 	const [saving, setSaving] = useState(false);
 
 	// Import state
@@ -1411,8 +1205,7 @@ const Prices: React.FC = () => {
 		unitRef.current = unit;
 	}, [unit]);
 
-	// Single fetch for price classes: populates filter, discount map, and PriceClassCard data
-	const discountMapRef = useRef<Map<string, number>>(new Map());
+	// Single fetch for price classes: populates filter + PriceClassCard data
 	const fetchPriceClasses = useCallback(async (signal?: AbortSignal) => {
 		setClassesLoading(true);
 		setClassesError(null);
@@ -1423,18 +1216,9 @@ const Prices: React.FC = () => {
 			if (signal?.aborted) return;
 			setAllClasses(classes);
 
-			const active = classes.filter((c) => c.valid_to === null);
-			// Populate filter dropdown options
-			const names = [...new Set(active.map((c) => c.price_class))].sort(
-				(a, b) => a.localeCompare(b),
-			);
+			// Populate filter dropdown from all class IDs
+			const names = classes.map((c) => c.id).sort((a, b) => a.localeCompare(b));
 			setPriceClassOptions(names);
-			// Build discount lookup map
-			const map = new Map<string, number>();
-			for (const c of active) {
-				map.set(c.price_class, c.pct_discount);
-			}
-			discountMapRef.current = map;
 		} catch (err: unknown) {
 			if (signal?.aborted) return;
 			setClassesError(
@@ -1496,7 +1280,7 @@ const Prices: React.FC = () => {
 				if (signal?.aborted) return;
 				setRows(res.data);
 				setRowCount(res.total);
-				setWithoutCostCount(res.withoutCostCount);
+				setWithoutPriceCount(res.withoutPriceCount);
 			} catch (err: unknown) {
 				if (signal?.aborted) return;
 				setError(err instanceof Error ? err.message : "Failed to fetch prices");
@@ -1519,46 +1303,50 @@ const Prices: React.FC = () => {
 	// ── Edit handlers ──────────────────────────────────────────────
 
 	const handleStartEdit = (row: PriceRecord) => {
-		setEditRowId(row.item_cost_id ?? -1); // -1 means "new"
-		setEditInventoryId(row.item_cost_id != null ? null : row.inventory_id);
-		setEditCost(String(row.cost ?? ""));
+		setEditRowId(row.item_price_id ?? -1);
+		setEditInventoryId(row.item_price_id != null ? null : row.inventory_id);
+		setEditPrice(String(row.price ?? ""));
 		setEditUnit(row.unit ?? "CS");
+		setEditPriceClass(row.price_class ?? "");
 	};
 
 	const handleCancelEdit = () => {
 		setEditRowId(null);
 		setEditInventoryId(null);
-		setEditCost("");
+		setEditPrice("");
 		setEditUnit("");
+		setEditPriceClass("");
 	};
 
 	const handleSaveEdit = async () => {
 		setSaving(true);
 		try {
 			if (editRowId === -1 && editInventoryId) {
-				// Creating new cost — valid_from defaults to current datetime on server
+				// Creating new price — valid_from defaults to current datetime on server
 				await apiRequest("/price/items", {
 					method: "POST",
 					body: {
 						inventory_id: editInventoryId,
-						cost: Number(editCost),
+						price: Number(editPrice),
 						unit: editUnit,
+						price_class: editPriceClass,
 					},
 				});
 			} else if (editRowId != null && editRowId > 0) {
-				// Updating existing cost
+				// Updating existing price
 				await apiRequest(`/price/items/${editRowId}`, {
 					method: "PUT",
 					body: {
-						cost: Number(editCost),
+						price: Number(editPrice),
 						unit: editUnit,
+						price_class: editPriceClass,
 					},
 				});
 			}
 			handleCancelEdit();
 			await fetchData();
 		} catch (err: unknown) {
-			setError(err instanceof Error ? err.message : "Failed to save cost");
+			setError(err instanceof Error ? err.message : "Failed to save price");
 		} finally {
 			setSaving(false);
 		}
@@ -1627,21 +1415,14 @@ const Prices: React.FC = () => {
 					clearSearch={clearSearch}
 					isSearching={isSearching}
 					totalCount={rowCount}
-					withoutCostCount={withoutCostCount}
+					withoutPriceCount={withoutPriceCount}
 					unit={unit}
 					unitOptions={unitOptions}
 					onUnitChange={setUnit}
 					onImportClick={() => setImportOpen(true)}
 					priceClassOptions={priceClassOptions}
 					selectedPriceClass={selectedPriceClass}
-					onPriceClassChange={(val) => {
-						setSelectedPriceClass(val);
-						if (!val) {
-							setSelectedPctDiscount(null);
-						} else {
-							setSelectedPctDiscount(discountMapRef.current.get(val) ?? null);
-						}
-					}}
+					onPriceClassChange={setSelectedPriceClass}
 				/>
 				{error ? (
 					<Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>
@@ -1655,7 +1436,7 @@ const Prices: React.FC = () => {
 							{},
 							{},
 							{ align: "right" },
-							{ align: "right" },
+							{},
 							{},
 							{ spacer: true },
 							{ icon: true, align: "right" },
@@ -1673,12 +1454,10 @@ const Prices: React.FC = () => {
 										<TableCell sx={{ fontWeight: 600 }}>Class ID</TableCell>
 										<TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
 										<TableCell align="right" sx={{ fontWeight: 600 }}>
-											Cost
-										</TableCell>
-										<TableCell align="right" sx={{ fontWeight: 600 }}>
-											Discounted
+											Price
 										</TableCell>
 										<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
+										<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
 										<TableCell sx={{ width: 0, p: 0, textAlign: "right" }} />
 										<TableCell
 											sx={{ width: 48, px: 0.5, textAlign: "right" }}
@@ -1703,15 +1482,17 @@ const Prices: React.FC = () => {
 												row={row}
 												editRowId={editRowId}
 												editInventoryId={editInventoryId}
-												editCost={editCost}
+												editPrice={editPrice}
 												editUnit={editUnit}
+												editPriceClass={editPriceClass}
 												onStartEdit={handleStartEdit}
 												onCancelEdit={handleCancelEdit}
 												onSaveEdit={handleSaveEdit}
-												onEditCostChange={setEditCost}
+												onEditPriceChange={setEditPrice}
 												onEditUnitChange={setEditUnit}
+												onEditPriceClassChange={setEditPriceClass}
+												priceClassOptions={priceClassOptions}
 												saving={saving}
-												pctDiscount={selectedPctDiscount}
 											/>
 										))
 									)}
