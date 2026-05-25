@@ -1558,12 +1558,12 @@ const PurchasingRequirements: React.FC = () => {
 								: "#c8e6c9",
 							borderLeft: "5px solid #388e3c",
 						},
-						"& .row-ordered": {
-							backgroundColor: darkMode
-								? "rgba(156, 39, 176, 0.25)"
-								: "#f3e5f5",
-							borderLeft: "5px solid #7b1fa2",
-						},
+"& .row-ordered": {
+						backgroundColor: darkMode
+							? "rgba(156, 39, 176, 0.25)"
+							: "#e1bee7",
+						borderLeft: "5px solid #7b1fa2",
+					},
 						"& .row-no-record": {
 							backgroundColor: darkMode
 								? "rgba(158, 158, 158, 0.25)"
