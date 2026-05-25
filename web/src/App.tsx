@@ -25,7 +25,7 @@ import { LinearProgress, Box } from "@mui/material";
 	const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 	const Settings = lazy(() => import("./pages/Settings"));
 	const Profile = lazy(() => import("./pages/Profile"));
-	const PurchasingRequirements = lazy(() => import("./pages/PurchasingRequirements"));
+	const PurchasingRequirements = lazy(() => import("./pages/RequirementsPage"));
 	const Prices = lazy(() => import("./pages/Prices"));
 const MinStock = lazy(() => import("./pages/MinStock"));
 
