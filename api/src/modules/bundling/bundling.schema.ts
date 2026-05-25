@@ -44,6 +44,16 @@ export interface BundlingItem {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	stockCoverCount: number;
+	/**
+	 * Stock-aware coverage threshold (resolved from min-stock settings).
+	 * Same logic as purchasing — used by frontend for category computation.
+	 */
+	coverageThreshold: number;
+	/**
+	 * Stock-aware order quantity (in StkUnit).
+	 * Formula: max(0, (coverageThreshold * avgDemand) - qtyAvail - qtyOnPO)
+	 */
+	suggestedOrder: number;
 	// Component information
 	components: ComponentStock[];
 	/** How many complete bundles can be made from existing component stock */

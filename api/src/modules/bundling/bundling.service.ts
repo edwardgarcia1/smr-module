@@ -10,6 +10,7 @@ import {
 	canConvert,
 	normaliseQtyCached,
 } from "../../utils/unitConversion";
+import { resolveManyMinStock } from "../min-stock/min-stock.service";
 import type {
 	BundlingItem,
 	BundlingQuery,
@@ -202,7 +203,24 @@ export async function getBundlingRequirements(
 		);
 	}
 
-	// ── Step 8: Assemble period demand per promo item ──────────────
+	// ── Step 8: Resolve min stock (coverage threshold) per item ──
+	const invtClassMap = new Map<string, string>();
+	for (const g of groups) {
+		const id = g.InvtID as string;
+		const cid = g.ClassID as string;
+		if (!invtClassMap.has(id)) invtClassMap.set(id, cid);
+	}
+	const minStockPairs = invtIDs.map((id) => ({
+		invtID: id,
+		classID: invtClassMap.get(id) ?? "",
+	}));
+	const resolvedMinStocks = await resolveManyMinStock(minStockPairs);
+	const coverageMap = new Map<string, number>();
+	for (const r of resolvedMinStocks) {
+		coverageMap.set(r.invtID, r.minStock);
+	}
+
+	// ── Step 9: Assemble period demand per promo item ──────────────
 	const periodKeys = generatePeriodKeys(dateRanges, frequency);
 
 	const demandMap = new Map<
@@ -252,13 +270,25 @@ export async function getBundlingRequirements(
 		entry.periodDemand.set(pk, cur + nq);
 	}
 
-	// ── Step 9: Fetch component descriptions ───────────────────────
+	// ── Step 10: Fetch component descriptions ──────────────────────
 	const compDescrMap = allComponentIDs.length > 0
 		? await fetchInventoryDescriptions(allComponentIDs, pool)
 		: new Map<string, string>();
 
-	// ── Step 10: Build response ────────────────────────────────────
+	// ── Step 11: Build response ────────────────────────────────────
 	const nPeriods = periodKeys.length || 1;
+
+	const monthToWeekFactor = (() => {
+		if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
+		const uniqueMonths = new Set(
+			periodKeys.map((k) => {
+				const m = k.match(/W\d+\s+(.+)/);
+				return m ? m[1] : k;
+			}),
+		);
+		const nMonths = uniqueMonths.size;
+		return nMonths > 0 ? nPeriods / nMonths : 1.0;
+	})();
 	const results: BundlingItem[] = [];
 
 	for (const [id, entry] of demandMap) {
@@ -328,6 +358,15 @@ export async function getBundlingRequirements(
 		const canFulfillFromBundling =
 			bundlableQuantity > 0 && bundlableQuantity >= Math.ceil(avgDemand);
 
+		// Coverage threshold and suggested order (same logic as purchasing)
+		const coverageThreshold = coverageMap.get(id) ?? 1;
+		const effectiveThreshold = coverageThreshold * monthToWeekFactor;
+		const targetStock = effectiveThreshold * avgDemand;
+		const suggestedOrder = Math.max(
+			0,
+			Math.round((targetStock - stock.qtyAvail - stock.qtyOnPO) * 100) / 100,
+		);
+
 		results.push({
 			invtID: id,
 			descr: entry.descr,
@@ -340,6 +379,8 @@ export async function getBundlingRequirements(
 			periodDemand: periodDemandObj,
 			avgDemand,
 			stockCoverCount,
+			coverageThreshold,
+			suggestedOrder,
 			components,
 			bundlableQuantity,
 			suggestedBundles,

@@ -206,6 +206,8 @@ interface BundlingRow {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	stockCoverCount: number;
+	coverageThreshold: number | null;
+	suggestedOrder: number | null;
 	components: ComponentStock[];
 	bundlableQuantity: number;
 	suggestedBundles: number;
@@ -992,6 +994,20 @@ const RequirementsPage: React.FC = () => {
 					value != null ? value.toFixed(2) : "",
 			});
 
+			// Category
+			cols.push({
+				field: "_category",
+				headerName: "Category",
+				width: 130,
+				valueGetter: (_value: unknown, row: BundlingRow) =>
+					computeCategoryName(row, categoriesRef.current),
+				sortComparator: (v1: string | null, v2: string | null) => {
+					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
+					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
+					return o1 - o2;
+				},
+			});
+
 			return cols;
 		},
 		[frequency],
@@ -1244,6 +1260,15 @@ const RequirementsPage: React.FC = () => {
 			return cat ? selectedCategories.includes(cat) : true;
 		});
 	}, [purchasingRows, selectedCategories, categories]);
+
+	// ─── Filtered rows by selected categories (bundling only) ────────
+	const filteredBundlingRows = useMemo(() => {
+		if (selectedCategories.length === 0) return bundlingRows;
+		return bundlingRows.filter((row) => {
+			const cat = computeCategoryName(row as BundlingRow, categories);
+			return cat ? selectedCategories.includes(cat) : true;
+		});
+	}, [bundlingRows, selectedCategories, categories]);
 
 	// ─── Column visibility model (purchasing only) ─────────────────────
 	const columnVisibilityModel = useMemo(() => {
@@ -1844,6 +1869,49 @@ const RequirementsPage: React.FC = () => {
 			paddingRight: 0.75,
 			color: theme.palette.primary.main,
 		};
+
+		const categoryColors: Record<
+			string,
+			{ bg: string; chipBg: string; chipText: string }
+		> = {
+			Immediate: {
+				bg: darkMode ? "rgba(211, 47, 47, 0.35)" : "#ffcdd2",
+				chipBg: darkMode ? "#b71c1c" : "#d32f2f",
+				chipText: "#ffffff",
+			},
+			Secondary: {
+				bg: darkMode ? "rgba(255, 193, 7, 0.30)" : "#fff9c4",
+				chipBg: darkMode ? "#f57f17" : "#f9a825",
+				chipText: "#ffffff",
+			},
+			Monitoring: {
+				bg: darkMode ? "rgba(33, 150, 243, 0.27)" : "#bbdefb",
+				chipBg: darkMode ? "#0d47a1" : "#1976d2",
+				chipText: "#ffffff",
+			},
+			Ordered: {
+				bg: darkMode ? "rgba(156, 39, 176, 0.25)" : "#e1bee7",
+				chipBg: darkMode ? "#4a148c" : "#7b1fa2",
+				chipText: "#ffffff",
+			},
+			Overstocked: {
+				bg: darkMode ? "rgba(76, 175, 80, 0.27)" : "#c8e6c9",
+				chipBg: darkMode ? "#1b5e20" : "#388e3c",
+				chipText: "#ffffff",
+			},
+			"No record": {
+				bg: darkMode ? "rgba(158, 158, 158, 0.25)" : "#eceff1",
+				chipBg: darkMode ? "#37474f" : "#616161",
+				chipText: "#ffffff",
+			},
+		};
+		const getCategoryColor = (cat: string) =>
+			categoryColors[cat] ?? {
+				bg: "transparent",
+				chipBg: theme.palette.action.selected,
+				chipText: theme.palette.text.primary,
+			};
+
 		return (
 			<Box
 				sx={{
@@ -1923,9 +1991,91 @@ const RequirementsPage: React.FC = () => {
 						</Tooltip>
 					</Box>
 				</Box>
+				<Box
+					sx={{
+						display: "flex",
+						flexWrap: "wrap",
+						gap: 2,
+						px: 2,
+						pb: 1.5,
+						alignItems: "center",
+					}}
+				>
+					<Autocomplete
+						multiple
+						size="small"
+						options={categoryOptions}
+						value={selectedCategories}
+						onChange={(_, newVal) => setSelectedCategories(newVal)}
+						disableCloseOnSelect
+						sx={{ width: 220 }}
+						renderValue={(value, getItemProps) =>
+							(value as string[]).map((option, index) => {
+								const { key, ...itemProps } = getItemProps({ index });
+								const cc = getCategoryColor(option);
+								return (
+									<Chip
+										key={key}
+										{...itemProps}
+										label={option}
+										size="small"
+										variant="filled"
+										sx={{
+											backgroundColor: `${cc.chipBg} !important`,
+											color: `${cc.chipText} !important`,
+											fontWeight: 700,
+											"& .MuiChip-deleteIcon": {
+												color: `${cc.chipText} !important`,
+												fontSize: 18,
+												opacity: 0.85,
+												"&:hover": { opacity: 1 },
+											},
+										}}
+									/>
+								);
+							})
+						}
+						renderOption={(props, option, { selected }) => {
+							const { key, ...rest } = props;
+							const cc = getCategoryColor(option);
+							return (
+								<li
+									key={key}
+									{...rest}
+									style={{
+										backgroundColor: selected ? cc.bg : undefined,
+										borderLeft: `4px solid ${cc.chipBg}`,
+										marginBottom: 1,
+									}}
+								>
+									<Checkbox
+										icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+										checkedIcon={<CheckBoxIcon fontSize="small" />}
+										checked={selected}
+										sx={{
+											color: cc.chipBg,
+											"&.Mui-checked": { color: cc.chipBg },
+										}}
+									/>
+									<Typography variant="body2" sx={{ fontWeight: 500 }}>
+										{option}
+									</Typography>
+								</li>
+							);
+						}}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Category"
+								placeholder="Filter by category"
+								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+						)}
+					/>
+				</Box>
 			</Box>
 		);
-	}, [handleExcelExport, theme]);
+	}, [handleExcelExport, theme, darkMode, categoryOptions, selectedCategories]);
 
 	// ─── Persist Form State ──────────────────────────────────────────
 	const persistState = useMemo(
@@ -2087,21 +2237,25 @@ const RequirementsPage: React.FC = () => {
 					}}
 				>
 					<DataGrid
-						rows={bundlingRows}
+						rows={filteredBundlingRows}
 						columns={bundlingColumns}
+						getRowClassName={getRowClassName}
 						getRowHeight={() => 42}
 						showToolbar
 						slots={{ toolbar: BundlingToolbar as React.ComponentType<any> }} // eslint-disable-line @typescript-eslint/no-explicit-any
 						slotProps={{
 							toolbar: {
 								handleExcelExport,
-								frequency,
+								categoryOptions,
+								selectedCategories,
+								setSelectedCategories,
 								darkMode,
 							} as any, // eslint-disable-line @typescript-eslint/no-explicit-any
 							pagination: { labelRowsPerPage: "Rows:" },
 						}}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
+							sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
 						}}
 						pageSizeOptions={[10, 20, 50]}
 						checkboxSelection
@@ -2131,6 +2285,42 @@ const RequirementsPage: React.FC = () => {
 							"& .group-component": {
 								backgroundColor: groupColors.component.bg,
 								color: groupColors.component.color,
+							},
+							"& .row-immediate": {
+								backgroundColor: darkMode
+									? "rgba(211, 47, 47, 0.35)"
+									: "#ffcdd2",
+								borderLeft: "5px solid #d32f2f",
+							},
+							"& .row-secondary": {
+								backgroundColor: darkMode
+									? "rgba(255, 193, 7, 0.30)"
+									: "#fff9c4",
+								borderLeft: "5px solid #f9a825",
+							},
+							"& .row-monitoring": {
+								backgroundColor: darkMode
+									? "rgba(33, 150, 243, 0.27)"
+									: "#bbdefb",
+								borderLeft: "5px solid #1976d2",
+							},
+							"& .row-overstocked": {
+								backgroundColor: darkMode
+									? "rgba(76, 175, 80, 0.27)"
+									: "#c8e6c9",
+								borderLeft: "5px solid #388e3c",
+							},
+							"& .row-ordered": {
+								backgroundColor: darkMode
+									? "rgba(156, 39, 176, 0.25)"
+									: "#e1bee7",
+								borderLeft: "5px solid #7b1fa2",
+							},
+							"& .row-no-record": {
+								backgroundColor: darkMode
+									? "rgba(158, 158, 158, 0.25)"
+									: "#eceff1",
+								borderLeft: "5px solid #616161",
 							},
 							"& .MuiDataGrid-cell:focus": { outline: "none" },
 							"& .MuiDataGrid-cell:focus-within": { outline: "none" },
