@@ -411,23 +411,29 @@ async function convertPrice(
  *
  * @param page    Page number (1-based).
  * @param limit   Rows per page.
- * @param search  Optional search across InvtID, ClassID, Descr.
+ * @param search  Optional search across InvtID, Descr.
  * @param reqUnit Optional target unit to convert prices into.
+ * @param classID Optional ClassID filter (exact match).
  */
 export const getPricesPaginated = async (
 	page: number,
 	limit: number,
 	search?: string,
 	reqUnit?: string,
+	classID?: string,
 ): Promise<PaginatedResponse<PriceRecord>> => {
 	const pool = await getDb();
 	const offset = (page - 1) * limit;
 
 	const conditions: string[] = [];
 	const hasSearch = search != null && search.trim().length > 0;
+	const hasClassID = classID != null && classID.trim().length > 0;
 
 	if (hasSearch) {
-		conditions.push(`(i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)`);
+		conditions.push(`(i.InvtID LIKE @search OR i.Descr LIKE @search)`);
+	}
+	if (hasClassID) {
+		conditions.push(`i.ClassID = @classID`);
 	}
 
 	const whereClause =
@@ -441,10 +447,16 @@ export const getPricesPaginated = async (
   `;
 	const countReq = pool.request();
 	if (hasSearch) countReq.input("search", `%${search.trim()}%`);
+	if (hasClassID) countReq.input("classID", classID.trim());
 	const countResult = await countReq.query(countQuery);
 	const total = Number(countResult.recordset[0]?._total) || 0;
 
 	// ── Count items without any current price ──────────────────────
+	const noPriceConditions: string[] = [];
+	if (hasSearch) noPriceConditions.push(`(i.InvtID LIKE @search OR i.Descr LIKE @search)`);
+	if (hasClassID) noPriceConditions.push(`i.ClassID = @classID`);
+	const noPriceWhere = noPriceConditions.length > 0 ? `AND ${noPriceConditions.join(" AND ")}` : "";
+
 	const noPriceCountQuery = `
     SELECT COUNT(*) AS _cnt
     FROM Inventory i
@@ -452,10 +464,11 @@ export const getPricesPaginated = async (
       SELECT 1 FROM SMR_ItemPrice ip
       WHERE ip.inventory_id = i.InvtID AND ip.valid_to IS NULL
     )
-    ${hasSearch ? `AND (i.InvtID LIKE @search OR i.ClassID LIKE @search OR i.Descr LIKE @search)` : ``}
+    ${noPriceWhere}
   `;
 	const noPriceReq = pool.request();
 	if (hasSearch) noPriceReq.input("search", `%${search.trim()}%`);
+	if (hasClassID) noPriceReq.input("classID", classID.trim());
 	const noPriceResult = await noPriceReq.query(noPriceCountQuery);
 	const withoutPriceCount = Number(noPriceResult.recordset[0]?._cnt) || 0;
 
@@ -478,6 +491,7 @@ export const getPricesPaginated = async (
   `;
 	const dataReq = pool.request();
 	if (hasSearch) dataReq.input("search", `%${search.trim()}%`);
+	if (hasClassID) dataReq.input("classID", classID.trim());
 	dataReq.input("_offset", offset);
 	dataReq.input("_limit", limit);
 	const dataResult = await dataReq.query(dataQuery);

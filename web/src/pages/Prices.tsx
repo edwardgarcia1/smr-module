@@ -90,6 +90,12 @@ interface ImportRow {
 	valid_to?: string | null;
 }
 
+interface Principal {
+	ClassID: string;
+	Descr: string;
+	User5: string;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function fmtNum(val: Big | number | null | undefined): string {
@@ -562,9 +568,9 @@ interface PricesToolbarProps {
 	unitOptions: string[];
 	onUnitChange: (value: string | null) => void;
 	onImportClick: () => void;
-	priceClassOptions: string[];
-	selectedPriceClass: string | null;
-	onPriceClassChange: (value: string | null) => void;
+	principals: Principal[];
+	selectedPrincipal: Principal | null;
+	onPrincipalChange: (value: Principal | null) => void;
 }
 
 const PricesToolbar: React.FC<PricesToolbarProps> = ({
@@ -580,9 +586,9 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	unitOptions,
 	onUnitChange,
 	onImportClick,
-	priceClassOptions,
-	selectedPriceClass,
-	onPriceClassChange,
+	principals,
+	selectedPrincipal,
+	onPrincipalChange,
 }) => (
 	<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
 		<Box
@@ -634,7 +640,7 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 		>
 			<TextField
 				size="small"
-				placeholder="Search inventory, class, desc..."
+				placeholder="Search inventory ID or description..."
 				value={searchInputValue}
 				onChange={(e) => onSearchInputChange(e.target.value)}
 				onKeyDown={handleKeyDown}
@@ -681,17 +687,19 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 			/>
 			<Autocomplete
 				size="small"
-				options={priceClassOptions}
-				value={selectedPriceClass}
-				onChange={(_, newVal) => onPriceClassChange(newVal)}
+				options={principals}
+				value={selectedPrincipal}
+				onChange={(_, newVal) => onPrincipalChange(newVal)}
+				getOptionLabel={(option) => `${option.ClassID} — ${option.Descr}`}
+				isOptionEqualToValue={(option, val) => option.ClassID === val.ClassID}
 				renderInput={(params) => (
 					<TextField
 						{...params}
-						placeholder="Price Class"
-						sx={{ minWidth: 130 }}
+						placeholder="Principal (Class ID)"
+						sx={{ minWidth: 220 }}
 					/>
 				)}
-				sx={{ minWidth: 130 }}
+				sx={{ minWidth: 220 }}
 			/>
 		</Box>
 	</Box>
@@ -1374,6 +1382,12 @@ const Prices: React.FC = () => {
 		null,
 	);
 
+	// Principal filter state
+	const [principals, setPrincipals] = useState<Principal[]>([]);
+	const [selectedPrincipal, setSelectedPrincipal] = useState<Principal | null>(
+		null,
+	);
+
 	// Shared full classes data (for PriceClassCard + filter derivation)
 	const [allClasses, setAllClasses] = useState<PriceClassItem[]>([]);
 	const [classesLoading, setClassesLoading] = useState(true);
@@ -1412,11 +1426,24 @@ const Prices: React.FC = () => {
 		}
 	}, []);
 
+	const fetchPrincipals = useCallback(async () => {
+		try {
+			const list = await apiRequest<Principal[]>("/principal/ids");
+			setPrincipals(list ?? []);
+		} catch {
+			/* non-critical */
+		}
+	}, []);
+
 	useEffect(() => {
 		const abort = new AbortController();
 		fetchPriceClasses(abort.signal);
 		return () => abort.abort();
 	}, [fetchPriceClasses]);
+
+	useEffect(() => {
+		fetchPrincipals();
+	}, [fetchPrincipals]);
 
 	const handleSearch = useCallback(() => {
 		const value = searchInputValue.trim();
@@ -1453,6 +1480,7 @@ const Prices: React.FC = () => {
 				if (searchQuery) params.set("search", searchQuery);
 				const u = unitRef.current;
 				if (u) params.set("unit", u);
+				if (selectedPrincipal) params.set("classID", selectedPrincipal.ClassID);
 
 				const res = await apiRequest<PaginatedResponse<PriceRecord>>(
 					`/price?${params}`,
@@ -1472,7 +1500,7 @@ const Prices: React.FC = () => {
 				}
 			}
 		},
-		[page, pageSize, searchQuery, unit],
+		[page, pageSize, searchQuery, unit, selectedPrincipal],
 	);
 
 	useEffect(() => {
@@ -1552,9 +1580,12 @@ const Prices: React.FC = () => {
 						setImportOpen(true);
 						setImportResult(null);
 					}}
-					priceClassOptions={priceClassOptions}
-					selectedPriceClass={selectedPriceClass}
-					onPriceClassChange={setSelectedPriceClass}
+					principals={principals}
+					selectedPrincipal={selectedPrincipal}
+					onPrincipalChange={(val) => {
+						setSelectedPrincipal(val);
+						setPage(0);
+					}}
 				/>
 				{error ? (
 					<Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>
