@@ -522,6 +522,9 @@ const RequirementsPage: React.FC = () => {
 	const periodKeysRef = useRef<string[]>([]);
 	const categoriesRef = useRef(categories);
 
+	// Ref for auto-scroll to results after apply
+	const resultsAnchorRef = useRef<HTMLDivElement>(null);
+
 	// Sync categoriesRef with current categories value outside render
 	useEffect(() => {
 		categoriesRef.current = categories;
@@ -2093,6 +2096,24 @@ const RequirementsPage: React.FC = () => {
 		persistFormState(persistState);
 	}, [persistState]);
 
+	// Auto-scroll to results after DataGrid finishes rendering
+	useEffect(() => {
+		if (
+			applied &&
+			(purchasingColumns.length > 0 || bundlingColumns.length > 0)
+		) {
+			// Double rAF — wait for DataGrid virtual scroller layout to settle
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					resultsAnchorRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				});
+			});
+		}
+	}, [applied, purchasingColumns.length, bundlingColumns.length]);
+
 	// ─── Render ───────────────────────────────────────────────────────
 	return (
 		<>
@@ -2333,6 +2354,9 @@ const RequirementsPage: React.FC = () => {
 					/>
 				</Paper>
 			)}
+
+			{/* Scroll anchor for auto-scroll on apply */}
+			<div ref={resultsAnchorRef} />
 		</>
 	);
 };
