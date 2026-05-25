@@ -22,6 +22,7 @@ import {
 	Alert,
 	Tooltip,
 	Checkbox,
+	Chip,
 	CircularProgress,
 	Divider,
 	useTheme,
@@ -272,6 +273,7 @@ interface PurchasingRequirementsToolbarProps {
 	showDemandColumns: boolean;
 	setShowDemandColumns: React.Dispatch<React.SetStateAction<boolean>>;
 	frequency: Frequency;
+	darkMode: boolean;
 }
 
 const PurchasingRequirementsToolbar: React.FC<
@@ -292,6 +294,7 @@ const PurchasingRequirementsToolbar: React.FC<
 	showDemandColumns,
 	setShowDemandColumns,
 	frequency,
+	darkMode,
 }) => {
 	const theme = useTheme();
 
@@ -305,6 +308,49 @@ const PurchasingRequirementsToolbar: React.FC<
 		paddingRight: 0.75,
 		color: theme.palette.primary.main,
 	};
+
+	// Category colors matching data grid row highlighting
+	const categoryColors: Record<
+		string,
+		{ bg: string; chipBg: string; chipText: string }
+	> = {
+		Immediate: {
+			bg: darkMode ? "rgba(211, 47, 47, 0.35)" : "#ffcdd2",
+			chipBg: darkMode ? "#b71c1c" : "#d32f2f",
+			chipText: "#ffffff",
+		},
+		Secondary: {
+			bg: darkMode ? "rgba(255, 193, 7, 0.30)" : "#fff9c4",
+			chipBg: darkMode ? "#f57f17" : "#f9a825",
+			chipText: "#ffffff",
+		},
+		Monitoring: {
+			bg: darkMode ? "rgba(33, 150, 243, 0.27)" : "#bbdefb",
+			chipBg: darkMode ? "#0d47a1" : "#1976d2",
+			chipText: "#ffffff",
+		},
+		Ordered: {
+			bg: darkMode ? "rgba(156, 39, 176, 0.25)" : "#e1bee7",
+			chipBg: darkMode ? "#4a148c" : "#7b1fa2",
+			chipText: "#ffffff",
+		},
+		Overstocked: {
+			bg: darkMode ? "rgba(76, 175, 80, 0.27)" : "#c8e6c9",
+			chipBg: darkMode ? "#1b5e20" : "#388e3c",
+			chipText: "#ffffff",
+		},
+		"No record": {
+			bg: darkMode ? "rgba(158, 158, 158, 0.25)" : "#eceff1",
+			chipBg: darkMode ? "#37474f" : "#616161",
+			chipText: "#ffffff",
+		},
+	};
+	const getCategoryColor = (cat: string) =>
+		categoryColors[cat] ?? {
+			bg: "transparent",
+			chipBg: theme.palette.action.selected,
+			chipText: theme.palette.text.primary,
+		};
 
 	return (
 		<Box
@@ -446,16 +492,57 @@ const PurchasingRequirementsToolbar: React.FC<
 					onChange={(_, newVal) => setSelectedCategories(newVal)}
 					disableCloseOnSelect
 					sx={{ width: 220 }}
+					renderValue={(value, getItemProps) =>
+						(value as string[]).map((option, index) => {
+							const { key, ...itemProps } = getItemProps({ index });
+							const cc = getCategoryColor(option);
+							return (
+								<Chip
+									key={key}
+									{...itemProps}
+									label={option}
+									size="small"
+									variant="filled"
+									sx={{
+										backgroundColor: `${cc.chipBg} !important`,
+										color: `${cc.chipText} !important`,
+										fontWeight: 700,
+										"& .MuiChip-deleteIcon": {
+											color: `${cc.chipText} !important`,
+											fontSize: 18,
+											opacity: 0.85,
+											"&:hover": { opacity: 1 },
+										},
+									}}
+								/>
+							);
+						})
+					}
 					renderOption={(props, option, { selected }) => {
 						const { key, ...rest } = props;
+						const cc = getCategoryColor(option);
 						return (
-							<li key={key} {...rest}>
+							<li
+								key={key}
+								{...rest}
+								style={{
+									backgroundColor: selected ? cc.bg : undefined,
+									borderLeft: `4px solid ${cc.chipBg}`,
+									marginBottom: 1,
+								}}
+							>
 								<Checkbox
 									icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
 									checkedIcon={<CheckBoxIcon fontSize="small" />}
 									checked={selected}
+									sx={{
+										color: cc.chipBg,
+										"&.Mui-checked": { color: cc.chipBg },
+									}}
 								/>
-								{option}
+								<Typography variant="body2" sx={{ fontWeight: 500 }}>
+									{option}
+								</Typography>
 							</li>
 						);
 					}}
@@ -1502,6 +1589,7 @@ const PurchasingRequirements: React.FC = () => {
 								showDemandColumns,
 								setShowDemandColumns,
 								frequency,
+								darkMode,
 							} as any,
 							pagination: {
 								labelRowsPerPage: "Rows:",
