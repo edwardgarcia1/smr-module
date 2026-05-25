@@ -26,8 +26,7 @@ import { LinearProgress, Box } from "@mui/material";
 	const Settings = lazy(() => import("./pages/Settings"));
 	const Profile = lazy(() => import("./pages/Profile"));
 	const PurchasingRequirements = lazy(() => import("./pages/PurchasingRequirements"));
-	const BundlingRequirements = lazy(() => import("./pages/BundlingRequirements"));
-const Prices = lazy(() => import("./pages/Prices"));
+	const Prices = lazy(() => import("./pages/Prices"));
 const SalesOrders = lazy(() => import("./pages/SalesOrders"));
 const MinStock = lazy(() => import("./pages/MinStock"));
 
@@ -40,8 +39,7 @@ const ROOT_LABEL_MAP: Record<string, string> = {
 	"/purchase-orders": "Purchase Orders",
 	"/settings": "Settings",
 	"/profile": "Profile",
-	"/purchasing-requirements": "Purchasing Requirements",
-	"/bundling-requirements": "Bundling Requirements",
+	"/purchasing-requirements": "Requirements",
 	"/prices": "Prices",
 	"/sales-orders": "Sales Orders",
 	"/min-stock": "Min Stock Settings",
@@ -222,13 +220,9 @@ const AppRoutes: React.FC = () => {
 						</AppSuspense>
 					}
 				/>
-				<Route
+<Route
 					path="/bundling-requirements"
-					element={
-						<AppSuspense>
-							<BundlingRequirements />
-						</AppSuspense>
-					}
+					element={<Navigate to="/purchasing-requirements" replace />}
 				/>
 				<Route
 					path="/prices"
