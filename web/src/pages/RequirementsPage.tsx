@@ -219,8 +219,18 @@ const ALLOWED_SITE_IDS = new Set(["MAIN", "CAB", "3MPMT", "3MPGT"]);
 /** Numeric sort value for period labels */
 function periodSortValue(key: string): number {
 	const monthIdx: Record<string, number> = {
-		Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-		Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
+		Jan: 0,
+		Feb: 1,
+		Mar: 2,
+		Apr: 3,
+		May: 4,
+		Jun: 5,
+		Jul: 6,
+		Aug: 7,
+		Sep: 8,
+		Oct: 9,
+		Nov: 10,
+		Dec: 11,
 	};
 	const wm = key.match(/^W(\d+)\s+(\w+)\s+(\d+)$/);
 	if (wm && wm[2] && wm[3])
@@ -271,7 +281,9 @@ function deserializeDateRanges(
 
 // ─── Component Cell Renderers (Bundling) ─────────────────────────────────────
 
-const ComponentChip: React.FC<{ component: ComponentStock }> = ({ component }) => {
+const ComponentChip: React.FC<{ component: ComponentStock }> = ({
+	component,
+}) => {
 	const shortage = component.maxBundlesFromStock < 1;
 	return (
 		<Box
@@ -315,11 +327,21 @@ const ComponentChip: React.FC<{ component: ComponentStock }> = ({ component }) =
 	);
 };
 
-const ComponentsListCell: React.FC<{ components: ComponentStock[] }> = ({ components }) => {
+const ComponentsListCell: React.FC<{ components: ComponentStock[] }> = ({
+	components,
+}) => {
 	if (!components || components.length === 0)
-		return <Typography variant="caption" color="text.disabled">—</Typography>;
+		return (
+			<Typography variant="caption" color="text.disabled">
+				—
+			</Typography>
+		);
 	return (
-		<Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5, py: 0.5 }}>
+		<Stack
+			direction="row"
+			spacing={0.5}
+			sx={{ flexWrap: "wrap", gap: 0.5, py: 0.5 }}
+		>
 			{components.map((c) => (
 				<ComponentChip key={c.cmpnentID} component={c} />
 			))}
@@ -386,7 +408,9 @@ const RequirementsPage: React.FC = () => {
 	);
 	const [principals, setPrincipals] = useState<Principal[]>([]);
 
-	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
+	const [storageLocations, setStorageLocations] = useState<StorageLocation[]>(
+		[],
+	);
 	const [selectedStorage, setSelectedStorage] = useState<StorageLocation[]>(
 		persistedForm?.selectedStorage ?? [],
 	);
@@ -486,7 +510,9 @@ const RequirementsPage: React.FC = () => {
 
 	// Toolbar states (purchasing-specific)
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
-	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(null);
+	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
+		null,
+	);
 	const [poReference, setPoReference] = useState("");
 	const [showDemandColumns, setShowDemandColumns] = useState(true);
 
@@ -517,60 +543,141 @@ const RequirementsPage: React.FC = () => {
 			})();
 
 			const staticHeader = { headerClassName: "group-static" };
-			cols.push({ field: "invtID", headerName: "Inventory ID", width: 110, ...staticHeader });
-			cols.push({ field: "descr", headerName: "Description", width: 260, ...staticHeader });
-			cols.push({ field: "stkUnit", headerName: "Stock Unit", width: 90, ...staticHeader });
 			cols.push({
-				field: "qtyAlloc", headerName: "Unreleased", width: 110, type: "number", ...staticHeader,
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+				field: "invtID",
+				headerName: "Inventory ID",
+				width: 110,
+				...staticHeader,
 			});
 			cols.push({
-				field: "qtyOnPO", headerName: "Incoming", width: 110, type: "number", ...staticHeader,
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+				field: "descr",
+				headerName: "Description",
+				width: 260,
+				...staticHeader,
 			});
 			cols.push({
-				field: "qtyOnHand", headerName: "On Hand", width: 110, type: "number", ...staticHeader,
-				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+				field: "stkUnit",
+				headerName: "Stock Unit",
+				width: 90,
+				...staticHeader,
 			});
 			cols.push({
-				field: "qtyAvail", headerName: "Available", width: 110, type: "number", ...staticHeader,
+				field: "qtyAlloc",
+				headerName: "Unreleased",
+				width: 110,
+				type: "number",
+				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "qtyOnPO",
+				headerName: "Incoming",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "qtyOnHand",
+				headerName: "On Hand",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "qtyAvail",
+				headerName: "Available",
+				width: 110,
+				type: "number",
+				...staticHeader,
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Demand columns
 			periodKeys.forEach((key) => {
 				const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
 				cols.push({
-					field: fieldKey, headerName: key, width: 110, type: "number",
+					field: fieldKey,
+					headerName: key,
+					width: 110,
+					type: "number",
 					headerClassName: "group-demand",
-					valueGetter: (_value, row) => (row as unknown as RequirementRow & { id: number }).periodDemand[key] ?? 0,
+					valueGetter: (_value, row) =>
+						(row as unknown as RequirementRow & { id: number }).periodDemand[
+							key
+						] ?? 0,
 					valueFormatter: (value?: number) =>
-						value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+						value != null
+							? value.toLocaleString(undefined, {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2,
+								})
+							: "",
 				});
 			});
 
 			// Computation columns
 			cols.push({
-				field: "avgDemand", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (PCS)`, width: 150,
-				type: "number", headerClassName: "group-computation",
+				field: "avgDemand",
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (PCS)`,
+				width: 150,
+				type: "number",
+				headerClassName: "group-computation",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
-				field: "avgDemandCS", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (CS)`, width: 120,
-				type: "number", headerClassName: "group-computation",
+				field: "avgDemandCS",
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (CS)`,
+				width: 120,
+				type: "number",
+				headerClassName: "group-computation",
 				description: "Average demand converted to cases (CS)",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
 				field: "coverageThreshold",
 				headerName: `Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`,
-				width: 100, type: "number", editable: true, headerClassName: "group-computation",
+				width: 100,
+				type: "number",
+				editable: true,
+				headerClassName: "group-computation",
 				renderEditCell: (params) => {
 					const editDisplayValue =
 						frequency === "weekly" && params.value != null
@@ -578,18 +685,32 @@ const RequirementsPage: React.FC = () => {
 							: (params.value ?? "");
 					return (
 						<input
-							type="number" step={0.1} value={editDisplayValue}
+							type="number"
+							step={0.1}
+							value={editDisplayValue}
 							onChange={(e) => {
 								const rawVal = parseFloat(e.target.value);
 								if (!isNaN(rawVal)) {
-									const monthsVal = frequency === "weekly" ? rawVal / displayFactor : rawVal;
-									params.api.setEditCellValue({ id: params.id, field: params.field, value: monthsVal });
+									const monthsVal =
+										frequency === "weekly" ? rawVal / displayFactor : rawVal;
+									params.api.setEditCellValue({
+										id: params.id,
+										field: params.field,
+										value: monthsVal,
+									});
 								}
 							}}
 							style={{
-								width: "100%", height: "100%", border: "none", outline: "none",
-								textAlign: "center", padding: "0 8px", fontFamily: "inherit",
-								fontSize: "inherit", color: "inherit", background: "transparent",
+								width: "100%",
+								height: "100%",
+								border: "none",
+								outline: "none",
+								textAlign: "center",
+								padding: "0 8px",
+								fontFamily: "inherit",
+								fontSize: "inherit",
+								color: "inherit",
+								background: "transparent",
 							}}
 							autoFocus
 						/>
@@ -597,41 +718,74 @@ const RequirementsPage: React.FC = () => {
 				},
 				valueFormatter: (value?: number) => {
 					if (value == null) return "";
-					const displayValue = frequency === "weekly" ? value * displayFactor : value;
+					const displayValue =
+						frequency === "weekly" ? value * displayFactor : value;
 					return displayValue.toFixed(2);
 				},
 			});
 			cols.push({
-				field: "stockCoverCount", headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
-				width: 130, type: "number", headerClassName: "group-stock",
-				valueFormatter: (value?: number) => (value != null ? value.toFixed(2) : ""),
-			});
-			cols.push({
-				field: "suggestedOrder", headerName: "Suggested Order (PCS)", width: 180,
-				type: "number", headerClassName: "group-stock",
-				description: "Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
+				field: "stockCoverCount",
+				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null ? value.toFixed(2) : "",
 			});
 			cols.push({
-				field: "suggestedOrderCS", headerName: "Suggested Order (CS)", width: 130,
-				type: "number", headerClassName: "group-stock",
+				field: "suggestedOrder",
+				headerName: "Suggested Order (PCS)",
+				width: 180,
+				type: "number",
+				headerClassName: "group-stock",
+				description:
+					"Stock-aware: fills up to the resolved min stock threshold (per-item coverage)",
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "suggestedOrderCS",
+				headerName: "Suggested Order (CS)",
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
 				description: "Suggested order converted to cases (CS)",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Custom Order
 			cols.push({
-				field: "customOrder", headerName: "Custom Order", width: 130,
-				type: "number", editable: true, headerClassName: "group-custom",
+				field: "customOrder",
+				headerName: "Custom Order",
+				width: 130,
+				type: "number",
+				editable: true,
+				headerClassName: "group-custom",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Category
 			cols.push({
-				field: "_category", headerName: "Category", width: 130,
+				field: "_category",
+				headerName: "Category",
+				width: 130,
 				valueGetter: (_value: unknown, row: RequirementRow) =>
 					computeCategoryName(row, categoriesRef.current),
 				sortComparator: (v1: string | null, v2: string | null) => {
@@ -652,38 +806,81 @@ const RequirementsPage: React.FC = () => {
 			const cols: GridColDef[] = [];
 
 			const staticHeader = { headerClassName: "group-static" };
-			cols.push({ field: "invtID", headerName: "Promo ID", width: 120, ...staticHeader });
-			cols.push({ field: "descr", headerName: "Description", width: 260, ...staticHeader });
-			cols.push({ field: "stkUnit", headerName: "Stock Unit", width: 90, ...staticHeader });
+			cols.push({
+				field: "invtID",
+				headerName: "Promo ID",
+				width: 120,
+				...staticHeader,
+			});
+			cols.push({
+				field: "descr",
+				headerName: "Description",
+				width: 260,
+				...staticHeader,
+			});
+			cols.push({
+				field: "stkUnit",
+				headerName: "Stock Unit",
+				width: 90,
+				...staticHeader,
+			});
 
 			// Bundling status badge
 			cols.push({
-				field: "canFulfillFromBundling", headerName: "Bundle?", width: 90,
+				field: "canFulfillFromBundling",
+				headerName: "Bundle?",
+				width: 90,
 				headerClassName: "group-bundling",
 				renderCell: (params) => {
 					const row = params.row as BundlingRow & { id: number };
 					return row.canFulfillFromBundling ? (
-						<Chip size="small" label="Yes" color="success" variant="outlined" sx={{ fontWeight: 600, fontSize: "0.7rem" }} />
+						<Chip
+							size="small"
+							label="Yes"
+							color="success"
+							variant="outlined"
+							sx={{ fontWeight: 600, fontSize: "0.7rem" }}
+						/>
 					) : (
-						<Chip size="small" label="No" color="warning" variant="outlined" sx={{ fontWeight: 600, fontSize: "0.7rem" }} />
+						<Chip
+							size="small"
+							label="No"
+							color="warning"
+							variant="outlined"
+							sx={{ fontWeight: 600, fontSize: "0.7rem" }}
+						/>
 					);
 				},
 			});
 			cols.push({
-				field: "bundlableQuantity", headerName: "Bundlable Qty", width: 120,
-				type: "number", headerClassName: "group-bundling",
-				valueFormatter: (value?: number) => (value != null ? value.toLocaleString() : ""),
+				field: "bundlableQuantity",
+				headerName: "Bundlable Qty",
+				width: 120,
+				type: "number",
+				headerClassName: "group-bundling",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
 			});
 			cols.push({
-				field: "suggestedBundles", headerName: "Suggested Bundles", width: 130,
-				type: "number", headerClassName: "group-bundling",
-				valueFormatter: (value?: number) => (value != null ? value.toLocaleString() : ""),
+				field: "suggestedBundles",
+				headerName: "Suggested Bundles",
+				width: 130,
+				type: "number",
+				headerClassName: "group-bundling",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString() : "",
 			});
 
 			// Components column
 			cols.push({
-				field: "components", headerName: "Components (avail / per bundle)", width: 500, minWidth: 400, flex: 1,
-				headerClassName: "group-component", sortable: false, filterable: false,
+				field: "components",
+				headerName: "Components (avail / per bundle)",
+				width: 700,
+				minWidth: 500,
+				flex: 1,
+				headerClassName: "group-component",
+				sortable: false,
+				filterable: false,
 				renderCell: (params) => {
 					const row = params.row as BundlingRow & { id: number };
 					return <ComponentsListCell components={row.components ?? []} />;
@@ -691,49 +888,108 @@ const RequirementsPage: React.FC = () => {
 			});
 
 			cols.push({
-				field: "qtyAlloc", headerName: "Unreleased", width: 110, type: "number", ...staticHeader,
+				field: "qtyAlloc",
+				headerName: "Unreleased",
+				width: 110,
+				type: "number",
+				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
-				field: "qtyOnPO", headerName: "Incoming", width: 110, type: "number", ...staticHeader,
+				field: "qtyOnPO",
+				headerName: "Incoming",
+				width: 110,
+				type: "number",
+				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
-				field: "qtyOnHand", headerName: "On Hand", width: 110, type: "number", ...staticHeader,
+				field: "qtyOnHand",
+				headerName: "On Hand",
+				width: 110,
+				type: "number",
+				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
-				field: "qtyAvail", headerName: "Available", width: 110, type: "number", ...staticHeader,
+				field: "qtyAvail",
+				headerName: "Available",
+				width: 110,
+				type: "number",
+				...staticHeader,
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 
 			// Demand columns
 			periodKeys.forEach((key) => {
 				const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
 				cols.push({
-					field: fieldKey, headerName: key, width: 110, type: "number",
+					field: fieldKey,
+					headerName: key,
+					width: 110,
+					type: "number",
 					headerClassName: "group-demand",
-					valueGetter: (_value, row) => (row as unknown as BundlingRow & { id: number }).periodDemand[key] ?? 0,
+					valueGetter: (_value, row) =>
+						(row as unknown as BundlingRow & { id: number }).periodDemand[
+							key
+						] ?? 0,
 					valueFormatter: (value?: number) =>
-						value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+						value != null
+							? value.toLocaleString(undefined, {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2,
+								})
+							: "",
 				});
 			});
 
 			// Computation columns
 			cols.push({
-				field: "avgDemand", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`, width: 150,
-				type: "number", headerClassName: "group-computation",
+				field: "avgDemand",
+				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				width: 150,
+				type: "number",
+				headerClassName: "group-computation",
 				valueFormatter: (value?: number) =>
-					value != null ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "",
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
 			});
 			cols.push({
-				field: "stockCoverCount", headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`, width: 130,
-				type: "number", headerClassName: "group-computation",
-				valueFormatter: (value?: number) => (value != null ? value.toFixed(2) : ""),
+				field: "stockCoverCount",
+				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
 			});
 
 			return cols;
@@ -756,7 +1012,10 @@ const RequirementsPage: React.FC = () => {
 			setIsApplying(false);
 			return;
 		}
-		if (dateRanges.length === 0 || dateRanges.some((dr) => !dr.from || !dr.to)) {
+		if (
+			dateRanges.length === 0 ||
+			dateRanges.some((dr) => !dr.from || !dr.to)
+		) {
 			setGridError("Please fill in all date ranges.");
 			setIsApplying(false);
 			return;
@@ -776,15 +1035,23 @@ const RequirementsPage: React.FC = () => {
 
 			for (const dr of dateRanges) {
 				if (dr.from && dr.to) {
-					params.append("dateRange", `${dr.from.format("YYYY-MM-DD")},${dr.to.format("YYYY-MM-DD")}`);
+					params.append(
+						"dateRange",
+						`${dr.from.format("YYYY-MM-DD")},${dr.to.format("YYYY-MM-DD")}`,
+					);
 				}
 			}
 			for (const s of selectedStorage) {
 				params.append("siteID", s.id);
 			}
 
-			const endpoint = mode === "purchasing" ? "/purchasing/requirements" : "/bundling/requirements";
-			const data = await apiRequest<RequirementRow[] | BundlingRow[]>(`${endpoint}?${params.toString()}`);
+			const endpoint =
+				mode === "purchasing"
+					? "/purchasing/requirements"
+					: "/bundling/requirements";
+			const data = await apiRequest<RequirementRow[] | BundlingRow[]>(
+				`${endpoint}?${params.toString()}`,
+			);
 
 			if (!data || data.length === 0) {
 				setGridError(
@@ -822,7 +1089,15 @@ const RequirementsPage: React.FC = () => {
 		} finally {
 			setIsApplying(false);
 		}
-	}, [selectedPrincipal, selectedStorage, dateRanges, frequency, mode, buildPurchasingColumns, buildBundlingColumns]);
+	}, [
+		selectedPrincipal,
+		selectedStorage,
+		dateRanges,
+		frequency,
+		mode,
+		buildPurchasingColumns,
+		buildBundlingColumns,
+	]);
 
 	// ─── Bulk min stock update (purchasing only) ──────────────────────
 	const handleBulkMinStockApply = useCallback(async () => {
@@ -872,7 +1147,9 @@ const RequirementsPage: React.FC = () => {
 			await handleApply();
 		} catch (err: unknown) {
 			setGridError(
-				err instanceof Error ? err.message : "Failed to update principal min stock.",
+				err instanceof Error
+					? err.message
+					: "Failed to update principal min stock.",
 			);
 		} finally {
 			setIsApplying(false);
@@ -932,7 +1209,8 @@ const RequirementsPage: React.FC = () => {
 				const targetStock = effectiveThreshold * newRow.avgDemand;
 				updatedRow.suggestedOrder = Math.max(
 					0,
-					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) / 100,
+					Math.round((targetStock - newRow.qtyAvail - newRow.qtyOnPO) * 100) /
+						100,
 				);
 			}
 
@@ -951,8 +1229,8 @@ const RequirementsPage: React.FC = () => {
 
 	// ─── Row category class (purchasing only) ─────────────────────────
 	const getRowClassName = useCallback(
-		(params: { row: RequirementRow }): string => {
-			const cat = computeCategoryName(params.row, categories);
+		(params: { row: GridRowModel }): string => {
+			const cat = computeCategoryName(params.row as RequirementRow, categories);
 			return cat ? (CATEGORY_CLASS_MAP[cat] ?? "") : "";
 		},
 		[categories],
@@ -983,9 +1261,18 @@ const RequirementsPage: React.FC = () => {
 	// ─── Filter Panel ─────────────────────────────────────────────────
 	const filterPanel = (
 		<Paper sx={{ width: "100%", mb: 3, p: 3, borderRadius: 2 }}>
-			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					mb: 2,
+				}}
+			>
 				<Typography variant="h6" sx={{ fontWeight: 600 }}>
-					{mode === "purchasing" ? "Purchase Requirements Filters" : "Bundling Requirements Filters"}
+					{mode === "purchasing"
+						? "Purchase Requirements Filters"
+						: "Bundling Requirements Filters"}
 				</Typography>
 				<ToggleButtonGroup
 					value={mode}
@@ -1004,10 +1291,16 @@ const RequirementsPage: React.FC = () => {
 					size="small"
 					color="primary"
 				>
-					<ToggleButton value="purchasing" sx={{ textTransform: "none", fontWeight: 600, px: 2 }}>
+					<ToggleButton
+						value="purchasing"
+						sx={{ textTransform: "none", fontWeight: 600, px: 2 }}
+					>
 						Purchasing
 					</ToggleButton>
-					<ToggleButton value="bundling" sx={{ textTransform: "none", fontWeight: 600, px: 2 }}>
+					<ToggleButton
+						value="bundling"
+						sx={{ textTransform: "none", fontWeight: 600, px: 2 }}
+					>
 						Bundling
 					</ToggleButton>
 				</ToggleButtonGroup>
@@ -1019,14 +1312,18 @@ const RequirementsPage: React.FC = () => {
 					<Grid container spacing={3}>
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Select Principal</FormLabel>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Select Principal
+								</FormLabel>
 								<Autocomplete
 									size="small"
 									options={principals}
 									value={selectedPrincipal}
 									onChange={(_, newVal) => setSelectedPrincipal(newVal)}
 									getOptionLabel={(option) => option.Descr}
-									isOptionEqualToValue={(option, val) => option.ClassID === val.ClassID}
+									isOptionEqualToValue={(option, val) =>
+										option.ClassID === val.ClassID
+									}
 									renderInput={(params) => (
 										<TextField
 											{...params}
@@ -1039,7 +1336,9 @@ const RequirementsPage: React.FC = () => {
 						</Grid>
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Inventory Storage</FormLabel>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Inventory Storage
+								</FormLabel>
 								<Autocomplete
 									multiple
 									size="small"
@@ -1074,14 +1373,24 @@ const RequirementsPage: React.FC = () => {
 						</Grid>
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>Frequency</FormLabel>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Frequency
+								</FormLabel>
 								<RadioGroup
 									row
 									value={frequency}
 									onChange={(e) => setFrequency(e.target.value as Frequency)}
 								>
-									<FormControlLabel value="monthly" control={<Radio size="small" />} label="Monthly" />
-									<FormControlLabel value="weekly" control={<Radio size="small" />} label="Weekly" />
+									<FormControlLabel
+										value="monthly"
+										control={<Radio size="small" />}
+										label="Monthly"
+									/>
+									<FormControlLabel
+										value="weekly"
+										control={<Radio size="small" />}
+										label="Weekly"
+									/>
 								</RadioGroup>
 							</FormControl>
 						</Grid>
@@ -1097,11 +1406,16 @@ const RequirementsPage: React.FC = () => {
 				{/* Right column - DateRange (40%) */}
 				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
 					<Box sx={{ height: 290, overflowY: "auto" }}>
-						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>Date Range</FormLabel>
+						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
+							Date Range
+						</FormLabel>
 						<LocalizationProvider dateAdapter={AdapterDayjs}>
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
 								{dateRanges.map((dr, index) => (
-									<Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+									<Box
+										key={index}
+										sx={{ display: "flex", gap: 1, alignItems: "center" }}
+									>
 										<DatePicker
 											label={`From ${dateRanges.length > 1 ? index + 1 : ""}`}
 											value={dr.from}
@@ -1110,7 +1424,9 @@ const RequirementsPage: React.FC = () => {
 												textField: {
 													size: "small",
 													fullWidth: true,
-													sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
 												},
 											}}
 										/>
@@ -1122,18 +1438,30 @@ const RequirementsPage: React.FC = () => {
 												textField: {
 													size: "small",
 													fullWidth: true,
-													sx: { "& .MuiOutlinedInput-root": { borderRadius: 2 } },
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
 												},
 											}}
 										/>
 										{dateRanges.length > 1 && (
-											<IconButton size="small" onClick={() => handleRemoveDateRange(index)} color="error">
+											<IconButton
+												size="small"
+												onClick={() => handleRemoveDateRange(index)}
+												color="error"
+											>
 												<DeleteIcon fontSize="small" />
 											</IconButton>
 										)}
 									</Box>
 								))}
-								<Button size="small" startIcon={<AddIcon />} onClick={handleAddDateRange} variant="outlined" sx={{ alignSelf: "flex-start" }}>
+								<Button
+									size="small"
+									startIcon={<AddIcon />}
+									onClick={handleAddDateRange}
+									variant="outlined"
+									sx={{ alignSelf: "flex-start" }}
+								>
 									Add Date Range
 								</Button>
 							</Box>
@@ -1153,11 +1481,22 @@ const RequirementsPage: React.FC = () => {
 						}}
 					>
 						{gridError && (
-							<Alert severity="error" sx={{ width: "100%", flex: { md: 1 }, mb: 0, py: 0.5, alignSelf: "stretch" }}>
+							<Alert
+								severity="error"
+								sx={{
+									width: "100%",
+									flex: { md: 1 },
+									mb: 0,
+									py: 0.5,
+									alignSelf: "stretch",
+								}}
+							>
 								{gridError}
 							</Alert>
 						)}
-						{!gridError && <Box sx={{ flex: 1, display: { xs: "none", md: "block" } }} />}
+						{!gridError && (
+							<Box sx={{ flex: 1, display: { xs: "none", md: "block" } }} />
+						)}
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 							{isApplying && <CircularProgress size={22} thickness={2.5} />}
 							{!isApplying && applied && !gridError && (
@@ -1198,85 +1537,223 @@ const RequirementsPage: React.FC = () => {
 				"bundling-requirements.xlsx",
 			);
 		}
-	}, [mode, filteredPurchasingRows, bundlingRows, purchasingColumns, bundlingColumns]);
+	}, [
+		mode,
+		filteredPurchasingRows,
+		bundlingRows,
+		purchasingColumns,
+		bundlingColumns,
+	]);
 
 	// ─── Purchasing Toolbar ──────────────────────────────────────────
 	const PurchasingToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
 		const iconBtnSx = {
-			minWidth: "auto", textTransform: "none", fontSize: "0.8125rem",
-			fontWeight: 500, paddingLeft: 0.75, paddingRight: 0.75,
+			minWidth: "auto",
+			textTransform: "none",
+			fontSize: "0.8125rem",
+			fontWeight: 500,
+			paddingLeft: 0.75,
+			paddingRight: 0.75,
 			color: theme.palette.primary.main,
 		};
 
-		const categoryColors: Record<string, { bg: string; chipBg: string; chipText: string }> = {
-			Immediate: { bg: darkMode ? "rgba(211, 47, 47, 0.35)" : "#ffcdd2", chipBg: darkMode ? "#b71c1c" : "#d32f2f", chipText: "#ffffff" },
-			Secondary: { bg: darkMode ? "rgba(255, 193, 7, 0.30)" : "#fff9c4", chipBg: darkMode ? "#f57f17" : "#f9a825", chipText: "#ffffff" },
-			Monitoring: { bg: darkMode ? "rgba(33, 150, 243, 0.27)" : "#bbdefb", chipBg: darkMode ? "#0d47a1" : "#1976d2", chipText: "#ffffff" },
-			Ordered: { bg: darkMode ? "rgba(156, 39, 176, 0.25)" : "#e1bee7", chipBg: darkMode ? "#4a148c" : "#7b1fa2", chipText: "#ffffff" },
-			Overstocked: { bg: darkMode ? "rgba(76, 175, 80, 0.27)" : "#c8e6c9", chipBg: darkMode ? "#1b5e20" : "#388e3c", chipText: "#ffffff" },
-			"No record": { bg: darkMode ? "rgba(158, 158, 158, 0.25)" : "#eceff1", chipBg: darkMode ? "#37474f" : "#616161", chipText: "#ffffff" },
+		const categoryColors: Record<
+			string,
+			{ bg: string; chipBg: string; chipText: string }
+		> = {
+			Immediate: {
+				bg: darkMode ? "rgba(211, 47, 47, 0.35)" : "#ffcdd2",
+				chipBg: darkMode ? "#b71c1c" : "#d32f2f",
+				chipText: "#ffffff",
+			},
+			Secondary: {
+				bg: darkMode ? "rgba(255, 193, 7, 0.30)" : "#fff9c4",
+				chipBg: darkMode ? "#f57f17" : "#f9a825",
+				chipText: "#ffffff",
+			},
+			Monitoring: {
+				bg: darkMode ? "rgba(33, 150, 243, 0.27)" : "#bbdefb",
+				chipBg: darkMode ? "#0d47a1" : "#1976d2",
+				chipText: "#ffffff",
+			},
+			Ordered: {
+				bg: darkMode ? "rgba(156, 39, 176, 0.25)" : "#e1bee7",
+				chipBg: darkMode ? "#4a148c" : "#7b1fa2",
+				chipText: "#ffffff",
+			},
+			Overstocked: {
+				bg: darkMode ? "rgba(76, 175, 80, 0.27)" : "#c8e6c9",
+				chipBg: darkMode ? "#1b5e20" : "#388e3c",
+				chipText: "#ffffff",
+			},
+			"No record": {
+				bg: darkMode ? "rgba(158, 158, 158, 0.25)" : "#eceff1",
+				chipBg: darkMode ? "#37474f" : "#616161",
+				chipText: "#ffffff",
+			},
 		};
 		const getCategoryColor = (cat: string) =>
-			categoryColors[cat] ?? { bg: "transparent", chipBg: theme.palette.action.selected, chipText: theme.palette.text.primary };
+			categoryColors[cat] ?? {
+				bg: "transparent",
+				chipBg: theme.palette.action.selected,
+				chipText: theme.palette.text.primary,
+			};
 
 		return (
-			<Box sx={{ display: "flex", flexDirection: "column", borderBottom: "1px solid", borderColor: "divider" }}>
-				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, py: 1 }}>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>Filtered Products</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					flexDirection: "column",
+					borderBottom: "1px solid",
+					borderColor: "divider",
+				}}
+			>
+				<Box
+					sx={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						px: 2,
+						py: 1,
+					}}
+				>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Filtered Products
+					</Typography>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-						<ColumnsPanelTrigger size="small" startIcon={<ViewColumnIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Columns</Box>
+						<ColumnsPanelTrigger
+							size="small"
+							startIcon={<ViewColumnIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Columns
+							</Box>
 						</ColumnsPanelTrigger>
-						<FilterPanelTrigger size="small" startIcon={<FilterListIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Filters</Box>
+						<FilterPanelTrigger
+							size="small"
+							startIcon={<FilterListIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Filters
+							</Box>
 						</FilterPanelTrigger>
-						<ExportCsv size="small" startIcon={<FileDownloadIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>CSV</Box>
+						<ExportCsv
+							size="small"
+							startIcon={<FileDownloadIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								CSV
+							</Box>
 						</ExportCsv>
-						<ExportPrint size="small" startIcon={<PrintIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Print</Box>
+						<ExportPrint
+							size="small"
+							startIcon={<PrintIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Print
+							</Box>
 						</ExportPrint>
 						<Tooltip title="Export to Excel">
-							<Button size="small" color="primary" startIcon={<TableChartIcon />} onClick={handleExcelExport}
-								sx={{ minWidth: "auto", textTransform: "none", fontSize: "0.8125rem", fontWeight: 500, px: 0.75 }}>
-								<Box component="span" sx={labelSx}>Excel</Box>
+							<Button
+								size="small"
+								color="primary"
+								startIcon={<TableChartIcon />}
+								onClick={handleExcelExport}
+								sx={{
+									minWidth: "auto",
+									textTransform: "none",
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+									px: 0.75,
+								}}
+							>
+								<Box component="span" sx={labelSx}>
+									Excel
+								</Box>
 							</Button>
 						</Tooltip>
 					</Box>
 				</Box>
-				<Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, px: 2, pb: 1.5, alignItems: "center" }}>
+				<Box
+					sx={{
+						display: "flex",
+						flexWrap: "wrap",
+						gap: 2,
+						px: 2,
+						pb: 1.5,
+						alignItems: "center",
+					}}
+				>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 						<TextField
-							size="small" type="number"
+							size="small"
+							type="number"
 							label={`Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`}
 							value={bulkMinStock}
 							onChange={(e) => setBulkMinStock(e.target.value)}
 							slotProps={{ htmlInput: { step: 0.1, min: 0.1 } }}
-							sx={{ width: 140, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							sx={{
+								width: 140,
+								"& .MuiOutlinedInput-root": { borderRadius: 2 },
+							}}
 						/>
-						<Button size="small" variant="outlined" onClick={handleBulkMinStockApply}
-							sx={{ textTransform: "none", borderRadius: 2 }}>Apply</Button>
+						<Button
+							size="small"
+							variant="outlined"
+							onClick={handleBulkMinStockApply}
+							sx={{ textTransform: "none", borderRadius: 2 }}
+						>
+							Apply
+						</Button>
 					</Box>
 					<Autocomplete
-						size="small" options={priceClasses} value={selectedPriceClass}
+						size="small"
+						options={priceClasses}
+						value={selectedPriceClass}
 						onChange={(_, newVal) => setSelectedPriceClass(newVal)}
 						sx={{ width: 180 }}
-						renderInput={(params) => <TextField {...params} label="Price Class" sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }} />}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Price Class"
+								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+						)}
 					/>
 					<Autocomplete
-						multiple size="small" options={categoryOptions} value={selectedCategories}
-						onChange={(_, newVal) => setSelectedCategories(newVal)} disableCloseOnSelect sx={{ width: 220 }}
+						multiple
+						size="small"
+						options={categoryOptions}
+						value={selectedCategories}
+						onChange={(_, newVal) => setSelectedCategories(newVal)}
+						disableCloseOnSelect
+						sx={{ width: 220 }}
 						renderValue={(value, getItemProps) =>
 							(value as string[]).map((option, index) => {
 								const { key, ...itemProps } = getItemProps({ index });
 								const cc = getCategoryColor(option);
 								return (
-									<Chip key={key} {...itemProps} label={option} size="small" variant="filled"
+									<Chip
+										key={key}
+										{...itemProps}
+										label={option}
+										size="small"
+										variant="filled"
 										sx={{
-											backgroundColor: `${cc.chipBg} !important`, color: `${cc.chipText} !important`,
+											backgroundColor: `${cc.chipBg} !important`,
+											color: `${cc.chipText} !important`,
 											fontWeight: 700,
-											"& .MuiChip-deleteIcon": { color: `${cc.chipText} !important`, fontSize: 18, opacity: 0.85, "&:hover": { opacity: 1 } },
+											"& .MuiChip-deleteIcon": {
+												color: `${cc.chipText} !important`,
+												fontSize: 18,
+												opacity: 0.85,
+												"&:hover": { opacity: 1 },
+											},
 										}}
 									/>
 								);
@@ -1286,60 +1763,162 @@ const RequirementsPage: React.FC = () => {
 							const { key, ...rest } = props;
 							const cc = getCategoryColor(option);
 							return (
-								<li key={key} {...rest} style={{ backgroundColor: selected ? cc.bg : undefined, borderLeft: `4px solid ${cc.chipBg}`, marginBottom: 1 }}>
-									<Checkbox icon={<CheckBoxOutlineBlankIcon fontSize="small" />} checkedIcon={<CheckBoxIcon fontSize="small" />}
-										checked={selected} sx={{ color: cc.chipBg, "&.Mui-checked": { color: cc.chipBg } }} />
-									<Typography variant="body2" sx={{ fontWeight: 500 }}>{option}</Typography>
+								<li
+									key={key}
+									{...rest}
+									style={{
+										backgroundColor: selected ? cc.bg : undefined,
+										borderLeft: `4px solid ${cc.chipBg}`,
+										marginBottom: 1,
+									}}
+								>
+									<Checkbox
+										icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+										checkedIcon={<CheckBoxIcon fontSize="small" />}
+										checked={selected}
+										sx={{
+											color: cc.chipBg,
+											"&.Mui-checked": { color: cc.chipBg },
+										}}
+									/>
+									<Typography variant="body2" sx={{ fontWeight: 500 }}>
+										{option}
+									</Typography>
 								</li>
 							);
 						}}
-						renderInput={(params) => <TextField {...params} label="Category" placeholder="Filter by category"
-							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }} />}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Category"
+								placeholder="Filter by category"
+								sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+						)}
 					/>
-					<TextField size="small" label="PO Reference No." value={poReference}
+					<TextField
+						size="small"
+						label="PO Reference No."
+						value={poReference}
 						onChange={(e) => setPoReference(e.target.value)}
-						sx={{ width: 200, "& .MuiOutlinedInput-root": { borderRadius: 2 } }} />
-					<Button size="small" variant="outlined"
-						startIcon={showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />}
+						sx={{ width: 200, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+					/>
+					<Button
+						size="small"
+						variant="outlined"
+						startIcon={
+							showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />
+						}
 						onClick={() => setShowDemandColumns((v) => !v)}
-						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}>
+						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
+					>
 						{showDemandColumns ? "Hide" : "Show"} Monthly Demand
 					</Button>
 				</Box>
 			</Box>
 		);
-	}, [handleExcelExport, theme, darkMode, frequency, bulkMinStock, handleBulkMinStockApply,
-		priceClasses, selectedPriceClass, categoryOptions, selectedCategories, poReference, showDemandColumns]);
+	}, [
+		handleExcelExport,
+		theme,
+		darkMode,
+		frequency,
+		bulkMinStock,
+		handleBulkMinStockApply,
+		priceClasses,
+		selectedPriceClass,
+		categoryOptions,
+		selectedCategories,
+		poReference,
+		showDemandColumns,
+	]);
 
 	// ─── Bundling Toolbar ───────────────────────────────────────────
 	const BundlingToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
 		const iconBtnSx = {
-			minWidth: "auto", textTransform: "none", fontSize: "0.8125rem",
-			fontWeight: 500, paddingLeft: 0.75, paddingRight: 0.75,
+			minWidth: "auto",
+			textTransform: "none",
+			fontSize: "0.8125rem",
+			fontWeight: 500,
+			paddingLeft: 0.75,
+			paddingRight: 0.75,
 			color: theme.palette.primary.main,
 		};
 		return (
-			<Box sx={{ display: "flex", flexDirection: "column", borderBottom: "1px solid", borderColor: "divider" }}>
-				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, py: 1 }}>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>Promo Products — Bundling Analysis</Typography>
+			<Box
+				sx={{
+					display: "flex",
+					flexDirection: "column",
+					borderBottom: "1px solid",
+					borderColor: "divider",
+				}}
+			>
+				<Box
+					sx={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						px: 2,
+						py: 1,
+					}}
+				>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Promo Products — Bundling Analysis
+					</Typography>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-						<ColumnsPanelTrigger size="small" startIcon={<ViewColumnIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Columns</Box>
+						<ColumnsPanelTrigger
+							size="small"
+							startIcon={<ViewColumnIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Columns
+							</Box>
 						</ColumnsPanelTrigger>
-						<FilterPanelTrigger size="small" startIcon={<FilterListIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Filters</Box>
+						<FilterPanelTrigger
+							size="small"
+							startIcon={<FilterListIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Filters
+							</Box>
 						</FilterPanelTrigger>
-						<ExportCsv size="small" startIcon={<FileDownloadIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>CSV</Box>
+						<ExportCsv
+							size="small"
+							startIcon={<FileDownloadIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								CSV
+							</Box>
 						</ExportCsv>
-						<ExportPrint size="small" startIcon={<PrintIcon />} style={iconBtnSx}>
-							<Box component="span" sx={labelSx}>Print</Box>
+						<ExportPrint
+							size="small"
+							startIcon={<PrintIcon />}
+							style={iconBtnSx}
+						>
+							<Box component="span" sx={labelSx}>
+								Print
+							</Box>
 						</ExportPrint>
 						<Tooltip title="Export to Excel">
-							<Button size="small" color="primary" startIcon={<TableChartIcon />} onClick={handleExcelExport}
-								sx={{ minWidth: "auto", textTransform: "none", fontSize: "0.8125rem", fontWeight: 500, px: 0.75 }}>
-								<Box component="span" sx={labelSx}>Excel</Box>
+							<Button
+								size="small"
+								color="primary"
+								startIcon={<TableChartIcon />}
+								onClick={handleExcelExport}
+								sx={{
+									minWidth: "auto",
+									textTransform: "none",
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+									px: 0.75,
+								}}
+							>
+								<Box component="span" sx={labelSx}>
+									Excel
+								</Box>
 							</Button>
 						</Tooltip>
 					</Box>
@@ -1370,7 +1949,14 @@ const RequirementsPage: React.FC = () => {
 			{filterPanel}
 
 			{applied && mode === "purchasing" && purchasingColumns.length > 0 && (
-				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden", height: "calc(100dvh - 100px)" }}>
+				<Paper
+					sx={{
+						width: "100%",
+						borderRadius: 2,
+						overflow: "hidden",
+						height: "calc(100dvh - 100px)",
+					}}
+				>
 					<DataGrid
 						rows={filteredPurchasingRows}
 						columns={purchasingColumns}
@@ -1379,7 +1965,10 @@ const RequirementsPage: React.FC = () => {
 						editMode="row"
 						processRowUpdate={processRowUpdate}
 						onProcessRowUpdateError={(err) => {
-							const msg = err instanceof Error ? err.message : "Failed to save min stock for item.";
+							const msg =
+								err instanceof Error
+									? err.message
+									: "Failed to save min stock for item.";
 							console.error("Row update error:", msg);
 							setGridError(msg);
 						}}
@@ -1389,13 +1978,21 @@ const RequirementsPage: React.FC = () => {
 						slotProps={{
 							toolbar: {
 								handleExcelExport,
-								bulkMinStock, setBulkMinStock,
+								bulkMinStock,
+								setBulkMinStock,
 								handleBulkMinStockApply,
-								priceClasses, selectedPriceClass, setSelectedPriceClass,
-								categoryOptions, selectedCategories, setSelectedCategories,
-								poReference, setPoReference,
-								showDemandColumns, setShowDemandColumns,
-								frequency, darkMode,
+								priceClasses,
+								selectedPriceClass,
+								setSelectedPriceClass,
+								categoryOptions,
+								selectedCategories,
+								setSelectedCategories,
+								poReference,
+								setPoReference,
+								showDemandColumns,
+								setShowDemandColumns,
+								frequency,
+								darkMode,
 							} as any, // eslint-disable-line @typescript-eslint/no-explicit-any
 							pagination: { labelRowsPerPage: "Rows:" },
 						}}
@@ -1408,39 +2005,72 @@ const RequirementsPage: React.FC = () => {
 						disableRowSelectionOnClick
 						sx={{
 							height: "100%",
-							"& .MuiDataGrid-columnHeader": { fontWeight: 600, fontSize: "0.8rem" },
-							"& .MuiDataGrid-columnHeaders": { borderBottom: 2, borderColor: "divider" },
-							"& .group-demand": { backgroundColor: groupColors.demand.bg, color: groupColors.demand.color },
-							"& .group-computation": { backgroundColor: groupColors.computation.bg, color: groupColors.computation.color },
-							"& .group-custom": { backgroundColor: groupColors.custom.bg, color: groupColors.custom.color },
-							"& .group-stock": { backgroundColor: groupColors.stock.bg, color: groupColors.stock.color },
+							"& .MuiDataGrid-columnHeader": {
+								fontWeight: 600,
+								fontSize: "0.8rem",
+							},
+							"& .MuiDataGrid-columnHeaders": {
+								borderBottom: 2,
+								borderColor: "divider",
+							},
+							"& .group-demand": {
+								backgroundColor: groupColors.demand.bg,
+								color: groupColors.demand.color,
+							},
+							"& .group-computation": {
+								backgroundColor: groupColors.computation.bg,
+								color: groupColors.computation.color,
+							},
+							"& .group-custom": {
+								backgroundColor: groupColors.custom.bg,
+								color: groupColors.custom.color,
+							},
+							"& .group-stock": {
+								backgroundColor: groupColors.stock.bg,
+								color: groupColors.stock.color,
+							},
 							"& .row-immediate": {
-								backgroundColor: darkMode ? "rgba(211, 47, 47, 0.35)" : "#ffcdd2",
+								backgroundColor: darkMode
+									? "rgba(211, 47, 47, 0.35)"
+									: "#ffcdd2",
 								borderLeft: "5px solid #d32f2f",
 							},
 							"& .row-secondary": {
-								backgroundColor: darkMode ? "rgba(255, 193, 7, 0.30)" : "#fff9c4",
+								backgroundColor: darkMode
+									? "rgba(255, 193, 7, 0.30)"
+									: "#fff9c4",
 								borderLeft: "5px solid #f9a825",
 							},
 							"& .row-monitoring": {
-								backgroundColor: darkMode ? "rgba(33, 150, 243, 0.27)" : "#bbdefb",
+								backgroundColor: darkMode
+									? "rgba(33, 150, 243, 0.27)"
+									: "#bbdefb",
 								borderLeft: "5px solid #1976d2",
 							},
 							"& .row-overstocked": {
-								backgroundColor: darkMode ? "rgba(76, 175, 80, 0.27)" : "#c8e6c9",
+								backgroundColor: darkMode
+									? "rgba(76, 175, 80, 0.27)"
+									: "#c8e6c9",
 								borderLeft: "5px solid #388e3c",
 							},
 							"& .row-ordered": {
-								backgroundColor: darkMode ? "rgba(156, 39, 176, 0.25)" : "#e1bee7",
+								backgroundColor: darkMode
+									? "rgba(156, 39, 176, 0.25)"
+									: "#e1bee7",
 								borderLeft: "5px solid #7b1fa2",
 							},
 							"& .row-no-record": {
-								backgroundColor: darkMode ? "rgba(158, 158, 158, 0.25)" : "#eceff1",
+								backgroundColor: darkMode
+									? "rgba(158, 158, 158, 0.25)"
+									: "#eceff1",
 								borderLeft: "5px solid #616161",
 							},
 							"& .MuiDataGrid-cell:focus": { outline: "none" },
 							"& .MuiDataGrid-cell:focus-within": { outline: "none" },
-							"& .MuiDataGrid-footerContainer": { borderTop: "1px solid", borderColor: "divider" },
+							"& .MuiDataGrid-footerContainer": {
+								borderTop: "1px solid",
+								borderColor: "divider",
+							},
 							"& .MuiDataGrid-virtualScroller": { minHeight: 300 },
 						}}
 					/>
@@ -1448,14 +2078,26 @@ const RequirementsPage: React.FC = () => {
 			)}
 
 			{applied && mode === "bundling" && bundlingColumns.length > 0 && (
-				<Paper sx={{ width: "100%", borderRadius: 2, overflow: "hidden" }}>
+				<Paper
+					sx={{
+						width: "100%",
+						borderRadius: 2,
+						overflow: "hidden",
+						height: "calc(100dvh - 100px)",
+					}}
+				>
 					<DataGrid
 						rows={bundlingRows}
 						columns={bundlingColumns}
-						getRowHeight={() => 52}
+						getRowHeight={() => 42}
 						showToolbar
 						slots={{ toolbar: BundlingToolbar as React.ComponentType<any> }} // eslint-disable-line @typescript-eslint/no-explicit-any
 						slotProps={{
+							toolbar: {
+								handleExcelExport,
+								frequency,
+								darkMode,
+							} as any, // eslint-disable-line @typescript-eslint/no-explicit-any
 							pagination: { labelRowsPerPage: "Rows:" },
 						}}
 						initialState={{
@@ -1465,16 +2107,37 @@ const RequirementsPage: React.FC = () => {
 						checkboxSelection
 						disableRowSelectionOnClick
 						sx={{
-							border: "none",
-							"& .MuiDataGrid-columnHeader": { fontWeight: 600, fontSize: "0.8rem" },
-							"& .MuiDataGrid-columnHeaders": { borderBottom: 2, borderColor: "divider" },
-							"& .group-demand": { backgroundColor: groupColors.demand.bg, color: groupColors.demand.color },
-							"& .group-computation": { backgroundColor: groupColors.computation.bg, color: groupColors.computation.color },
-							"& .group-bundling": { backgroundColor: groupColors.bundling.bg, color: groupColors.bundling.color },
-							"& .group-component": { backgroundColor: groupColors.component.bg, color: groupColors.component.color },
+							height: "100%",
+							"& .MuiDataGrid-columnHeader": {
+								fontWeight: 600,
+								fontSize: "0.8rem",
+							},
+							"& .MuiDataGrid-columnHeaders": {
+								borderBottom: 2,
+								borderColor: "divider",
+							},
+							"& .group-demand": {
+								backgroundColor: groupColors.demand.bg,
+								color: groupColors.demand.color,
+							},
+							"& .group-computation": {
+								backgroundColor: groupColors.computation.bg,
+								color: groupColors.computation.color,
+							},
+							"& .group-bundling": {
+								backgroundColor: groupColors.bundling.bg,
+								color: groupColors.bundling.color,
+							},
+							"& .group-component": {
+								backgroundColor: groupColors.component.bg,
+								color: groupColors.component.color,
+							},
 							"& .MuiDataGrid-cell:focus": { outline: "none" },
 							"& .MuiDataGrid-cell:focus-within": { outline: "none" },
-							"& .MuiDataGrid-footerContainer": { borderTop: "1px solid", borderColor: "divider" },
+							"& .MuiDataGrid-footerContainer": {
+								borderTop: "1px solid",
+								borderColor: "divider",
+							},
 							"& .MuiDataGrid-virtualScroller": { minHeight: 300 },
 						}}
 					/>
