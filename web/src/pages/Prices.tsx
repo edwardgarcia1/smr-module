@@ -1,9 +1,4 @@
-import React, {
-	useState,
-	useEffect,
-	useCallback,
-	useRef,
-} from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
 	Box,
 	Paper,
@@ -37,8 +32,6 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import CancelIcon from "@mui/icons-material/Cancel";
 import UploadIcon from "@mui/icons-material/Upload";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -161,7 +154,9 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
 						<TableHead>
 							<TableRow>
 								<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
-								<TableCell align="right" sx={{ fontWeight: 600 }}>Price</TableCell>
+								<TableCell align="right" sx={{ fontWeight: 600 }}>
+									Price
+								</TableCell>
 								<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
 								<TableCell sx={{ fontWeight: 600 }}>Valid From</TableCell>
 								<TableCell sx={{ fontWeight: 600 }}>Valid To</TableCell>
@@ -171,7 +166,11 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
 							{history.map((h, idx) => (
 								<TableRow key={`${h.price_class}__${h.valid_from}__${idx}`}>
 									<TableCell>
-										<Chip label={h.price_class} size="small" variant="outlined" />
+										<Chip
+											label={h.price_class}
+											size="small"
+											variant="outlined"
+										/>
 									</TableCell>
 									<TableCell align="right">{fmtNum(h.price)}</TableCell>
 									<TableCell>{h.unit}</TableCell>
@@ -265,8 +264,7 @@ const PriceFormDialog: React.FC<PriceFormDialogProps> = ({
 			await onSaved();
 			onClose();
 		} catch (err: unknown) {
-			const msg =
-				err instanceof Error ? err.message : "Failed to save price";
+			const msg = err instanceof Error ? err.message : "Failed to save price";
 			setDialogError(msg);
 		} finally {
 			setSaving(false);
@@ -293,11 +291,7 @@ const PriceFormDialog: React.FC<PriceFormDialogProps> = ({
 						onChange={(_, newVal) => setPriceClass(newVal ?? "")}
 						onInputChange={(_, newVal) => setPriceClass(newVal)}
 						renderInput={(params) => (
-							<TextField
-								{...params}
-								label="Price Class"
-								required
-							/>
+							<TextField {...params} label="Price Class" required />
 						)}
 						disabled={isEdit}
 					/>
@@ -473,7 +467,7 @@ const RowComponent: React.FC<RowProps> = ({
 				>
 					<Collapse in={open} timeout="auto" unmountOnExit>
 						<Box sx={{ margin: 1 }}>
-							{/* Current Prices */ }
+							{/* Current Prices */}
 							<Typography
 								variant="subtitle2"
 								gutterBottom
@@ -486,10 +480,16 @@ const RowComponent: React.FC<RowProps> = ({
 								<Table size="small" aria-label="current prices">
 									<TableHead>
 										<TableRow>
-											<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
-											<TableCell align="right" sx={{ fontWeight: 600 }}>Price</TableCell>
+											<TableCell sx={{ fontWeight: 600 }}>
+												Price Class
+											</TableCell>
+											<TableCell align="right" sx={{ fontWeight: 600 }}>
+												Price
+											</TableCell>
 											<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
-											<TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+											<TableCell align="right" sx={{ fontWeight: 600 }}>
+												Actions
+											</TableCell>
 										</TableRow>
 									</TableHead>
 									<TableBody>
@@ -568,6 +568,7 @@ interface PricesToolbarProps {
 	unitOptions: string[];
 	onUnitChange: (value: string | null) => void;
 	onImportClick: () => void;
+	onPriceClassesClick: () => void;
 	principals: Principal[];
 	selectedPrincipal: Principal | null;
 	onPrincipalChange: (value: Principal | null) => void;
@@ -586,6 +587,7 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	unitOptions,
 	onUnitChange,
 	onImportClick,
+	onPriceClassesClick,
 	principals,
 	selectedPrincipal,
 	onPrincipalChange,
@@ -617,15 +619,32 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 					)}
 				</Typography>
 			</Box>
-			<Button
-				variant="outlined"
-				size="small"
-				startIcon={<UploadIcon />}
-				onClick={onImportClick}
-				sx={{ whiteSpace: "nowrap", minWidth: 100 }}
-			>
-				Import
-			</Button>
+			<Box sx={{ display: "flex", gap: { xs: 0.5, md: 1 } }}>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<AddIcon />}
+					onClick={onPriceClassesClick}
+					title="Price Classes"
+					sx={{ whiteSpace: "nowrap", minWidth: { xs: "auto", md: 100 } }}
+				>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						Price Classes
+					</Box>
+				</Button>
+				<Button
+					variant="outlined"
+					size="small"
+					startIcon={<UploadIcon />}
+					onClick={onImportClick}
+					title="Import"
+					sx={{ whiteSpace: "nowrap", minWidth: { xs: "auto", md: 100 } }}
+				>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						Import
+					</Box>
+				</Button>
+			</Box>
 		</Box>
 		<Box
 			sx={{
@@ -825,8 +844,8 @@ const ImportDialog: React.FC<{
 					<Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
 						Select an Excel file (.xlsx, .xls) with columns:{" "}
 						<strong>inventory_id</strong>, <strong>price</strong>,{" "}
-						<strong>unit</strong>, <strong>price_class</strong>{" "}
-						(optional: <strong>valid_from</strong>, <strong>valid_to</strong>).
+						<strong>unit</strong>, <strong>price_class</strong> (optional:{" "}
+						<strong>valid_from</strong>, <strong>valid_to</strong>).
 					</Typography>
 					<Button variant="contained" component="label">
 						Choose File
@@ -950,7 +969,7 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 
 	useEffect(() => {
 		setClassId(isEdit ? editItem.id : "");
-		setDescription(isEdit ? editItem.description ?? "" : "");
+		setDescription(isEdit ? (editItem.description ?? "") : "");
 		setDialogError(null);
 	}, [open, isEdit, editItem]);
 
@@ -1076,10 +1095,7 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 	const isEditing = editingId === pc.id;
 
 	return (
-		<TableRow
-			selected={isEditing}
-			sx={{ "& > *": { borderBottom: "unset" } }}
-		>
+		<TableRow selected={isEditing} sx={{ "& > *": { borderBottom: "unset" } }}>
 			<TableCell sx={{ fontWeight: 600 }}>{pc.id}</TableCell>
 			<TableCell>{pc.description ?? "—"}</TableCell>
 			<TableCell align="right" sx={{ width: 100 }}>
@@ -1104,9 +1120,11 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 	);
 };
 
-// ── PriceClass Card ────────────────────────────────────────────────
+// ── Price Classes Dialog (converted from inline card) ─────────────
 
-interface PriceClassCardProps {
+interface PriceClassesDialogProps {
+	open: boolean;
+	onClose: () => void;
 	classes: PriceClassItem[];
 	loading: boolean;
 	error: string | null;
@@ -1114,14 +1132,16 @@ interface PriceClassCardProps {
 	onRefresh: () => Promise<void>;
 }
 
-const PriceClassCard: React.FC<PriceClassCardProps> = ({
+const PriceClassesDialog: React.FC<PriceClassesDialogProps> = ({
+	open,
+	onClose,
 	classes,
 	loading,
 	error,
 	onError,
 	onRefresh,
 }) => {
-	const [dialogOpen, setDialogOpen] = useState(false);
+	const [formDialogOpen, setFormDialogOpen] = useState(false);
 	const [editItem, setEditItem] = useState<PriceClassItem | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deleteConfirmItem, setDeleteConfirmItem] =
@@ -1129,12 +1149,12 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 
 	const handleAdd = () => {
 		setEditItem(null);
-		setDialogOpen(true);
+		setFormDialogOpen(true);
 	};
 
 	const handleEdit = (item: PriceClassItem) => {
 		setEditItem(item);
-		setDialogOpen(true);
+		setFormDialogOpen(true);
 	};
 
 	const handleDelete = (item: PriceClassItem) => {
@@ -1169,16 +1189,14 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 	};
 
 	return (
-		<Paper sx={{ mb: 2, overflow: "hidden" }}>
-			<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
+		<Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+			<DialogTitle>
 				<Box
 					sx={{
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "space-between",
-						px: 2,
-						pt: 1.5,
-						pb: 1.5,
+						pr: 2,
 					}}
 				>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -1187,8 +1205,7 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 						</Typography>
 						{!loading && (
 							<Typography variant="caption" sx={{ color: "text.secondary" }}>
-								{classes.length}{" "}
-								{classes.length === 1 ? "class" : "classes"}
+								{classes.length} {classes.length === 1 ? "class" : "classes"}
 							</Typography>
 						)}
 					</Box>
@@ -1203,98 +1220,102 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 						Add
 					</Button>
 				</Box>
-			</Box>
+			</DialogTitle>
+			<DialogContent sx={{ minHeight: 200 }}>
+				{error && (
+					<Alert
+						severity="error"
+						sx={{ mb: 2 }}
+						onClose={() => onError(null)}
+					>
+						{error}
+					</Alert>
+				)}
 
-			{error && (
-				<Alert
-					severity="error"
-					sx={{ mx: 2, mb: 1 }}
-					onClose={() => onError(null)}
-				>
-					{error}
-				</Alert>
-			)}
+				{loading ? (
+					<TableSkeleton
+						cols={[{}, {}, { icon: true, align: "right" }]}
+						rows={4}
+					/>
+				) : classes.length === 0 ? (
+					<Typography
+						variant="body2"
+						sx={{ color: "text.secondary", py: 4 }}
+					>
+						No price classes defined
+					</Typography>
+				) : (
+					<TableContainer>
+						<Table
+							size="small"
+							sx={{ "& th": { fontWeight: 600, fontSize: "0.75rem" } }}
+						>
+							<TableHead>
+								<TableRow>
+									<TableCell>Price Class</TableCell>
+									<TableCell>Description</TableCell>
+									<TableCell align="right" sx={{ width: 100 }}>
+										Actions
+									</TableCell>
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{classes.map((pc) => (
+									<PriceClassRowComponent
+										key={pc.id}
+										pc={pc}
+										editingId={editItem?.id ?? null}
+										onEdit={handleEdit}
+										onDelete={handleDelete}
+										deleting={deleting}
+									/>
+								))}
+							</TableBody>
+						</Table>
+					</TableContainer>
+				)}
 
-			{loading ? (
-				<TableSkeleton
-					cols={[{}, {}, { icon: true, align: "right" }]}
-					rows={4}
+				<PriceClassDialog
+					open={formDialogOpen}
+					editItem={editItem}
+					onClose={() => setFormDialogOpen(false)}
+					onSaved={handleSaved}
+					onError={onError}
 				/>
-			) : classes.length === 0 ? (
-				<Typography
-					variant="body2"
-					sx={{ color: "text.secondary", px: 2, pb: 1.5 }}
+
+				<Dialog
+					open={deleteConfirmItem != null}
+					onClose={handleDeleteCancel}
+					maxWidth="xs"
+					fullWidth
 				>
-					No price classes defined
-				</Typography>
-			) : (
-				<TableContainer>
-					<Table
-						size="small"
-						sx={{ "& th": { fontWeight: 600, fontSize: "0.75rem" } }}
-					>
-						<TableHead>
-							<TableRow>
-								<TableCell>Price Class</TableCell>
-								<TableCell>Description</TableCell>
-								<TableCell align="right" sx={{ width: 100 }}>
-									Actions
-								</TableCell>
-							</TableRow>
-						</TableHead>
-						<TableBody>
-							{classes.map((pc) => (
-								<PriceClassRowComponent
-									key={pc.id}
-									pc={pc}
-									editingId={editItem?.id ?? null}
-									onEdit={handleEdit}
-									onDelete={handleDelete}
-									deleting={deleting}
-								/>
-							))}
-						</TableBody>
-					</Table>
-				</TableContainer>
-			)}
-
-			<PriceClassDialog
-				open={dialogOpen}
-				editItem={editItem}
-				onClose={() => setDialogOpen(false)}
-				onSaved={handleSaved}
-				onError={onError}
-			/>
-
-			<Dialog
-				open={deleteConfirmItem != null}
-				onClose={handleDeleteCancel}
-				maxWidth="xs"
-				fullWidth
-			>
-				<DialogTitle>Delete Price Class?</DialogTitle>
-				<DialogContent>
-					<DialogContentText>
-						Are you sure you want to delete price class{" "}
-						<strong>{deleteConfirmItem?.id}</strong>? This action cannot be
-						undone.
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleDeleteCancel} disabled={deleting}>
-						Cancel
-					</Button>
-					<Button
-						onClick={handleDeleteConfirm}
-						variant="contained"
-						color="error"
-						disabled={deleting}
-					>
-						{deleting ? "Deleting..." : "Delete"}
-					</Button>
-				</DialogActions>
-			</Dialog>
-		</Paper>
+					<DialogTitle>Delete Price Class?</DialogTitle>
+					<DialogContent>
+						<DialogContentText>
+							Are you sure you want to delete price class{" "}
+							<strong>{deleteConfirmItem?.id}</strong>? This action cannot be
+							undone.
+						</DialogContentText>
+					</DialogContent>
+					<DialogActions>
+						<Button onClick={handleDeleteCancel} disabled={deleting}>
+							Cancel
+						</Button>
+						<Button
+							onClick={handleDeleteConfirm}
+							variant="contained"
+							color="error"
+							disabled={deleting}
+						>
+							{deleting ? "Deleting..." : "Delete"}
+						</Button>
+					</DialogActions>
+				</Dialog>
+			</DialogContent>
+			<DialogActions>
+				<Button onClick={onClose}>Close</Button>
+			</DialogActions>
+		</Dialog>
 	);
 };
 
@@ -1399,6 +1420,9 @@ const Prices: React.FC = () => {
 	const [importOpen, setImportOpen] = useState(false);
 	const [importing, setImporting] = useState(false);
 	const [importResult, setImportResult] = useState<string | null>(null);
+
+	// Price Classes dialog state
+	const [priceClassesOpen, setPriceClassesOpen] = useState(false);
 
 	useEffect(() => {
 		unitRef.current = unit;
@@ -1555,15 +1579,24 @@ const Prices: React.FC = () => {
 	};
 
 	return (
-		<>
-			<PriceClassCard
-				classes={allClasses}
-				loading={classesLoading}
-				error={classesError}
-				onError={setClassesError}
-				onRefresh={fetchPriceClasses}
-			/>
-			<Paper sx={{ width: "100%", mb: 2, overflow: "hidden" }}>
+		<Box
+			sx={{
+				height: "calc(100dvh - 130px)",
+				display: "flex",
+				flexDirection: "column",
+				overflow: "hidden",
+				width: "100%",
+			}}
+		>
+			<Paper
+				sx={{
+					flex: 1,
+					overflow: "hidden",
+					display: "flex",
+					flexDirection: "column",
+					borderRadius: 2,
+				}}
+			>
 				<PricesToolbar
 					searchInputValue={searchInputValue}
 					onSearchInputChange={setSearchInputValue}
@@ -1580,6 +1613,7 @@ const Prices: React.FC = () => {
 						setImportOpen(true);
 						setImportResult(null);
 					}}
+					onPriceClassesClick={() => setPriceClassesOpen(true)}
 					principals={principals}
 					selectedPrincipal={selectedPrincipal}
 					onPrincipalChange={(val) => {
@@ -1592,20 +1626,22 @@ const Prices: React.FC = () => {
 						{error}
 					</Alert>
 				) : loading ? (
-					<TableSkeleton
-						cols={[
-							{ icon: true },
-							{},
-							{},
-							{},
-							{},
-							{ icon: true, align: "right" },
-						]}
-						rows={8}
-					/>
+					<Box sx={{ flex: 1, overflow: "auto" }}>
+						<TableSkeleton
+							cols={[
+								{ icon: true },
+								{},
+								{},
+								{},
+								{},
+								{ icon: true, align: "right" },
+							]}
+							rows={8}
+						/>
+					</Box>
 				) : (
 					<>
-						<TableContainer>
+						<TableContainer sx={{ flex: 1, overflow: "auto" }}>
 							<Table aria-label="price table grouped by inventory" size="small">
 								<TableHead>
 									<TableRow>
@@ -1650,21 +1686,31 @@ const Prices: React.FC = () => {
 							rowsPerPage={pageSize}
 							onRowsPerPageChange={handleChangeRowsPerPage}
 							rowsPerPageOptions={[10, 25, 50, 100]}
+							sx={{ flexShrink: 0 }}
 						/>
 					</>
 				)}
-				<ImportDialog
-					open={importOpen}
-					onClose={() => {
-						setImportOpen(false);
-						setImportResult(null);
-					}}
-					onImport={handleImport}
-					importing={importing}
-					importResult={importResult}
-				/>
 			</Paper>
-		</>
+			<ImportDialog
+				open={importOpen}
+				onClose={() => {
+					setImportOpen(false);
+					setImportResult(null);
+				}}
+				onImport={handleImport}
+				importing={importing}
+				importResult={importResult}
+			/>
+			<PriceClassesDialog
+				open={priceClassesOpen}
+				onClose={() => setPriceClassesOpen(false)}
+				classes={allClasses}
+				loading={classesLoading}
+				error={classesError}
+				onError={setClassesError}
+				onRefresh={fetchPriceClasses}
+			/>
+		</Box>
 	);
 };
 
