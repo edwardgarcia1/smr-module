@@ -81,6 +81,25 @@ export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> =>
 	// Normalize unit to CS if possible
 	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
+	// Expire any existing active price for this inventory_id + price_class combo
+	const current = await pool
+		.request()
+		.input("invId", item.inventory_id)
+		.input("priceClass", item.price_class)
+		.query(`
+      SELECT id FROM SMR_ItemPrice
+      WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
+    `);
+
+	if (current.recordset.length > 0) {
+		const oldValidTo = oneSecondBefore(validFrom);
+		await pool
+			.request()
+			.input("id", current.recordset[0].id)
+			.input("valid_to", oldValidTo)
+			.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
+	}
+
 	const result = await pool
 		.request()
 		.input("inventory_id", item.inventory_id)
