@@ -10,6 +10,7 @@ import type {
 	PriceClass,
 	NewPriceClass,
 	PriceClassUpdate,
+	PriceClassEntry,
 	PriceRecord,
 	PriceHistoryEntry,
 	PaginatedResponse,
@@ -405,8 +406,8 @@ async function convertPrice(
 /**
  * Fetch paginated price records.
  *
- * For each inventory item, returns the current price (valid_to IS NULL)
- * along with its history (valid_to IS NOT NULL).
+ * One row per inventory_id. Each row includes an array of current prices
+ * (one per price_class) plus full history across all price classes.
  *
  * @param page    Page number (1-based).
  * @param limit   Rows per page.
@@ -432,52 +433,18 @@ export const getPricesPaginated = async (
 	const whereClause =
 		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-	// Current price subquery: only rows where valid_to IS NULL
-	// Pick one price per inventory_id (latest id)
-	const currentPriceSubQ = `
-    SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
-    FROM (
-      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to,
-        ROW_NUMBER() OVER (PARTITION BY inventory_id ORDER BY id DESC) AS _rn
-      FROM SMR_ItemPrice
-      WHERE valid_to IS NULL
-    ) _cc
-    WHERE _rn = 1
-  `;
-
-	// Count query
+	// ── Count total inventory items ────────────────────────────────
 	const countQuery = `
     SELECT COUNT(*) AS _total
     FROM Inventory i
     ${whereClause}
   `;
-
-	// Data query with current prices
-	const dataQuery = `
-    SELECT * FROM (
-      SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
-        ip.id AS item_price_id,
-        i.InvtID AS inventory_id,
-        i.ClassID AS class_id,
-        i.Descr AS description,
-        ip.price,
-        ip.unit,
-        ip.price_class
-      FROM Inventory i
-      LEFT JOIN (${currentPriceSubQ}) ip ON i.InvtID = ip.inventory_id
-      ${whereClause}
-    ) AS _paginated
-    WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
-    ORDER BY _row_num
-  `;
-
-	// Execute count
 	const countReq = pool.request();
 	if (hasSearch) countReq.input("search", `%${search.trim()}%`);
 	const countResult = await countReq.query(countQuery);
 	const total = Number(countResult.recordset[0]?._total) || 0;
 
-	// Count of inventory items without any current price
+	// ── Count items without any current price ──────────────────────
 	const noPriceCountQuery = `
     SELECT COUNT(*) AS _cnt
     FROM Inventory i
@@ -496,100 +463,134 @@ export const getPricesPaginated = async (
 		return { data: [], total: 0, page, limit, totalPages: 1, withoutPriceCount };
 	}
 
-	// Execute data
+	// ── Fetch paginated inventory items (no price join yet) ────────
+	const dataQuery = `
+    SELECT * FROM (
+      SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
+        i.InvtID AS inventory_id,
+        i.ClassID AS class_id,
+        i.Descr AS description
+      FROM Inventory i
+      ${whereClause}
+    ) AS _paginated
+    WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
+    ORDER BY _row_num
+  `;
 	const dataReq = pool.request();
 	if (hasSearch) dataReq.input("search", `%${search.trim()}%`);
 	dataReq.input("_offset", offset);
 	dataReq.input("_limit", limit);
 	const dataResult = await dataReq.query(dataQuery);
 
-	type RawRow = {
-		item_price_id: number | null;
+	type InvRawRow = {
 		inventory_id: string;
 		class_id: string | null;
 		description: string | null;
-		price: number | null;
-		unit: string | null;
-		price_class: string | null;
+	};
+	const invRows = trimStrings(dataResult.recordset as InvRawRow[]);
+	const invIds = invRows.map((r) => r.inventory_id);
+
+	// ── Batch fetch ALL current prices for these inventory_ids ─────
+	type PriceRawRow = {
+		id: number;
+		inventory_id: string;
+		price: number;
+		unit: string;
+		price_class: string;
+		valid_from: string;
+		valid_to: string | null;
 	};
 
-	const rawRows = trimStrings(dataResult.recordset as RawRow[]);
-
-	// Collect inventory IDs for history batch query
-	const invIds = rawRows.map((r) => r.inventory_id);
-
-	// Batch fetch history for all returned inventory items
+	const currentMap = new Map<string, PriceClassEntry[]>();
 	const historyMap = new Map<string, PriceHistoryEntry[]>();
+
 	if (invIds.length > 0) {
-		const historyReq = pool.request();
+		const priceReq = pool.request();
 		const idParams = invIds.map((id, idx) => {
 			const paramName = `_id${idx}`;
-			historyReq.input(paramName, id);
+			priceReq.input(paramName, id);
 			return `@${paramName}`;
 		});
 
-		const historyResult = await historyReq.query(`
-      SELECT
-        ip.inventory_id,
-        ip.price,
-        ip.unit,
-        ip.valid_from,
-        ip.valid_to
-      FROM SMR_ItemPrice ip
-      WHERE ip.inventory_id IN (${idParams.join(", ")})
-      ORDER BY ip.inventory_id, ip.valid_from DESC
+		// Current prices (valid_to IS NULL) — one per price_class
+		const currentResult = await priceReq.query(`
+      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+      FROM SMR_ItemPrice
+      WHERE inventory_id IN (${idParams.join(", ")}) AND valid_to IS NULL
+      ORDER BY inventory_id, price_class
     `);
+		const currentRows = trimStrings(currentResult.recordset as PriceRawRow[]);
+		for (const r of currentRows) {
+			const entry: PriceClassEntry = {
+				item_price_id: r.id,
+				price: toBig(r.price),
+				unit: r.unit,
+				price_class: r.price_class,
+			};
+			const existing = currentMap.get(r.inventory_id) ?? [];
+			existing.push(entry);
+			currentMap.set(r.inventory_id, existing);
+		}
 
-		type HistoryRaw = {
-			inventory_id: string;
-			price: number;
-			unit: string;
-			valid_from: string;
-			valid_to: string | null;
-		};
+		// All prices (for history) — current entries are excluded from history
+		const allResult = await priceReq.query(`
+      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+      FROM SMR_ItemPrice
+      WHERE inventory_id IN (${idParams.join(", ")})
+      ORDER BY inventory_id, valid_from DESC
+    `);
+		const allRows = trimStrings(allResult.recordset as PriceRawRow[]);
 
-		const historyRows = trimStrings(historyResult.recordset as HistoryRaw[]);
-		for (const h of historyRows) {
-			const existing = historyMap.get(h.inventory_id) ?? [];
-			existing.push({
-				valid_from: h.valid_from,
-				valid_to: h.valid_to,
-				price: toBig(h.price),
-				unit: h.unit,
-			});
-			historyMap.set(h.inventory_id, existing);
+		// Build history: all entries except those that are current AND the latest per price_class
+		const currentKeys = new Set<string>();
+		for (const r of currentRows) {
+			currentKeys.add(`${r.inventory_id}::${r.price_class}`);
+		}
+
+		for (const r of allRows) {
+			const key = `${r.inventory_id}::${r.price_class}`;
+			// Skip entries that are exactly current (valid_to IS NULL and is the latest)
+			if (r.valid_to === null && currentKeys.has(key)) {
+				// Only skip the latest current entry; older same-price_class entries ARE history
+				// Actually, valid_to IS NULL means it's current, so skip entirely
+				continue;
+			}
+			const entry: PriceHistoryEntry = {
+				valid_from: r.valid_from,
+				valid_to: r.valid_to,
+				price: toBig(r.price),
+				unit: r.unit,
+				price_class: r.price_class,
+			};
+			const existing = historyMap.get(r.inventory_id) ?? [];
+			existing.push(entry);
+			historyMap.set(r.inventory_id, existing);
 		}
 	}
 
-	// Build final response
+	// ── Assemble response ──────────────────────────────────────────
 	const data: PriceRecord[] = [];
-	for (const row of rawRows) {
-		let effectivePrice: Big | null = row.price != null ? toBig(row.price) : null;
-		let effectiveUnit = row.unit;
+	for (const inv of invRows) {
+		let prices = currentMap.get(inv.inventory_id) ?? [];
 
 		// Unit conversion if requested
-		if (reqUnit && row.price !== null && row.unit) {
-			const converted = await convertPrice(
-				row.inventory_id,
-				effectivePrice!,
-				row.unit,
-				reqUnit,
+		if (reqUnit) {
+			prices = await Promise.all(
+				prices.map(async (p) => {
+					const converted = await convertPrice(inv.inventory_id, p.price, p.unit, reqUnit);
+					return { ...p, price: converted.price, unit: converted.unit };
+				}),
 			);
-			effectivePrice = converted.price;
-			effectiveUnit = converted.unit;
 		}
 
-		const history: PriceHistoryEntry[] =
-			historyMap.get(row.inventory_id) ?? [];
+		// Convert history prices too
+		let history = historyMap.get(inv.inventory_id) ?? [];
 
 		data.push({
-			item_price_id: row.item_price_id,
-			inventory_id: row.inventory_id,
-			class_id: row.class_id,
-			description: row.description,
-			price: effectivePrice,
-			unit: effectiveUnit,
-			price_class: row.price_class,
+			inventory_id: inv.inventory_id,
+			class_id: inv.class_id,
+			description: inv.description,
+			prices,
 			history,
 		});
 	}
@@ -668,14 +669,15 @@ export const importItemPrices = async (
 			// Normalize unit to CS if possible
 			const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
-			// Find current price for this inventory item
+			// Find current price for this inventory item + price_class combo
 			const current = await pool
 				.request()
 				.input("invId", item.inventory_id)
+				.input("priceClass", item.price_class)
 				.query(`
           SELECT id, price, unit, price_class, valid_from, valid_to
           FROM SMR_ItemPrice
-          WHERE inventory_id = @invId AND valid_to IS NULL
+          WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
         `);
 
 			if (current.recordset.length > 0) {

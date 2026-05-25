@@ -92,19 +92,26 @@ export interface PriceHistoryEntry {
 	valid_to: string | null;
 	price: Big;
 	unit: string;
+	price_class: string;
 }
 
-// ─── Price record — response shape ────────────────────────────────────
+// ─── Current price entry (one per price_class) ─────────────────────────
+
+export interface PriceClassEntry {
+	item_price_id: number;
+	price: Big;
+	unit: string;
+	price_class: string;
+}
+
+// ─── Price record — response shape (one per inventory_id) ──────────────
 
 export interface PriceRecord {
-	item_price_id: number | null; // SMR_ItemPrice.id (for editing)
 	inventory_id: string;
 	class_id: string | null;
 	description: string | null;
-	price: Big | null;
-	unit: string | null;
-	price_class: string | null;
-	history: PriceHistoryEntry[];
+	prices: PriceClassEntry[];    // current prices, one per price_class
+	history: PriceHistoryEntry[]; // all historical entries across all price classes
 }
 
 /** Paginated response wrapper */

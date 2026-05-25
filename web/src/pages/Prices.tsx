@@ -3,7 +3,6 @@ import React, {
 	useEffect,
 	useCallback,
 	useRef,
-	useMemo,
 } from "react";
 import {
 	Box,
@@ -20,6 +19,7 @@ import {
 	Typography,
 	TextField,
 	Autocomplete,
+	Chip,
 	InputAdornment,
 	Alert,
 	Skeleton,
@@ -42,6 +42,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import UploadIcon from "@mui/icons-material/Upload";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
+import HistoryIcon from "@mui/icons-material/History";
 import apiRequest from "../services/api";
 import * as XLSX from "xlsx";
 import Big from "big.js";
@@ -53,16 +54,21 @@ interface PriceHistoryEntry {
 	valid_to: string | null;
 	price: number;
 	unit: string;
+	price_class: string;
+}
+
+interface PriceClassEntry {
+	item_price_id: number;
+	price: number;
+	unit: string;
+	price_class: string;
 }
 
 interface PriceRecord {
-	item_price_id: number | null;
 	inventory_id: string;
 	class_id: string | null;
 	description: string | null;
-	price: number | null;
-	unit: string | null;
-	price_class: string | null;
+	prices: PriceClassEntry[];
 	history: PriceHistoryEntry[];
 }
 
@@ -121,62 +127,270 @@ const unitOptions = [
 	"TETRA",
 ];
 
-// ── Row Component (collapsible + editable) ───────────────────────────
+// ── History Dialog ────────────────────────────────────────────────────
+
+interface HistoryDialogProps {
+	open: boolean;
+	onClose: () => void;
+	inventoryId: string;
+	history: PriceHistoryEntry[];
+}
+
+const HistoryDialog: React.FC<HistoryDialogProps> = ({
+	open,
+	onClose,
+	inventoryId,
+	history,
+}) => (
+	<Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+		<DialogTitle>Price History — {inventoryId}</DialogTitle>
+		<DialogContent>
+			{history.length === 0 ? (
+				<Typography variant="body2" sx={{ color: "text.secondary", py: 2 }}>
+					No historical entries for this item.
+				</Typography>
+			) : (
+				<TableContainer sx={{ maxHeight: 400 }}>
+					<Table size="small" stickyHeader>
+						<TableHead>
+							<TableRow>
+								<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
+								<TableCell align="right" sx={{ fontWeight: 600 }}>Price</TableCell>
+								<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
+								<TableCell sx={{ fontWeight: 600 }}>Valid From</TableCell>
+								<TableCell sx={{ fontWeight: 600 }}>Valid To</TableCell>
+							</TableRow>
+						</TableHead>
+						<TableBody>
+							{history.map((h, idx) => (
+								<TableRow key={`${h.price_class}__${h.valid_from}__${idx}`}>
+									<TableCell>
+										<Chip label={h.price_class} size="small" variant="outlined" />
+									</TableCell>
+									<TableCell align="right">{fmtNum(h.price)}</TableCell>
+									<TableCell>{h.unit}</TableCell>
+									<TableCell>{fmtDate(h.valid_from)}</TableCell>
+									<TableCell>{fmtDate(h.valid_to)}</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</TableContainer>
+			)}
+		</DialogContent>
+		<DialogActions>
+			<Button onClick={onClose}>Close</Button>
+		</DialogActions>
+	</Dialog>
+);
+
+// ── Add/Edit Price Dialog ─────────────────────────────────────────────
+
+interface PriceFormDialogProps {
+	open: boolean;
+	onClose: () => void;
+	onSaved: () => Promise<void>;
+	inventoryId: string;
+	editEntry: PriceClassEntry | null; // null = add mode
+	priceClassOptions: string[];
+}
+
+const PriceFormDialog: React.FC<PriceFormDialogProps> = ({
+	open,
+	onClose,
+	onSaved,
+	inventoryId,
+	editEntry,
+	priceClassOptions,
+}) => {
+	const isEdit = editEntry != null;
+	const [priceClass, setPriceClass] = useState("");
+	const [price, setPrice] = useState("");
+	const [unit, setUnit] = useState("CS");
+	const [saving, setSaving] = useState(false);
+	const [dialogError, setDialogError] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (open) {
+			setPriceClass(isEdit ? editEntry.price_class : "");
+			setPrice(isEdit ? String(editEntry.price) : "");
+			setUnit(isEdit ? editEntry.unit : "CS");
+			setDialogError(null);
+		}
+	}, [open, isEdit, editEntry]);
+
+	const handleSave = async () => {
+		setDialogError(null);
+
+		if (!priceClass.trim()) {
+			setDialogError("Price class is required");
+			return;
+		}
+		const priceNum = Number(price);
+		if (!price || isNaN(priceNum) || !isFinite(priceNum)) {
+			setDialogError("Valid price is required");
+			return;
+		}
+		if (!unit.trim()) {
+			setDialogError("Unit is required");
+			return;
+		}
+
+		setSaving(true);
+		try {
+			if (isEdit && editEntry) {
+				// Update existing — PUT expires old and creates new
+				await apiRequest(`/price/items/${editEntry.item_price_id}`, {
+					method: "PUT",
+					body: { price: priceNum, unit, price_class: priceClass.trim() },
+				});
+			} else {
+				// Create new
+				await apiRequest("/price/items", {
+					method: "POST",
+					body: {
+						inventory_id: inventoryId,
+						price: priceNum,
+						unit: unit.trim(),
+						price_class: priceClass.trim(),
+					},
+				});
+			}
+			await onSaved();
+			onClose();
+		} catch (err: unknown) {
+			const msg =
+				err instanceof Error ? err.message : "Failed to save price";
+			setDialogError(msg);
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+			<DialogTitle>
+				{isEdit ? "Edit Price" : "Add Price"} — {inventoryId}
+			</DialogTitle>
+			<DialogContent>
+				<Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+					{dialogError && (
+						<Alert severity="error" onClose={() => setDialogError(null)}>
+							{dialogError}
+						</Alert>
+					)}
+					<Autocomplete
+						size="small"
+						freeSolo
+						options={priceClassOptions}
+						value={priceClass}
+						onChange={(_, newVal) => setPriceClass(newVal ?? "")}
+						onInputChange={(_, newVal) => setPriceClass(newVal)}
+						renderInput={(params) => (
+							<TextField
+								{...params}
+								label="Price Class"
+								required
+							/>
+						)}
+						disabled={isEdit}
+					/>
+					<TextField
+						label="Price"
+						type="number"
+						value={price}
+						onChange={(e) => setPrice(e.target.value)}
+						size="small"
+						required
+						slotProps={{ htmlInput: { step: "0.01" } }}
+					/>
+					<Select
+						size="small"
+						value={unit}
+						onChange={(e) => setUnit(e.target.value)}
+						required
+					>
+						{unitOptions.map((u) => (
+							<MenuItem key={u} value={u}>
+								{u}
+							</MenuItem>
+						))}
+					</Select>
+				</Box>
+			</DialogContent>
+			<DialogActions>
+				<Button onClick={onClose} disabled={saving}>
+					Cancel
+				</Button>
+				<Button variant="contained" onClick={handleSave} disabled={saving}>
+					{saving ? "Saving..." : isEdit ? "Update" : "Add"}
+				</Button>
+			</DialogActions>
+		</Dialog>
+	);
+};
+
+// ── Row Component (one per inventory_id) ─────────────────────────────
 
 interface RowProps {
 	row: PriceRecord;
-	editRowId: number | null;
-	editInventoryId: string | null;
-	editPrice: string;
-	editUnit: string;
-	editPriceClass: string;
-	onStartEdit: (row: PriceRecord) => void;
-	onCancelEdit: () => void;
-	onSaveEdit: () => Promise<void>;
-	onEditPriceChange: (val: string) => void;
-	onEditUnitChange: (val: string) => void;
-	onEditPriceClassChange: (val: string) => void;
 	priceClassOptions: string[];
-	saving: boolean;
+	onRefresh: () => Promise<void>;
+	setGlobalError: (msg: string) => void;
 }
 
-const Row: React.FC<RowProps> = ({
+const RowComponent: React.FC<RowProps> = ({
 	row,
-	editRowId,
-	editInventoryId,
-	editPrice,
-	editUnit,
-	editPriceClass,
-	onStartEdit,
-	onCancelEdit,
-	onSaveEdit,
-	onEditPriceChange,
-	onEditUnitChange,
-	onEditPriceClassChange,
 	priceClassOptions,
-	saving,
+	onRefresh,
+	setGlobalError,
 }) => {
 	const [open, setOpen] = useState(false);
+	const [historyOpen, setHistoryOpen] = useState(false);
+	const [formOpen, setFormOpen] = useState(false);
+	const [editEntry, setEditEntry] = useState<PriceClassEntry | null>(null);
+	const [deletingPriceId, setDeletingPriceId] = useState<number | null>(null);
+
+	const hasPrices = row.prices.length > 0;
 	const hasHistory = row.history.length > 0;
-	const isEditing =
-		editRowId !== null &&
-		(editRowId === row.item_price_id ||
-			(editRowId === -1 && editInventoryId === row.inventory_id));
+
+	const handleDeletePrice = async (entry: PriceClassEntry) => {
+		setDeletingPriceId(entry.item_price_id);
+		try {
+			await apiRequest(`/price/items/${entry.item_price_id}`, {
+				method: "DELETE",
+			});
+			await onRefresh();
+		} catch (err: unknown) {
+			setGlobalError(
+				err instanceof Error ? err.message : "Failed to delete price",
+			);
+		} finally {
+			setDeletingPriceId(null);
+		}
+	};
+
+	const handleAddPrice = () => {
+		setEditEntry(null);
+		setFormOpen(true);
+	};
+
+	const handleEditPrice = (entry: PriceClassEntry) => {
+		setEditEntry(entry);
+		setFormOpen(true);
+	};
 
 	return (
 		<React.Fragment>
-			<TableRow
-				selected={isEditing}
-				sx={{ "& > *": { borderBottom: "unset" } }}
-			>
+			<TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
 				<TableCell sx={{ width: 48, px: 1 }}>
 					<IconButton
 						aria-label="expand row"
 						size="small"
 						onClick={() => setOpen(!open)}
-						disabled={!hasHistory}
+						disabled={!hasPrices && !hasHistory}
 					>
-						{hasHistory ? (
+						{hasPrices || hasHistory ? (
 							open ? (
 								<KeyboardArrowUpIcon />
 							) : (
@@ -193,7 +407,7 @@ const Row: React.FC<RowProps> = ({
 				<TableCell>{row.class_id ?? "—"}</TableCell>
 				<TableCell
 					sx={{
-						maxWidth: 400,
+						maxWidth: 300,
 						overflow: "hidden",
 						textOverflow: "ellipsis",
 						whiteSpace: "nowrap",
@@ -201,105 +415,45 @@ const Row: React.FC<RowProps> = ({
 				>
 					{row.description ?? "—"}
 				</TableCell>
-				<TableCell align="right" sx={{ minWidth: 120 }}>
-					{isEditing ? (
-						<TextField
-							size="small"
-							type="number"
-							value={editPrice}
-							onChange={(e) => onEditPriceChange(e.target.value)}
-							sx={{ width: 110 }}
-							slotProps={{
-								htmlInput: { step: "1.0", style: { textAlign: "right" } },
-							}}
-							disabled={saving}
-						/>
-					) : (
-						fmtNum(row.price)
-					)}
-				</TableCell>
-				<TableCell>
-					{isEditing ? (
-						<Select
-							size="small"
-							value={editUnit}
-							onChange={(e) => onEditUnitChange(e.target.value)}
-							sx={{ width: 80 }}
-							disabled={saving}
-						>
-							{unitOptions.map((u) => (
-								<MenuItem key={u} value={u}>
-									{u}
-								</MenuItem>
-							))}
-						</Select>
-					) : (
-						row.unit ?? "—"
-					)}
-				</TableCell>
-				<TableCell>
-					{isEditing ? (
-						<Autocomplete
-							size="small"
-							freeSolo
-							options={priceClassOptions}
-							value={editPriceClass}
-							onChange={(_, newVal) => onEditPriceClassChange(newVal ?? "")}
-							onInputChange={(_, newVal) => onEditPriceClassChange(newVal)}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									sx={{ width: 130 }}
-									slotProps={{ htmlInput: { ...params.inputProps, maxLength: 30 } }}
+				<TableCell sx={{ minWidth: 180 }}>
+					<Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+						{hasPrices ? (
+							row.prices.map((p) => (
+								<Chip
+									key={p.item_price_id}
+									label={`${p.price_class}: ${fmtNum(p.price)}/${p.unit}`}
+									size="small"
+									color="primary"
+									variant="outlined"
 								/>
-							)}
-							sx={{ width: 130 }}
-							disabled={saving}
-						/>
-					) : (
-						row.price_class ?? "—"
-					)}
+							))
+						) : (
+							<Typography variant="caption" sx={{ color: "text.secondary" }}>
+								No prices
+							</Typography>
+						)}
+					</Box>
 				</TableCell>
-				<TableCell
-					sx={
-						isEditing
-							? { minWidth: 160 }
-							: { width: 0, p: 0, borderBottom: "unset" }
-					}
-				>
-					{isEditing && (
-						<Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
-							<Button
-								size="small"
-								variant="contained"
-								color="primary"
-								onClick={onSaveEdit}
-								disabled={saving}
-								startIcon={<SaveIcon />}
-							>
-								Save
-							</Button>
-							<Button
-								size="small"
-								variant="outlined"
-								onClick={onCancelEdit}
-								disabled={saving}
-							>
-								Cancel
-							</Button>
-						</Box>
-					)}
-				</TableCell>
-				<TableCell sx={{ width: 48, px: 0.5, textAlign: "right" }}>
-					{!isEditing && (
+				<TableCell sx={{ whiteSpace: "nowrap" }}>
+					<Box sx={{ display: "flex", gap: 0.5 }}>
 						<IconButton
 							size="small"
-							onClick={() => onStartEdit(row)}
-							aria-label="edit"
+							onClick={() => setHistoryOpen(true)}
+							disabled={!hasHistory}
+							aria-label="view history"
+							title="View history"
 						>
-							<EditIcon fontSize="small" />
+							<HistoryIcon fontSize="small" />
 						</IconButton>
-					)}
+						<IconButton
+							size="small"
+							onClick={handleAddPrice}
+							aria-label="add price"
+							title="Add price"
+						>
+							<AddIcon fontSize="small" />
+						</IconButton>
+					</Box>
 				</TableCell>
 			</TableRow>
 			<TableRow>
@@ -309,42 +463,86 @@ const Row: React.FC<RowProps> = ({
 						paddingTop: 0,
 						borderBottom: open ? undefined : "unset",
 					}}
-					colSpan={9}
+					colSpan={6}
 				>
 					<Collapse in={open} timeout="auto" unmountOnExit>
 						<Box sx={{ margin: 1 }}>
+							{/* Current Prices */ }
 							<Typography
 								variant="subtitle2"
 								gutterBottom
 								component="div"
 								sx={{ color: "text.secondary" }}
 							>
-								Price History
+								Current Prices
 							</Typography>
-							<Table size="small" aria-label="price history">
-								<TableHead>
-									<TableRow>
-										<TableCell>Valid From</TableCell>
-										<TableCell>Valid To</TableCell>
-										<TableCell align="right">Price</TableCell>
-										<TableCell>Unit</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{row.history.map((h, idx) => (
-										<TableRow key={`${h.valid_from}__${idx}`}>
-											<TableCell>{fmtDate(h.valid_from)}</TableCell>
-											<TableCell>{fmtDate(h.valid_to)}</TableCell>
-											<TableCell align="right">{fmtNum(h.price)}</TableCell>
-											<TableCell>{h.unit}</TableCell>
+							{hasPrices ? (
+								<Table size="small" aria-label="current prices">
+									<TableHead>
+										<TableRow>
+											<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
+											<TableCell align="right" sx={{ fontWeight: 600 }}>Price</TableCell>
+											<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
+											<TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
 										</TableRow>
-									))}
-								</TableBody>
-							</Table>
+									</TableHead>
+									<TableBody>
+										{row.prices.map((p) => (
+											<TableRow key={p.item_price_id}>
+												<TableCell>{p.price_class}</TableCell>
+												<TableCell align="right">{fmtNum(p.price)}</TableCell>
+												<TableCell>{p.unit}</TableCell>
+												<TableCell align="right">
+													<IconButton
+														size="small"
+														onClick={() => handleEditPrice(p)}
+														aria-label={`edit ${p.price_class}`}
+													>
+														<EditIcon fontSize="small" />
+													</IconButton>
+													<IconButton
+														size="small"
+														onClick={() => handleDeletePrice(p)}
+														disabled={deletingPriceId === p.item_price_id}
+														aria-label={`delete ${p.price_class}`}
+													>
+														<DeleteIcon fontSize="small" />
+													</IconButton>
+												</TableCell>
+											</TableRow>
+										))}
+									</TableBody>
+								</Table>
+							) : (
+								<Typography
+									variant="body2"
+									sx={{ color: "text.secondary", py: 1 }}
+								>
+									No current prices. Click "+" to add one.
+								</Typography>
+							)}
 						</Box>
 					</Collapse>
 				</TableCell>
 			</TableRow>
+
+			{/* History Dialog */}
+			<HistoryDialog
+				open={historyOpen}
+				onClose={() => setHistoryOpen(false)}
+				inventoryId={row.inventory_id}
+				history={row.history}
+			/>
+
+			{/* Add/Edit Price Dialog */}
+			<PriceFormDialog
+				open={formOpen}
+				onClose={() => setFormOpen(false)}
+				onSaved={onRefresh}
+				inventoryId={row.inventory_id}
+				editEntry={editEntry}
+				priceClassOptions={priceClassOptions}
+			/>
 		</React.Fragment>
 	);
 };
@@ -387,7 +585,6 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 	onPriceClassChange,
 }) => (
 	<Box sx={{ borderBottom: "1px solid", borderColor: "divider" }}>
-		{/* Row 1: Title + record counts + Import button */}
 		<Box
 			sx={{
 				display: "flex",
@@ -424,7 +621,6 @@ const PricesToolbar: React.FC<PricesToolbarProps> = ({
 				Import
 			</Button>
 		</Box>
-		{/* Row 2: Toolbar controls */}
 		<Box
 			sx={{
 				display: "flex",
@@ -542,7 +738,6 @@ const ImportDialog: React.FC<{
 					const invId = String(
 						row.inventory_id ?? row.InventoryID ?? row.InvtID ?? "",
 					).trim();
-					// Wrap raw XLSX float in Big and round to 4dp to kill IEEE 754 noise
 					const priceRaw = Number(row.price ?? row.Price ?? row.Cost ?? 0);
 					const price = isNaN(priceRaw)
 						? 0
@@ -726,7 +921,7 @@ interface PriceClassItem {
 
 interface PriceClassDialogProps {
 	open: boolean;
-	editItem: PriceClassItem | null; // null = add mode
+	editItem: PriceClassItem | null;
 	onClose: () => void;
 	onSaved: () => void;
 	onError: (msg: string) => void;
@@ -745,7 +940,6 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	const [saving, setSaving] = useState(false);
 	const [dialogError, setDialogError] = useState<string | null>(null);
 
-	// Sync state when dialog opens with a different editItem
 	useEffect(() => {
 		setClassId(isEdit ? editItem.id : "");
 		setDescription(isEdit ? editItem.description ?? "" : "");
@@ -854,7 +1048,7 @@ const PriceClassDialog: React.FC<PriceClassDialogProps> = ({
 	);
 };
 
-// ── PriceClass Row (simplified — no history, no discount) ─────────
+// ── PriceClass Row ──────────────────────────────────────────────────
 
 interface PriceClassRowProps {
 	pc: PriceClassItem;
@@ -902,7 +1096,7 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 	);
 };
 
-// ── PriceClass Card (simplified) ──────────────────────────────────
+// ── PriceClass Card ────────────────────────────────────────────────
 
 interface PriceClassCardProps {
 	classes: PriceClassItem[];
@@ -1064,7 +1258,6 @@ const PriceClassCard: React.FC<PriceClassCardProps> = ({
 				onError={onError}
 			/>
 
-			{/* Delete Confirmation Dialog */}
 			<Dialog
 				open={deleteConfirmItem != null}
 				onClose={handleDeleteCancel}
@@ -1186,26 +1379,17 @@ const Prices: React.FC = () => {
 	const [classesLoading, setClassesLoading] = useState(true);
 	const [classesError, setClassesError] = useState<string | null>(null);
 
-	// Edit state
-	const [editRowId, setEditRowId] = useState<number | null>(null);
-	const [editInventoryId, setEditInventoryId] = useState<string | null>(null);
-	const [editPrice, setEditPrice] = useState("");
-	const [editUnit, setEditUnit] = useState("");
-	const [editPriceClass, setEditPriceClass] = useState("");
-	const [saving, setSaving] = useState(false);
+	const unitRef = useRef<string | null>(unit);
 
 	// Import state
 	const [importOpen, setImportOpen] = useState(false);
 	const [importing, setImporting] = useState(false);
 	const [importResult, setImportResult] = useState<string | null>(null);
 
-	const unitRef = useRef<string | null>(unit);
-
 	useEffect(() => {
 		unitRef.current = unit;
 	}, [unit]);
 
-	// Single fetch for price classes: populates filter + PriceClassCard data
 	const fetchPriceClasses = useCallback(async (signal?: AbortSignal) => {
 		setClassesLoading(true);
 		setClassesError(null);
@@ -1216,7 +1400,6 @@ const Prices: React.FC = () => {
 			if (signal?.aborted) return;
 			setAllClasses(classes);
 
-			// Populate filter dropdown from all class IDs
 			const names = classes.map((c) => c.id).sort((a, b) => a.localeCompare(b));
 			setPriceClassOptions(names);
 		} catch (err: unknown) {
@@ -1235,7 +1418,6 @@ const Prices: React.FC = () => {
 		return () => abort.abort();
 	}, [fetchPriceClasses]);
 
-	// Commit search
 	const handleSearch = useCallback(() => {
 		const value = searchInputValue.trim();
 		if (isSearching) return;
@@ -1259,7 +1441,6 @@ const Prices: React.FC = () => {
 		setPage(0);
 	}, []);
 
-	// Fetch data
 	const fetchData = useCallback(
 		async (signal?: AbortSignal) => {
 			setLoading(true);
@@ -1300,59 +1481,20 @@ const Prices: React.FC = () => {
 		return () => abort.abort();
 	}, [fetchData]);
 
-	// ── Edit handlers ──────────────────────────────────────────────
+	// ── Pagination ─────────────────────────────────────────────────
 
-	const handleStartEdit = (row: PriceRecord) => {
-		setEditRowId(row.item_price_id ?? -1);
-		setEditInventoryId(row.item_price_id != null ? null : row.inventory_id);
-		setEditPrice(String(row.price ?? ""));
-		setEditUnit(row.unit ?? "CS");
-		setEditPriceClass(row.price_class ?? "");
+	const handleChangePage = (_: unknown, newPage: number) => {
+		setPage(newPage);
 	};
 
-	const handleCancelEdit = () => {
-		setEditRowId(null);
-		setEditInventoryId(null);
-		setEditPrice("");
-		setEditUnit("");
-		setEditPriceClass("");
+	const handleChangeRowsPerPage = (
+		event: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		setPageSize(parseInt(event.target.value, 10));
+		setPage(0);
 	};
 
-	const handleSaveEdit = async () => {
-		setSaving(true);
-		try {
-			if (editRowId === -1 && editInventoryId) {
-				// Creating new price — valid_from defaults to current datetime on server
-				await apiRequest("/price/items", {
-					method: "POST",
-					body: {
-						inventory_id: editInventoryId,
-						price: Number(editPrice),
-						unit: editUnit,
-						price_class: editPriceClass,
-					},
-				});
-			} else if (editRowId != null && editRowId > 0) {
-				// Updating existing price
-				await apiRequest(`/price/items/${editRowId}`, {
-					method: "PUT",
-					body: {
-						price: Number(editPrice),
-						unit: editUnit,
-						price_class: editPriceClass,
-					},
-				});
-			}
-			handleCancelEdit();
-			await fetchData();
-		} catch (err: unknown) {
-			setError(err instanceof Error ? err.message : "Failed to save price");
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	// ── Import handlers ────────────────────────────────────────────
+	// ── Import handler ────────────────────────────────────────────
 
 	const handleImport = async (items: ImportRow[]) => {
 		setImporting(true);
@@ -1384,19 +1526,6 @@ const Prices: React.FC = () => {
 		}
 	};
 
-	// ── Pagination ─────────────────────────────────────────────────
-
-	const handleChangePage = (_: unknown, newPage: number) => {
-		setPage(newPage);
-	};
-
-	const handleChangeRowsPerPage = (
-		event: React.ChangeEvent<HTMLInputElement>,
-	) => {
-		setPageSize(parseInt(event.target.value, 10));
-		setPage(0);
-	};
-
 	return (
 		<>
 			<PriceClassCard
@@ -1419,7 +1548,10 @@ const Prices: React.FC = () => {
 					unit={unit}
 					unitOptions={unitOptions}
 					onUnitChange={setUnit}
-					onImportClick={() => setImportOpen(true)}
+					onImportClick={() => {
+						setImportOpen(true);
+						setImportResult(null);
+					}}
 					priceClassOptions={priceClassOptions}
 					selectedPriceClass={selectedPriceClass}
 					onPriceClassChange={setSelectedPriceClass}
@@ -1435,10 +1567,7 @@ const Prices: React.FC = () => {
 							{},
 							{},
 							{},
-							{ align: "right" },
 							{},
-							{},
-							{ spacer: true },
 							{ icon: true, align: "right" },
 						]}
 						rows={8}
@@ -1446,29 +1575,22 @@ const Prices: React.FC = () => {
 				) : (
 					<>
 						<TableContainer>
-							<Table aria-label="collapsible price table" size="small">
+							<Table aria-label="price table grouped by inventory" size="small">
 								<TableHead>
 									<TableRow>
 										<TableCell sx={{ width: 48, px: 1 }} />
 										<TableCell sx={{ fontWeight: 600 }}>Inventory ID</TableCell>
 										<TableCell sx={{ fontWeight: 600 }}>Class ID</TableCell>
 										<TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-										<TableCell align="right" sx={{ fontWeight: 600 }}>
-											Price
-										</TableCell>
-										<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
-										<TableCell sx={{ fontWeight: 600 }}>Price Class</TableCell>
-										<TableCell sx={{ width: 0, p: 0, textAlign: "right" }} />
-										<TableCell
-											sx={{ width: 48, px: 0.5, textAlign: "right" }}
-										/>
+										<TableCell sx={{ fontWeight: 600 }}>Prices</TableCell>
+										<TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
 									{rows.length === 0 ? (
 										<TableRow>
 											<TableCell
-												colSpan={9}
+												colSpan={6}
 												align="center"
 												sx={{ py: 4, color: "text.secondary" }}
 											>
@@ -1477,22 +1599,12 @@ const Prices: React.FC = () => {
 										</TableRow>
 									) : (
 										rows.map((row) => (
-											<Row
+											<RowComponent
 												key={row.inventory_id}
 												row={row}
-												editRowId={editRowId}
-												editInventoryId={editInventoryId}
-												editPrice={editPrice}
-												editUnit={editUnit}
-												editPriceClass={editPriceClass}
-												onStartEdit={handleStartEdit}
-												onCancelEdit={handleCancelEdit}
-												onSaveEdit={handleSaveEdit}
-												onEditPriceChange={setEditPrice}
-												onEditUnitChange={setEditUnit}
-												onEditPriceClassChange={setEditPriceClass}
 												priceClassOptions={priceClassOptions}
-												saving={saving}
+												onRefresh={fetchData}
+												setGlobalError={setError}
 											/>
 										))
 									)}
