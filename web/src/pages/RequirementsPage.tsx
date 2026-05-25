@@ -119,6 +119,8 @@ function computeCategoryName(
 		suggestedOrder: number | null | undefined;
 	},
 	categories: MinStockCategory[],
+	/** Month-to-week factor: 1.0 for monthly, >1 for weekly. Converts coverageThreshold to weeks so units match stockCoverCount. */
+	displayFactor?: number,
 ): string | null {
 	if (row.avgDemand != null && row.avgDemand === 0) {
 		return "No record";
@@ -132,7 +134,14 @@ function computeCategoryName(
 		return null;
 	}
 
-	const ratio = row.stockCoverCount / row.coverageThreshold;
+	// Normalize coverageThreshold to same time unit as stockCoverCount.
+	//   monthly: coverageThreshold (months) × 1.0 = months  ✓  (stockCoverCount is in months)
+	//   weekly:  coverageThreshold (months) × factor = weeks  ✓  (stockCoverCount is in weeks)
+	const effectiveThreshold =
+		displayFactor != null && displayFactor !== 1
+			? row.coverageThreshold * displayFactor
+			: row.coverageThreshold;
+	const ratio = row.stockCoverCount / effectiveThreshold;
 	for (const cat of categories) {
 		if (cat.threshold != null && ratio < cat.threshold) {
 			if (
@@ -520,6 +529,8 @@ const RequirementsPage: React.FC = () => {
 
 	// Ref to track period keys for column building
 	const periodKeysRef = useRef<string[]>([]);
+	// State for month-to-week conversion factor (updated in handleApply)
+	const [displayFactor, setDisplayFactor] = useState(1.0);
 	const categoriesRef = useRef(categories);
 
 	// Ref for auto-scroll to results after apply
@@ -532,20 +543,10 @@ const RequirementsPage: React.FC = () => {
 
 	// ─── Build Purchasing Columns ──────────────────────────────────────
 	const buildPurchasingColumns = useCallback(
-		(periodKeys: string[]): GridColDef[] => {
+		(periodKeys: string[], df: number): GridColDef[] => {
 			const cols: GridColDef[] = [];
 
-			const displayFactor = (() => {
-				if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
-				const uniqueMonths = new Set(
-					periodKeys.map((k) => {
-						const m = k.match(/W\d+\s+(.+)/);
-						return m ? m[1] : k;
-					}),
-				);
-				const nMonths = uniqueMonths.size;
-				return nMonths > 0 ? periodKeys.length / nMonths : 1.0;
-			})();
+			const displayFactor = df;
 
 			const staticHeader = { headerClassName: "group-static" };
 			cols.push({
@@ -792,7 +793,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Category",
 				width: 130,
 				valueGetter: (_value: unknown, row: RequirementRow) =>
-					computeCategoryName(row, categoriesRef.current),
+					computeCategoryName(row, categoriesRef.current, displayFactor),
 				sortComparator: (v1: string | null, v2: string | null) => {
 					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
 					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
@@ -807,7 +808,7 @@ const RequirementsPage: React.FC = () => {
 
 	// ─── Build Bundling Columns ────────────────────────────────────────
 	const buildBundlingColumns = useCallback(
-		(periodKeys: string[]): GridColDef[] => {
+		(periodKeys: string[], df: number): GridColDef[] => {
 			const cols: GridColDef[] = [];
 
 			const staticHeader = { headerClassName: "group-static" };
@@ -1003,7 +1004,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Category",
 				width: 130,
 				valueGetter: (_value: unknown, row: BundlingRow) =>
-					computeCategoryName(row, categoriesRef.current),
+					computeCategoryName(row, categoriesRef.current, df),
 				sortComparator: (v1: string | null, v2: string | null) => {
 					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
 					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
@@ -1085,16 +1086,32 @@ const RequirementsPage: React.FC = () => {
 			const periodKeys = Object.keys(data[0].periodDemand ?? {}).sort(
 				(a, b) => periodSortValue(a) - periodSortValue(b),
 			);
-			periodKeysRef.current = periodKeys;
+periodKeysRef.current = periodKeys;
+
+			// Compute month-to-week conversion factor for category computation
+			const df =
+				frequency !== "weekly" || periodKeys.length === 0
+					? 1.0
+					: (() => {
+							const uniqueMonths = new Set(
+								periodKeys.map((k) => {
+									const m = k.match(/W\d+\s+(.+)/);
+									return m ? m[1] : k;
+								}),
+							);
+							const nMonths = uniqueMonths.size;
+							return nMonths > 0 ? periodKeys.length / nMonths : 1.0;
+						})();
+			setDisplayFactor(df);
 
 			const gridRows = data.map((item, idx) => ({ ...item, id: idx + 1 }));
 
 			if (mode === "purchasing") {
-				const dynamicCols = buildPurchasingColumns(periodKeys);
+				const dynamicCols = buildPurchasingColumns(periodKeys, df);
 				setPurchasingColumns(dynamicCols);
 				setPurchasingRows(gridRows);
 			} else {
-				const dynamicCols = buildBundlingColumns(periodKeys);
+				const dynamicCols = buildBundlingColumns(periodKeys, df);
 				setBundlingColumns(dynamicCols);
 				setBundlingRows(gridRows);
 			}
@@ -1249,29 +1266,41 @@ const RequirementsPage: React.FC = () => {
 	// ─── Row category class (purchasing only) ─────────────────────────
 	const getRowClassName = useCallback(
 		(params: { row: GridRowModel }): string => {
-			const cat = computeCategoryName(params.row as RequirementRow, categories);
+			const cat = computeCategoryName(
+				params.row as RequirementRow,
+				categories,
+				displayFactor,
+			);
 			return cat ? (CATEGORY_CLASS_MAP[cat] ?? "") : "";
 		},
-		[categories],
+		[categories, displayFactor],
 	);
 
 	// ─── Filtered rows by selected categories (purchasing only) ────────
 	const filteredPurchasingRows = useMemo(() => {
 		if (selectedCategories.length === 0) return purchasingRows;
 		return purchasingRows.filter((row) => {
-			const cat = computeCategoryName(row as RequirementRow, categories);
+			const cat = computeCategoryName(
+				row as RequirementRow,
+				categories,
+				displayFactor,
+			);
 			return cat ? selectedCategories.includes(cat) : true;
 		});
-	}, [purchasingRows, selectedCategories, categories]);
+	}, [purchasingRows, selectedCategories, categories, displayFactor]);
 
 	// ─── Filtered rows by selected categories (bundling only) ────────
 	const filteredBundlingRows = useMemo(() => {
 		if (selectedCategories.length === 0) return bundlingRows;
 		return bundlingRows.filter((row) => {
-			const cat = computeCategoryName(row as BundlingRow, categories);
+			const cat = computeCategoryName(
+				row as BundlingRow,
+				categories,
+				displayFactor,
+			);
 			return cat ? selectedCategories.includes(cat) : true;
 		});
-	}, [bundlingRows, selectedCategories, categories]);
+	}, [bundlingRows, selectedCategories, categories, displayFactor]);
 
 	// ─── Column visibility model (purchasing only) ─────────────────────
 	const columnVisibilityModel = useMemo(() => {
