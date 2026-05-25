@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { getDb, withDb } from "../../config/db";
 import { NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type {
@@ -22,18 +22,19 @@ import type {
 export const createInventory = async (
 	inv: NewInventory,
 ): Promise<Inventory> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", inv.InvtID)
-		.input("ClassID", inv.ClassID)
-		.input("ProdMgrID", inv.ProdMgrID)
-		.input("Descr", inv.Descr)
-		.input("StkUnit", inv.StkUnit).query(`
-      INSERT INTO Inventory (InvtID, ClassID, ProdMgrID, Descr, StkUnit)
-      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
-      VALUES (@InvtID, @ClassID, @ProdMgrID, @Descr, @StkUnit)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", inv.InvtID)
+			.input("ClassID", inv.ClassID)
+			.input("ProdMgrID", inv.ProdMgrID)
+			.input("Descr", inv.Descr)
+			.input("StkUnit", inv.StkUnit).query(`
+        INSERT INTO Inventory (InvtID, ClassID, ProdMgrID, Descr, StkUnit)
+        OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
+        VALUES (@InvtID, @ClassID, @ProdMgrID, @Descr, @StkUnit)
+      `),
+	);
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create Inventory");
@@ -43,20 +44,20 @@ export const createInventory = async (
 export const getInventoryById = async (
 	invtId: string,
 ): Promise<Inventory | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.query(
-			"SELECT InvtID, ClassID, ProdMgrID, Descr, StkUnit FROM Inventory WHERE InvtID = @InvtID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.query(
+				"SELECT InvtID, ClassID, ProdMgrID, Descr, StkUnit FROM Inventory WHERE InvtID = @InvtID",
+			),
+	);
 	return trimStrings(result.recordset[0] as Inventory | undefined);
 };
 
 export const getAllInventory = async (
 	promoFilter: "all" | "promos" | "non_promos" = "all",
 ): Promise<InventoryWithPromo[]> => {
-	const pool = await getDb();
 	const baseSelect = `SELECT i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit`;
 
 	const query =
@@ -73,7 +74,7 @@ export const getAllInventory = async (
 				   0 AS isPromo
 				 FROM Inventory i
 				 WHERE NOT EXISTS (SELECT 1 FROM Component c WHERE c.KitID = i.InvtID)`;
-	const result = await pool.request().query(query);
+	const result = await withDb((pool) => pool.request().query(query));
 	return trimStrings(result.recordset as InventoryWithPromo[]);
 };
 
@@ -81,19 +82,20 @@ export const updateInventory = async (
 	invtId: string,
 	updates: InventoryUpdate,
 ): Promise<Inventory> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.input("ClassID", updates.ClassID ?? null)
-		.input("ProdMgrID", updates.ProdMgrID ?? null)
-		.input("Descr", updates.Descr ?? null)
-		.input("StkUnit", updates.StkUnit ?? null).query(`
-      UPDATE Inventory
-      SET ClassID = @ClassID, ProdMgrID = @ProdMgrID, Descr = @Descr, StkUnit = @StkUnit
-      OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
-      WHERE InvtID = @InvtID
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.input("ClassID", updates.ClassID ?? null)
+			.input("ProdMgrID", updates.ProdMgrID ?? null)
+			.input("Descr", updates.Descr ?? null)
+			.input("StkUnit", updates.StkUnit ?? null).query(`
+        UPDATE Inventory
+        SET ClassID = @ClassID, ProdMgrID = @ProdMgrID, Descr = @Descr, StkUnit = @StkUnit
+        OUTPUT INSERTED.InvtID, INSERTED.ClassID, INSERTED.ProdMgrID, INSERTED.Descr, INSERTED.StkUnit
+        WHERE InvtID = @InvtID
+      `),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`Inventory ${invtId} not found`);
@@ -102,13 +104,14 @@ export const updateInventory = async (
 };
 
 export const deleteInventory = async (invtId: string): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.query(
-			"DELETE FROM Inventory OUTPUT DELETED.InvtID WHERE InvtID = @InvtID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.query(
+				"DELETE FROM Inventory OUTPUT DELETED.InvtID WHERE InvtID = @InvtID",
+			),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`Inventory ${invtId} not found`);
@@ -120,16 +123,17 @@ export const deleteInventory = async (invtId: string): Promise<void> => {
 export const createComponent = async (
 	comp: NewComponent,
 ): Promise<Component> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("KitID", comp.KitID)
-		.input("CmpnentID", comp.CmpnentID)
-		.input("CmpnentQty", comp.CmpnentQty).query(`
-      INSERT INTO Component (KitID, CmpnentID, CmpnentQty)
-      OUTPUT INSERTED.KitID, INSERTED.CmpnentID, INSERTED.CmpnentQty
-      VALUES (@KitID, @CmpnentID, @CmpnentQty)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("KitID", comp.KitID)
+			.input("CmpnentID", comp.CmpnentID)
+			.input("CmpnentQty", comp.CmpnentQty).query(`
+        INSERT INTO Component (KitID, CmpnentID, CmpnentQty)
+        OUTPUT INSERTED.KitID, INSERTED.CmpnentID, INSERTED.CmpnentQty
+        VALUES (@KitID, @CmpnentID, @CmpnentQty)
+      `),
+	);
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create Component");
@@ -140,35 +144,36 @@ export const getComponentById = async (
 	kitId: string,
 	cmpnentId: string,
 ): Promise<Component | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("KitID", kitId)
-		.input("CmpnentID", cmpnentId)
-		.query(
-			"SELECT KitID, CmpnentID, CmpnentQty FROM Component WHERE KitID = @KitID AND CmpnentID = @CmpnentID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("KitID", kitId)
+			.input("CmpnentID", cmpnentId)
+			.query(
+				"SELECT KitID, CmpnentID, CmpnentQty FROM Component WHERE KitID = @KitID AND CmpnentID = @CmpnentID",
+			),
+	);
 	return trimStrings(result.recordset[0] as Component | undefined);
 };
 
 export const getComponentsByKitId = async (
 	kitId: string,
 ): Promise<Component[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("KitID", kitId)
-		.query(
-			"SELECT KitID, CmpnentID, CmpnentQty FROM Component WHERE KitID = @KitID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("KitID", kitId)
+			.query(
+				"SELECT KitID, CmpnentID, CmpnentQty FROM Component WHERE KitID = @KitID",
+			),
+	);
 	return trimStrings(result.recordset as Component[]);
 };
 
 export const getAllComponents = async (): Promise<Component[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query("SELECT KitID, CmpnentID, CmpnentQty FROM Component");
+	const result = await withDb((pool) =>
+		pool.request().query("SELECT KitID, CmpnentID, CmpnentQty FROM Component"),
+	);
 	return trimStrings(result.recordset as Component[]);
 };
 
@@ -177,17 +182,18 @@ export const updateComponent = async (
 	cmpnentId: string,
 	updates: ComponentUpdate,
 ): Promise<Component> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("KitID", kitId)
-		.input("CmpnentID", cmpnentId)
-		.input("CmpnentQty", updates.CmpnentQty ?? null).query(`
-      UPDATE Component
-      SET CmpnentQty = @CmpnentQty
-      OUTPUT INSERTED.KitID, INSERTED.CmpnentID, INSERTED.CmpnentQty
-      WHERE KitID = @KitID AND CmpnentID = @CmpnentID
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("KitID", kitId)
+			.input("CmpnentID", cmpnentId)
+			.input("CmpnentQty", updates.CmpnentQty ?? null).query(`
+        UPDATE Component
+        SET CmpnentQty = @CmpnentQty
+        OUTPUT INSERTED.KitID, INSERTED.CmpnentID, INSERTED.CmpnentQty
+        WHERE KitID = @KitID AND CmpnentID = @CmpnentID
+      `),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`Component ${kitId}/${cmpnentId} not found`);
@@ -199,14 +205,15 @@ export const deleteComponent = async (
 	kitId: string,
 	cmpnentId: string,
 ): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("KitID", kitId)
-		.input("CmpnentID", cmpnentId)
-		.query(
-			"DELETE FROM Component OUTPUT DELETED.KitID WHERE KitID = @KitID AND CmpnentID = @CmpnentID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("KitID", kitId)
+			.input("CmpnentID", cmpnentId)
+			.query(
+				"DELETE FROM Component OUTPUT DELETED.KitID WHERE KitID = @KitID AND CmpnentID = @CmpnentID",
+			),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`Component ${kitId}/${cmpnentId} not found`);
@@ -224,24 +231,25 @@ const ITEMSITE_INSERT_COLS =
 export const createItemSite = async (
 	itemSite: NewItemSite,
 ): Promise<ItemSite> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", itemSite.InvtID)
-		.input("SiteID", itemSite.SiteID)
-		.input("QtyCustOrd", itemSite.QtyCustOrd)
-		.input("QtyAlloc", itemSite.QtyAlloc)
-		.input("QtyShipNotInv", itemSite.QtyShipNotInv)
-		.input("QtyAllocIN", itemSite.QtyAllocIN)
-		.input("QtyOnPO", itemSite.QtyOnPO)
-		.input("QtyAllocPORet", itemSite.QtyAllocPORet)
-		.input("QtyAvail", itemSite.QtyAvail)
-		.input("QtyOnHand", itemSite.QtyOnHand)
-		.input("TotCost", itemSite.TotCost).query(`
-      INSERT INTO ItemSite (${ITEMSITE_INSERT_COLS})
-      OUTPUT INSERTED.${ITEMSITE_COLS}
-      VALUES (@InvtID, @SiteID, @QtyCustOrd, @QtyAlloc, @QtyShipNotInv, @QtyAllocIN, @QtyOnPO, @QtyAllocPORet, @QtyAvail, @QtyOnHand, @TotCost)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", itemSite.InvtID)
+			.input("SiteID", itemSite.SiteID)
+			.input("QtyCustOrd", itemSite.QtyCustOrd)
+			.input("QtyAlloc", itemSite.QtyAlloc)
+			.input("QtyShipNotInv", itemSite.QtyShipNotInv)
+			.input("QtyAllocIN", itemSite.QtyAllocIN)
+			.input("QtyOnPO", itemSite.QtyOnPO)
+			.input("QtyAllocPORet", itemSite.QtyAllocPORet)
+			.input("QtyAvail", itemSite.QtyAvail)
+			.input("QtyOnHand", itemSite.QtyOnHand)
+			.input("TotCost", itemSite.TotCost).query(`
+        INSERT INTO ItemSite (${ITEMSITE_INSERT_COLS})
+        OUTPUT INSERTED.${ITEMSITE_COLS}
+        VALUES (@InvtID, @SiteID, @QtyCustOrd, @QtyAlloc, @QtyShipNotInv, @QtyAllocIN, @QtyOnPO, @QtyAllocPORet, @QtyAvail, @QtyOnHand, @TotCost)
+      `),
+	);
 
 	const created = result.recordset[0];
 	if (!created) throw new Error("Failed to create ItemSite");
@@ -249,10 +257,9 @@ export const createItemSite = async (
 };
 
 export const getAllItemSites = async (): Promise<ItemSite[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(`SELECT ${ITEMSITE_COLS} FROM ItemSite`);
+	const result = await withDb((pool) =>
+		pool.request().query(`SELECT ${ITEMSITE_COLS} FROM ItemSite`),
+	);
 	return trimStrings(result.recordset as ItemSite[]);
 };
 
@@ -260,27 +267,29 @@ export const getItemSiteById = async (
 	invtId: string,
 	siteId: string,
 ): Promise<ItemSite | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.input("SiteID", siteId)
-		.query(
-			`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID AND SiteID = @SiteID`,
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.input("SiteID", siteId)
+			.query(
+				`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID AND SiteID = @SiteID`,
+			),
+	);
 	return trimStrings(result.recordset[0] as ItemSite | undefined);
 };
 
 export const getItemSitesByInvtId = async (
 	invtId: string,
 ): Promise<ItemSite[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.query(
-			`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID`,
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.query(
+				`SELECT ${ITEMSITE_COLS} FROM ItemSite WHERE InvtID = @InvtID`,
+			),
+	);
 	return trimStrings(result.recordset as ItemSite[]);
 };
 
@@ -289,35 +298,36 @@ export const updateItemSite = async (
 	siteId: string,
 	updates: ItemSiteUpdate,
 ): Promise<ItemSite> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.input("SiteID", siteId)
-		.input("QtyCustOrd", updates.QtyCustOrd ?? null)
-		.input("QtyAlloc", updates.QtyAlloc ?? null)
-		.input("QtyShipNotInv", updates.QtyShipNotInv ?? null)
-		.input("QtyAllocIN", updates.QtyAllocIN ?? null)
-		.input("QtyOnPO", updates.QtyOnPO ?? null)
-		.input("QtyAllocPORet", updates.QtyAllocPORet ?? null)
-		.input("QtyAvail", updates.QtyAvail ?? null)
-		.input("QtyOnHand", updates.QtyOnHand ?? null)
-		.input("TotCost", updates.TotCost ?? null).query(`
-      UPDATE ItemSite
-      SET
-        QtyCustOrd = @QtyCustOrd,
-        QtyAlloc = @QtyAlloc,
-        QtyShipNotInv = @QtyShipNotInv,
-        QtyAllocIN = @QtyAllocIN,
-        QtyOnPO = @QtyOnPO,
-        QtyAllocPORet = @QtyAllocPORet,
-        QtyAvail = @QtyAvail,
-        QtyOnHand = @QtyOnHand,
-        TotCost = @TotCost,
-        LUpd_DateTime = GETDATE()
-      OUTPUT INSERTED.${ITEMSITE_COLS}
-      WHERE InvtID = @InvtID AND SiteID = @SiteID
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.input("SiteID", siteId)
+			.input("QtyCustOrd", updates.QtyCustOrd ?? null)
+			.input("QtyAlloc", updates.QtyAlloc ?? null)
+			.input("QtyShipNotInv", updates.QtyShipNotInv ?? null)
+			.input("QtyAllocIN", updates.QtyAllocIN ?? null)
+			.input("QtyOnPO", updates.QtyOnPO ?? null)
+			.input("QtyAllocPORet", updates.QtyAllocPORet ?? null)
+			.input("QtyAvail", updates.QtyAvail ?? null)
+			.input("QtyOnHand", updates.QtyOnHand ?? null)
+			.input("TotCost", updates.TotCost ?? null).query(`
+        UPDATE ItemSite
+        SET
+          QtyCustOrd = @QtyCustOrd,
+          QtyAlloc = @QtyAlloc,
+          QtyShipNotInv = @QtyShipNotInv,
+          QtyAllocIN = @QtyAllocIN,
+          QtyOnPO = @QtyOnPO,
+          QtyAllocPORet = @QtyAllocPORet,
+          QtyAvail = @QtyAvail,
+          QtyOnHand = @QtyOnHand,
+          TotCost = @TotCost,
+          LUpd_DateTime = GETDATE()
+        OUTPUT INSERTED.${ITEMSITE_COLS}
+        WHERE InvtID = @InvtID AND SiteID = @SiteID
+      `),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemSite ${invtId}/${siteId} not found`);
@@ -329,14 +339,15 @@ export const deleteItemSite = async (
 	invtId: string,
 	siteId: string,
 ): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtID", invtId)
-		.input("SiteID", siteId)
-		.query(
-			"DELETE FROM ItemSite OUTPUT DELETED.InvtID WHERE InvtID = @InvtID AND SiteID = @SiteID",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtID", invtId)
+			.input("SiteID", siteId)
+			.query(
+				"DELETE FROM ItemSite OUTPUT DELETED.InvtID WHERE InvtID = @InvtID AND SiteID = @SiteID",
+			),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemSite ${invtId}/${siteId} not found`);
@@ -348,23 +359,21 @@ export const deleteItemSite = async (
 export const getInventoryWithComponents = async (): Promise<
 	InventoryWithComponent[]
 > => {
-	const pool = await getDb();
-	const result = await pool.request().query(`
+	const result = await withDb((pool) => pool.request().query(`
       SELECT
         i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         c.KitID, c.CmpnentID, c.CmpnentQty
       FROM Inventory i
       LEFT JOIN Component c ON i.InvtID = c.KitID
       ORDER BY i.InvtID, c.CmpnentID
-    `);
+    `));
 	return trimStrings(result.recordset as InventoryWithComponent[]);
 };
 
 export const getInventoryWithItemSites = async (): Promise<
 	InventoryWithItemSite[]
 > => {
-	const pool = await getDb();
-	const result = await pool.request().query(`
+	const result = await withDb((pool) => pool.request().query(`
       SELECT
         i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
@@ -372,7 +381,7 @@ export const getInventoryWithItemSites = async (): Promise<
       FROM Inventory i
       LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
       ORDER BY i.InvtID, s.SiteID
-    `);
+    `));
 	return trimStrings(result.recordset as InventoryWithItemSite[]);
 };
 

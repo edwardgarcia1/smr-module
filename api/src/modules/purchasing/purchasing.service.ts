@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { getDb, withDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError } from "../../middlewares/error";
 import {

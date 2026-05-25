@@ -1,7 +1,7 @@
 // ─── INUnit Conversion Cache ───────────────────────────────────────────
 // Shared between purchasing and bundling modules.
 
-import { getDb } from "../config/db";
+import { withDb } from "../config/db";
 import { trimStrings } from "./trimStrings";
 
 interface UnitConvRow {
@@ -21,18 +21,20 @@ export async function buildConversionCache(
 	const cache = new Map<string, number>();
 	if (invtIDs.length === 0) return cache;
 
-	const pool = await getDb();
-	const placeholders = invtIDs.map((_, i) => `@invt${i}`);
-	const sql = `
-		SELECT InvtId, FromUnit, ToUnit, CnvFact
-		FROM INUnit
-		WHERE InvtId IN (${placeholders.join(", ")})
-	`;
-	const req = pool.request();
-	for (const [i, id] of invtIDs.entries()) {
-		req.input(`invt${i}`, id);
-	}
-	const result = await req.query(sql);
+	const result = await withDb(async (pool) => {
+		const placeholders = invtIDs.map((_, i) => `@invt${i}`);
+		const sql = `
+			SELECT InvtId, FromUnit, ToUnit, CnvFact
+			FROM INUnit
+			WHERE InvtId IN (${placeholders.join(", ")})
+		`;
+		const req = pool.request();
+		for (const [i, id] of invtIDs.entries()) {
+			req.input(`invt${i}`, id);
+		}
+		return req.query(sql);
+	});
+
 	const rows = trimStrings(result.recordset) as UnitConvRow[];
 	for (const row of rows) {
 		cache.set(`${row.InvtId}|${row.FromUnit}|${row.ToUnit}`, Number(row.CnvFact));

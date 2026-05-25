@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { getDb, withDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
 import { NotFoundError, BadRequestError } from "../../middlewares/error";
 import {
@@ -26,23 +26,25 @@ import type {
 // ─── MinStockSetting CRUD ────────────────────────────────────────────
 
 export async function getAllSettings(): Promise<MinStockSetting[]> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query("SELECT id, inventory_id, class_id, min_stock_setting FROM SMR_MinStockSetting ORDER BY inventory_id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query("SELECT id, inventory_id, class_id, min_stock_setting FROM SMR_MinStockSetting ORDER BY inventory_id"),
+	);
 	return trimStrings(result.recordset as MinStockSetting[]);
 }
 
 export async function getSettingByInvtId(
 	invtId: string,
 ): Promise<MinStockSetting | undefined> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", invtId)
-		.query(
-			"SELECT id, inventory_id, class_id, min_stock_setting FROM SMR_MinStockSetting WHERE inventory_id = @inventory_id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", invtId)
+			.query(
+				"SELECT id, inventory_id, class_id, min_stock_setting FROM SMR_MinStockSetting WHERE inventory_id = @inventory_id",
+			),
+	);
 	return trimStrings(result.recordset[0] as MinStockSetting | undefined);
 }
 
@@ -56,22 +58,23 @@ export async function upsertSetting(
 		);
 	}
 
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", body.inventory_id)
-		.input("class_id", body.class_id)
-		.input("min_stock_setting", body.min_stock_setting).query(`
-      MERGE SMR_MinStockSetting AS target
-      USING (SELECT @inventory_id AS inventory_id) AS source
-      ON target.inventory_id = source.inventory_id
-      WHEN MATCHED THEN
-        UPDATE SET class_id = @class_id, min_stock_setting = @min_stock_setting
-      WHEN NOT MATCHED THEN
-        INSERT (inventory_id, class_id, min_stock_setting)
-        VALUES (@inventory_id, @class_id, @min_stock_setting)
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.class_id, INSERTED.min_stock_setting;
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", body.inventory_id)
+			.input("class_id", body.class_id)
+			.input("min_stock_setting", body.min_stock_setting).query(`
+        MERGE SMR_MinStockSetting AS target
+        USING (SELECT @inventory_id AS inventory_id) AS source
+        ON target.inventory_id = source.inventory_id
+        WHEN MATCHED THEN
+          UPDATE SET class_id = @class_id, min_stock_setting = @min_stock_setting
+        WHEN NOT MATCHED THEN
+          INSERT (inventory_id, class_id, min_stock_setting)
+          VALUES (@inventory_id, @class_id, @min_stock_setting)
+        OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.class_id, INSERTED.min_stock_setting;
+      `),
+	);
 
 	const row = result.recordset[0];
 	if (!row) throw new Error("Failed to upsert MinStockSetting");
@@ -89,16 +92,17 @@ export async function updateSetting(
 		);
 	}
 
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", invtId)
-		.input("min_stock_setting", updates.min_stock_setting).query(`
-      UPDATE SMR_MinStockSetting
-      SET min_stock_setting = @min_stock_setting
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.class_id, INSERTED.min_stock_setting
-      WHERE inventory_id = @inventory_id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", invtId)
+			.input("min_stock_setting", updates.min_stock_setting).query(`
+        UPDATE SMR_MinStockSetting
+        SET min_stock_setting = @min_stock_setting
+        OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.class_id, INSERTED.min_stock_setting
+        WHERE inventory_id = @inventory_id
+      `),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockSetting for ${invtId} not found`);
@@ -107,13 +111,14 @@ export async function updateSetting(
 }
 
 export async function deleteSetting(invtId: string): Promise<void> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", invtId)
-		.query(
-			"DELETE FROM SMR_MinStockSetting OUTPUT DELETED.id WHERE inventory_id = @inventory_id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", invtId)
+			.query(
+				"DELETE FROM SMR_MinStockSetting OUTPUT DELETED.id WHERE inventory_id = @inventory_id",
+			),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockSetting for ${invtId} not found`);
@@ -123,51 +128,55 @@ export async function deleteSetting(invtId: string): Promise<void> {
 // ─── MinStockItem CRUD ───────────────────────────────────────────────
 
 export async function getAllMinStockItems(): Promise<MinStockItem[]> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query("SELECT id, inventory_id, min_stock FROM SMR_MinStockItem ORDER BY inventory_id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query("SELECT id, inventory_id, min_stock FROM SMR_MinStockItem ORDER BY inventory_id"),
+	);
 	return trimStrings(result.recordset as MinStockItem[]);
 }
 
 export async function getMinStockItemById(
 	id: number,
 ): Promise<MinStockItem | undefined> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(
-			"SELECT id, inventory_id, min_stock FROM SMR_MinStockItem WHERE id = @id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(
+				"SELECT id, inventory_id, min_stock FROM SMR_MinStockItem WHERE id = @id",
+			),
+	);
 	return trimStrings(result.recordset[0] as MinStockItem | undefined);
 }
 
 export async function getMinStockItemByInvtId(
 	invtId: string,
 ): Promise<MinStockItem | undefined> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", invtId)
-		.query(
-			"SELECT id, inventory_id, min_stock FROM SMR_MinStockItem WHERE inventory_id = @inventory_id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", invtId)
+			.query(
+				"SELECT id, inventory_id, min_stock FROM SMR_MinStockItem WHERE inventory_id = @inventory_id",
+			),
+	);
 	return trimStrings(result.recordset[0] as MinStockItem | undefined);
 }
 
 export async function createMinStockItem(
 	body: NewMinStockItem,
 ): Promise<MinStockItem> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", body.inventory_id)
-		.input("min_stock", body.min_stock).query(`
-      INSERT INTO SMR_MinStockItem (inventory_id, min_stock)
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.min_stock
-      VALUES (@inventory_id, @min_stock)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", body.inventory_id)
+			.input("min_stock", body.min_stock).query(`
+        INSERT INTO SMR_MinStockItem (inventory_id, min_stock)
+        OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.min_stock
+        VALUES (@inventory_id, @min_stock)
+      `),
+	);
 	const row = result.recordset[0];
 	if (!row) throw new Error("Failed to create MinStockItem");
 	return row as MinStockItem;
@@ -177,16 +186,17 @@ export async function updateMinStockItem(
 	id: number,
 	updates: MinStockItemUpdate,
 ): Promise<MinStockItem> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.input("min_stock", updates.min_stock).query(`
-      UPDATE SMR_MinStockItem
-      SET min_stock = @min_stock
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.min_stock
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.input("min_stock", updates.min_stock).query(`
+        UPDATE SMR_MinStockItem
+        SET min_stock = @min_stock
+        OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.min_stock
+        WHERE id = @id
+      `),
+	);
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockItem ${id} not found`);
 	}
@@ -194,11 +204,12 @@ export async function updateMinStockItem(
 }
 
 export async function deleteMinStockItem(id: number): Promise<void> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query("DELETE FROM SMR_MinStockItem OUTPUT DELETED.id WHERE id = @id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query("DELETE FROM SMR_MinStockItem OUTPUT DELETED.id WHERE id = @id"),
+	);
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockItem ${id} not found`);
 	}
@@ -209,51 +220,55 @@ export async function deleteMinStockItem(id: number): Promise<void> {
 export async function getAllMinStockPrincipals(): Promise<
 	MinStockPrincipal[]
 > {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query("SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal ORDER BY class_id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query("SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal ORDER BY class_id"),
+	);
 	return trimStrings(result.recordset as MinStockPrincipal[]);
 }
 
 export async function getMinStockPrincipalById(
 	id: number,
 ): Promise<MinStockPrincipal | undefined> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(
-			"SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal WHERE id = @id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(
+				"SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal WHERE id = @id",
+			),
+	);
 	return trimStrings(result.recordset[0] as MinStockPrincipal | undefined);
 }
 
 export async function getMinStockPrincipalByClassId(
 	classId: string,
 ): Promise<MinStockPrincipal | undefined> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("class_id", classId)
-		.query(
-			"SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal WHERE class_id = @class_id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("class_id", classId)
+			.query(
+				"SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal WHERE class_id = @class_id",
+			),
+	);
 	return trimStrings(result.recordset[0] as MinStockPrincipal | undefined);
 }
 
 export async function createMinStockPrincipal(
 	body: NewMinStockPrincipal,
 ): Promise<MinStockPrincipal> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("class_id", body.class_id)
-		.input("min_stock", body.min_stock).query(`
-      INSERT INTO SMR_MinStockPrincipal (class_id, min_stock)
-      OUTPUT INSERTED.id, INSERTED.class_id, INSERTED.min_stock
-      VALUES (@class_id, @min_stock)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("class_id", body.class_id)
+			.input("min_stock", body.min_stock).query(`
+        INSERT INTO SMR_MinStockPrincipal (class_id, min_stock)
+        OUTPUT INSERTED.id, INSERTED.class_id, INSERTED.min_stock
+        VALUES (@class_id, @min_stock)
+      `),
+	);
 	const row = result.recordset[0];
 	if (!row) throw new Error("Failed to create MinStockPrincipal");
 	return row as MinStockPrincipal;
@@ -263,16 +278,17 @@ export async function updateMinStockPrincipal(
 	id: number,
 	updates: MinStockPrincipalUpdate,
 ): Promise<MinStockPrincipal> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.input("min_stock", updates.min_stock).query(`
-      UPDATE SMR_MinStockPrincipal
-      SET min_stock = @min_stock
-      OUTPUT INSERTED.id, INSERTED.class_id, INSERTED.min_stock
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.input("min_stock", updates.min_stock).query(`
+        UPDATE SMR_MinStockPrincipal
+        SET min_stock = @min_stock
+        OUTPUT INSERTED.id, INSERTED.class_id, INSERTED.min_stock
+        WHERE id = @id
+      `),
+	);
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockPrincipal ${id} not found`);
 	}
@@ -554,12 +570,13 @@ export async function resolveManyMinStock(
  * Used by frontend to categorise items based on stock cover / min stock ratio.
  */
 export async function getAllCategories(): Promise<MinStockCategory[]> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(
-			"SELECT id, category_name, threshold FROM SMR_MinStockCategory ORDER BY threshold ASC",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query(
+				"SELECT id, category_name, threshold FROM SMR_MinStockCategory ORDER BY threshold ASC",
+			),
+	);
 	return result.recordset as MinStockCategory[];
 }
 
@@ -567,17 +584,18 @@ export async function updateCategory(
 	id: number,
 	updates: MinStockCategoryUpdate,
 ): Promise<MinStockCategory> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.input("threshold", updates.threshold)
-		.query(`
-      UPDATE SMR_MinStockCategory
-      SET threshold = @threshold
-      OUTPUT INSERTED.id, INSERTED.category_name, INSERTED.threshold
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.input("threshold", updates.threshold)
+			.query(`
+        UPDATE SMR_MinStockCategory
+        SET threshold = @threshold
+        OUTPUT INSERTED.id, INSERTED.category_name, INSERTED.threshold
+        WHERE id = @id
+      `),
+	);
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockCategory ${id} not found`);
 	}

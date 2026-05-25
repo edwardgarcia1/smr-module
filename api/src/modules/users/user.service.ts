@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { withDb } from "../../config/db";
 import { BadRequestError } from "../../middlewares/error";
 import type { User, NewUser } from "./user.schema";
 
@@ -40,17 +40,18 @@ export const createUser = async (user: NewUser): Promise<User> => {
 		cost: 10,
 	});
 
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("username", user.username)
-		.input("password", hashedPassword)
-		.input("name", user.name)
-		.input("role", user.role || "user").query(`
-      INSERT INTO SMR_Users (username, password, name, role)
-      OUTPUT INSERTED.id, INSERTED.username, INSERTED.password, INSERTED.name, INSERTED.role
-      VALUES (@username, @password, @name, @role)
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("username", user.username)
+			.input("password", hashedPassword)
+			.input("name", user.name)
+			.input("role", user.role || "user").query(`
+        INSERT INTO SMR_Users (username, password, name, role)
+        OUTPUT INSERTED.id, INSERTED.username, INSERTED.password, INSERTED.name, INSERTED.role
+        VALUES (@username, @password, @name, @role)
+      `),
+	);
 
 	const createdUser = result.recordset[0];
 	if (!createdUser) {
@@ -62,28 +63,31 @@ export const createUser = async (user: NewUser): Promise<User> => {
 export const findUserByUsername = async (
 	username: string,
 ): Promise<User | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("username", username)
-		.query("SELECT * FROM SMR_Users WHERE username = @username");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("username", username)
+			.query("SELECT * FROM SMR_Users WHERE username = @username"),
+	);
 
 	return result.recordset[0] as User | undefined;
 };
 
 export const findUserById = async (id: number): Promise<User | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query("SELECT * FROM SMR_Users WHERE id = @id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query("SELECT * FROM SMR_Users WHERE id = @id"),
+	);
 
 	return result.recordset[0] as User | undefined;
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
-	const pool = await getDb();
-	const result = await pool.request().query("SELECT * FROM SMR_Users");
+	const result = await withDb((pool) =>
+		pool.request().query("SELECT * FROM SMR_Users"),
+	);
 	return result.recordset as User[];
 };
 

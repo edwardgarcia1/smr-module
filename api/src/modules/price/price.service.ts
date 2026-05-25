@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { getDb, withDb } from "../../config/db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import Big from "big.js";
