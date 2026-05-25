@@ -63,7 +63,7 @@ interface InventoryRow {
 }
 
 /** Group joined rows by (InvtID, SiteID) — one row per site */
-	function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
+function aggregateJoinedRows(rows: JoinedInventoryRow[]): InventoryRow[] {
 	const map = new Map<string, InventoryRow>();
 
 	for (const row of rows) {
@@ -260,10 +260,7 @@ const InventoryItemsToolbar: React.FC<InventoryItemsToolbarProps> = ({
 					startIcon={<FilterListIcon />}
 					style={iconSx}
 				>
-					<Box
-						component="span"
-						sx={{ display: { xs: "none", md: "inline" } }}
-					>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
 						Filters
 					</Box>
 				</FilterPanelTrigger>
@@ -272,10 +269,7 @@ const InventoryItemsToolbar: React.FC<InventoryItemsToolbarProps> = ({
 					startIcon={<ViewColumnIcon />}
 					style={iconSx}
 				>
-					<Box
-						component="span"
-						sx={{ display: { xs: "none", md: "inline" } }}
-					>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
 						Columns
 					</Box>
 				</ColumnsPanelTrigger>
@@ -360,7 +354,9 @@ const InventoryItems: React.FC = () => {
 			} catch (err: unknown) {
 				if (!cancelled) {
 					setError(
-						err instanceof Error ? err.message : "Failed to fetch inventory items",
+						err instanceof Error
+							? err.message
+							: "Failed to fetch inventory items",
 					);
 				}
 			} finally {
@@ -461,7 +457,10 @@ const InventoryItems: React.FC = () => {
 			width: 120,
 			type: "number",
 			valueFormatter: (value: number) =>
-				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+				value.toLocaleString(undefined, {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				}),
 		},
 		{
 			field: "QtyOnPO",
@@ -469,7 +468,10 @@ const InventoryItems: React.FC = () => {
 			width: 120,
 			type: "number",
 			valueFormatter: (value: number) =>
-				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+				value.toLocaleString(undefined, {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				}),
 		},
 		{
 			field: "QtyOnHand",
@@ -477,7 +479,10 @@ const InventoryItems: React.FC = () => {
 			width: 120,
 			type: "number",
 			valueFormatter: (value: number) =>
-				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+				value.toLocaleString(undefined, {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				}),
 		},
 		{
 			field: "QtyAvail",
@@ -485,15 +490,17 @@ const InventoryItems: React.FC = () => {
 			width: 120,
 			type: "number",
 			valueFormatter: (value: number) =>
-				value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+				value.toLocaleString(undefined, {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				}),
 		},
 		{
 			field: "LUpd_DateTime",
 			headerName: "Last Update",
 			width: 190,
 			type: "dateTime",
-			valueGetter: (value: string | null) =>
-				value ? new Date(value) : null,
+			valueGetter: (value: string | null) => (value ? new Date(value) : null),
 			valueFormatter: (value: Date | null) => {
 				if (!value) return "-";
 				return value.toLocaleDateString(undefined, {
@@ -509,7 +516,15 @@ const InventoryItems: React.FC = () => {
 	];
 
 	return (
-		<Paper sx={{ width: "100%", mb: 2, height: "100%" }}>
+		<Paper
+			sx={{
+				width: "100%",
+				mb: 2,
+				height: "calc(100dvh - 130px)",
+				borderRadius: 2,
+				overflow: "hidden",
+			}}
+		>
 			{error ? (
 				<Alert severity="error" sx={{ m: 2 }}>
 					{error}
@@ -526,7 +541,7 @@ const InventoryItems: React.FC = () => {
 					loading={loading || isSearching}
 					pageSizeOptions={[25, 50, 100]}
 					disableColumnSorting
-					slots={{ toolbar: InventoryItemsToolbar }}
+					slots={{ toolbar: InventoryItemsToolbar as React.ComponentType<any> }} // eslint-disable-line @typescript-eslint/no-explicit-any
 					showToolbar
 					slotProps={{
 						toolbar: {
@@ -539,13 +554,13 @@ const InventoryItems: React.FC = () => {
 							promoFilter,
 							loading,
 							onPromoFilterChange: handlePromoFilterChange,
-						},
+						} as any, // eslint-disable-line @typescript-eslint/no-explicit-any
 						loadingOverlay: {
 							variant: "skeleton",
 						},
 					}}
 					sx={{
-						height: 600,
+						height: "100%",
 						"& .MuiDataGrid-cell:focus": {
 							outline: "none",
 						},
