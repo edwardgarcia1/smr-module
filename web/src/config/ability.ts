@@ -18,7 +18,6 @@ export const defineAbilitiesFor = (user: User | null) => {
 		can('manage', 'settings');
 		can('read', 'principals');
 		can('read', 'prices');
-		can('read', 'sales');
 		can('read', 'bundling');
 		can('manage', 'min-stock');
 	} else {
@@ -26,7 +25,6 @@ export const defineAbilitiesFor = (user: User | null) => {
 		can('read', 'settings');
 		can('read', 'principals');
 		can('read', 'prices');
-		can('read', 'sales');
 		can('read', 'bundling');
 		can('read', 'min-stock');
 	}

@@ -27,7 +27,6 @@ import { LinearProgress, Box } from "@mui/material";
 	const Profile = lazy(() => import("./pages/Profile"));
 	const PurchasingRequirements = lazy(() => import("./pages/PurchasingRequirements"));
 	const Prices = lazy(() => import("./pages/Prices"));
-const SalesOrders = lazy(() => import("./pages/SalesOrders"));
 const MinStock = lazy(() => import("./pages/MinStock"));
 
 // 2. Map root paths to display labels for breadcrumb generation
@@ -41,7 +40,6 @@ const ROOT_LABEL_MAP: Record<string, string> = {
 	"/profile": "Profile",
 	"/purchasing-requirements": "Requirements",
 	"/prices": "Prices",
-	"/sales-orders": "Sales Orders",
 	"/min-stock": "Min Stock Settings",
 };
 
@@ -229,14 +227,6 @@ const AppRoutes: React.FC = () => {
 					element={
 						<AppSuspense>
 							<Prices />
-						</AppSuspense>
-					}
-				/>
-				<Route
-					path="/sales-orders"
-					element={
-						<AppSuspense>
-							<SalesOrders />
 						</AppSuspense>
 					}
 				/>
