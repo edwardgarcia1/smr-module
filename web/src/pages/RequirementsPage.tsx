@@ -1433,7 +1433,7 @@ const RequirementsPage: React.FC = () => {
 
 				{/* Right column - DateRange (40%) */}
 				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
-					<Box sx={{ height: 290, overflowY: "auto" }}>
+					<Box sx={{ overflowY: "auto" }}>
 						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
 							Date Range
 						</FormLabel>
