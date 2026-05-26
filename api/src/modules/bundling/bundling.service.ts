@@ -263,7 +263,7 @@ export async function getBundlingRequirements(
 		const pk = periodKeyFromParts(year, month, day, frequency);
 
 		const nq = normaliseQtyCached(convCache, id, rawQty, unitDesc, stkUnit);
-		if (nq <= 0) continue;
+		if (nq === 0) continue;
 
 		entry.totalNormalised += nq;
 		const cur = entry.periodDemand.get(pk) ?? 0;

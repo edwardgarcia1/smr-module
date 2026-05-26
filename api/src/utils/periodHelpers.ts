@@ -40,19 +40,26 @@ export function generatePeriodKeys(
 ): string[] {
 	const set = new Set<string>();
 	for (const r of ranges) {
-		const cur = new Date(r.start);
+		const start = new Date(r.start);
 		const end = new Date(r.end);
+		// Start from the first day of the start month so we don't miss
+		// week-5 periods at the beginning (e.g. W5 Jan when start is Jan 29).
+		// This ensures every month fully intersecting the date range
+		// contributes all possible period labels.
+		const cur = new Date(start.getFullYear(), start.getMonth(), 1);
 		while (cur <= end) {
 			const y = cur.getFullYear();
 			const m = cur.getMonth() + 1;
 			if (freq === "monthly") {
 				set.add(monthLabel(y, m));
-				cur.setMonth(m); // advance to next month
 			} else {
-				const w = Math.min(Math.ceil(cur.getDate() / 7), 5);
-				set.add(weekLabel(y, m, w));
-				cur.setDate(cur.getDate() + 7);
+				// Generate all 5 week labels for this month so SQL GROUP BY
+				// results for W1–W5 always have a matching column.
+				for (let w = 1; w <= 5; w++) {
+					set.add(weekLabel(y, m, w));
+				}
 			}
+			cur.setMonth(cur.getMonth() + 1); // advance 1 calendar month
 		}
 	}
 	return [...set].sort((a, b) => periodSortValue(a) - periodSortValue(b));
