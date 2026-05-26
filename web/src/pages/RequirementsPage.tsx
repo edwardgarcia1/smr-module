@@ -1816,55 +1816,54 @@ const RequirementsPage: React.FC = () => {
 							</FormControl>
 						</Grid>
 						<Grid size={{ xs: 12, md: 6 }}>
-							<Box sx={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
-								<FormControl>
-									<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-										Frequency
-									</FormLabel>
-									<RadioGroup
-										row
-										value={frequency}
-										onChange={(e) => setFrequency(e.target.value as Frequency)}
-									>
-										<FormControlLabel
-											value="monthly"
-											control={<Radio size="small" />}
-											label="Monthly"
-										/>
-										<FormControlLabel
-											value="weekly"
-											control={<Radio size="small" />}
-											label="Weekly"
-										/>
-									</RadioGroup>
-								</FormControl>
-								{frequency === "weekly" && monthlyKeys.length > 0 && (
-									<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
-										{monthlyKeys.map((mk) => (
-											<TextField
-												key={mk}
-												size="small"
-												type="number"
-												label={dayjs(mk + "-01").format("MMM")}
-												value={monthlyValidDays[mk]}
-												onChange={(e) => {
-													const v = parseInt(e.target.value, 10);
-													if (!isNaN(v) && v > 0) {
-														setMonthlyValidDays((prev) => ({ ...prev, [mk]: v }));
-													}
-												}}
-												slotProps={{ htmlInput: { min: 1, max: 31 } }}
-												sx={{
-													width: 86,
-													"& .MuiOutlinedInput-root": { borderRadius: 2 },
-												}}
-											/>
-										))}
-									</Box>
-								)}
-							</Box>
+							<FormControl>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Frequency
+								</FormLabel>
+								<RadioGroup
+									row
+									value={frequency}
+									onChange={(e) => setFrequency(e.target.value as Frequency)}
+								>
+									<FormControlLabel
+										value="monthly"
+										control={<Radio size="small" />}
+										label="Monthly"
+									/>
+									<FormControlLabel
+										value="weekly"
+										control={<Radio size="small" />}
+										label="Weekly"
+									/>
+								</RadioGroup>
+							</FormControl>
 						</Grid>
 					</Grid>
+
+					{frequency === "weekly" && monthlyKeys.length > 0 && (
+						<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", mt: 2 }}>
+							{monthlyKeys.map((mk) => (
+								<TextField
+									key={mk}
+									size="small"
+									type="number"
+									label={dayjs(mk + "-01").format("MMM")}
+									value={monthlyValidDays[mk]}
+									onChange={(e) => {
+										const v = parseInt(e.target.value, 10);
+										if (!isNaN(v) && v > 0) {
+											setMonthlyValidDays((prev) => ({ ...prev, [mk]: v }));
+										}
+									}}
+									slotProps={{ htmlInput: { min: 1, max: 31 } }}
+									sx={{
+										width: 86,
+										"& .MuiOutlinedInput-root": { borderRadius: 2 },
+									}}
+								/>
+							))}
+						</Box>
+					)}
 				</Box>
 
 				<Divider
