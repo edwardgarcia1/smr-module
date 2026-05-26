@@ -488,6 +488,13 @@ const RequirementsPage: React.FC = () => {
 	const [frequency, setFrequency] = useState<Frequency>(
 		persistedForm?.frequency ?? "monthly",
 	);
+	const [monthlyValidDays, setMonthlyValidDays] = useState<
+		Record<string, number>
+	>({});
+	const monthlyKeys = useMemo(
+		() => Object.keys(monthlyValidDays).sort(),
+		[monthlyValidDays],
+	);
 
 	const handleAddDateRange = useCallback(() => {
 		setDateRanges((prev) => [...prev, { from: null, to: null }]);
@@ -565,6 +572,41 @@ const RequirementsPage: React.FC = () => {
 			cancelled = true;
 		};
 	}, []);
+
+	// ─── Compute per-month valid days from date ranges (weekly only) ──
+	useEffect(() => {
+		if (frequency !== "weekly") {
+			setMonthlyValidDays({});
+			return;
+		}
+		const monthSet = new Set<string>();
+		for (const dr of dateRanges) {
+			if (!dr.from || !dr.to) continue;
+			let current = dr.from.startOf("month");
+			while (current.isBefore(dr.to) || current.isSame(dr.to, "month")) {
+				monthSet.add(current.format("YYYY-MM"));
+				current = current.add(1, "month");
+			}
+		}
+		const sortedMonths = Array.from(monthSet).sort();
+		setMonthlyValidDays((prev) => {
+			const next: Record<string, number> = {};
+			for (const m of sortedMonths) {
+				if (prev[m] != null) {
+					next[m] = prev[m]; // preserve user edits
+				} else {
+					const start = dayjs(m + "-01");
+					const daysInMonth = start.daysInMonth();
+					let sundays = 0;
+					for (let d = 1; d <= daysInMonth; d++) {
+						if (start.date(d).day() === 0) sundays++;
+					}
+					next[m] = daysInMonth - sundays;
+				}
+			}
+			return next;
+		});
+	}, [frequency, dateRanges]);
 
 	// Toolbar states (purchasing-specific)
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
@@ -1220,6 +1262,16 @@ const RequirementsPage: React.FC = () => {
 			const params = new URLSearchParams();
 			params.set("classID", selectedPrincipal.ClassID);
 			params.set("frequency", frequency);
+			if (frequency === "weekly") {
+				const totalVD = Object.values(monthlyValidDays).reduce(
+					(s, v) => s + v,
+					0,
+				);
+				if (totalVD > 0) {
+					params.set("validDays", String(totalVD));
+					params.set("monthlyValidDays", JSON.stringify(monthlyValidDays));
+				}
+			}
 
 			for (const dr of dateRanges) {
 				if (dr.from && dr.to) {
@@ -1274,6 +1326,29 @@ const RequirementsPage: React.FC = () => {
 			setDisplayFactor(df);
 
 			const gridRows = data.map((item, idx) => ({ ...item, id: idx + 1 }));
+
+			// Override avgDemand (and avgDemandCS) with per-month Valid Days formula for weekly
+			if (frequency === "weekly") {
+				const totalVD = Object.values(monthlyValidDays).reduce(
+					(s, v) => s + v,
+					0,
+				);
+				if (totalVD > 0) {
+					for (const row of gridRows as RequirementRow[]) {
+						const total = Object.values(row.periodDemand ?? {}).reduce(
+							(s, v) => s + v,
+							0,
+						);
+						const newAvg = (total / totalVD) * 6;
+						row.avgDemand = Math.round(newAvg * 100) / 100;
+						if ("avgDemandCS" in row && row.qtyPerCS > 0) {
+							row.avgDemandCS =
+								Math.round((newAvg / (row as RequirementRow).qtyPerCS) * 100) /
+								100;
+						}
+					}
+				}
+			}
 
 			// ── Fetch price data and merge onto rows ────────────────
 			if (mode === "purchasing") {
@@ -1441,6 +1516,7 @@ const RequirementsPage: React.FC = () => {
 		selectedStorage,
 		dateRanges,
 		frequency,
+		monthlyValidDays,
 		mode,
 		buildPurchasingColumns,
 		buildBundlingColumns,
@@ -1740,27 +1816,53 @@ const RequirementsPage: React.FC = () => {
 							</FormControl>
 						</Grid>
 						<Grid size={{ xs: 12, md: 6 }}>
-							<FormControl>
-								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Frequency
-								</FormLabel>
-								<RadioGroup
-									row
-									value={frequency}
-									onChange={(e) => setFrequency(e.target.value as Frequency)}
-								>
-									<FormControlLabel
-										value="monthly"
-										control={<Radio size="small" />}
-										label="Monthly"
-									/>
-									<FormControlLabel
-										value="weekly"
-										control={<Radio size="small" />}
-										label="Weekly"
-									/>
-								</RadioGroup>
-							</FormControl>
+							<Box sx={{ display: "flex", alignItems: "flex-start", gap: 3, flexWrap: "wrap" }}>
+								<FormControl>
+									<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+										Frequency
+									</FormLabel>
+									<RadioGroup
+										row
+										value={frequency}
+										onChange={(e) => setFrequency(e.target.value as Frequency)}
+									>
+										<FormControlLabel
+											value="monthly"
+											control={<Radio size="small" />}
+											label="Monthly"
+										/>
+										<FormControlLabel
+											value="weekly"
+											control={<Radio size="small" />}
+											label="Weekly"
+										/>
+									</RadioGroup>
+								</FormControl>
+								{frequency === "weekly" && monthlyKeys.length > 0 && (
+									<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+										{monthlyKeys.map((mk) => (
+											<TextField
+												key={mk}
+												size="small"
+												type="number"
+												label={dayjs(mk + "-01").format("MMM")}
+												value={monthlyValidDays[mk]}
+												onChange={(e) => {
+													const v = parseInt(e.target.value, 10);
+													if (!isNaN(v) && v > 0) {
+														setMonthlyValidDays((prev) => ({ ...prev, [mk]: v }));
+													}
+												}}
+												slotProps={{ htmlInput: { min: 1, max: 31 } }}
+												sx={{
+													width: 86,
+													"& .MuiOutlinedInput-root": { borderRadius: 2 },
+												}}
+											/>
+										))}
+									</Box>
+								)}
+							</Box>
 						</Grid>
 					</Grid>
 				</Box>
@@ -2180,7 +2282,7 @@ const RequirementsPage: React.FC = () => {
 						onClick={() => setShowDemandColumns((v) => !v)}
 						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
 					>
-						{showDemandColumns ? "Hide" : "Show"} Monthly Demand
+						{showDemandColumns ? "Hide" : "Show"} {frequency === "monthly" ? "Monthly" : "Weekly"} Demand
 					</Button>
 				</Box>
 			</Box>
