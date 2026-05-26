@@ -1,7 +1,6 @@
 import { Elysia, t } from "elysia";
 import { getRequirements } from "./purchasing.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -35,7 +34,6 @@ function parseDateRanges(raw: unknown): DateRange[] {
 }
 
 export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
-	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 
@@ -52,9 +50,8 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 	 */
 	.get(
 		"/requirements",
-		async ({ query, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ query, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Sales");
 
 			if (!query.classID) {

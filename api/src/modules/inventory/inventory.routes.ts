@@ -7,7 +7,6 @@ import {
 	deleteSite,
 } from "./inventory.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -27,11 +26,8 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(rateLimitMiddleware(`${CACHE_PREFIX}all`))
-
 			// GET /inventory — list all sites (cached 5 min)
-			.get("/", async ({ rateLimit, limited, ability, user }) => {
-				if (limited) throw new BadRequestError("Rate limit exceeded");
+			.get("/", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Site");
 
@@ -44,13 +40,10 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(rateLimitMiddleware())
-
 			// GET /inventory/:siteId — get single site
 			.get(
 				"/:siteId",
-				async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { siteId }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Site");
 
@@ -66,8 +59,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			// POST /inventory — create site
 			.post(
 				"/",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "Site");
 
@@ -85,8 +77,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			// PUT /inventory/:siteId — update site name
 			.put(
 				"/:siteId",
-				async ({ params: { siteId }, body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { siteId }, body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "Site");
 
@@ -104,8 +95,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			// DELETE /inventory/:siteId — delete site
 			.delete(
 				"/:siteId",
-				async ({ params: { siteId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { siteId }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "Site");
 

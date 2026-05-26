@@ -29,7 +29,6 @@ src/
 │   ├── jwt.ts          # Token sign/verify
 │   ├── casl.ts         # Authorization
 │   ├── error.ts        # Error classes + handler
-│   └── rateLimit.ts    # In-memory rate limiter
 ├── modules/
 │   ├── users/          # Auth + user CRUD
 │   └── inventory/      # Site CRUD

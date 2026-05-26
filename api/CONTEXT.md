@@ -19,10 +19,9 @@ Refresh: POST /auth/refresh reads refreshToken cookie → new accessToken.
 
 ## Middleware Chain
 1. **CORS** — Allow configurable origins (env `CORS_ORIGIN`).
-2. **Rate limit** — 60 req/min per IP (in-memory, resets on restart).
-3. **Auth guard** — Derive `user` on protected routes. Reads Bearer header → cookie → `accessToken` cookie. Attach `AuthUser` to context.
-4. **CASL** — `checkPermission(action, subject)`. Only superadmin has `manage` on `User` and `Site`.
-5. **Error handler** — Catches all, formats JSON. Handles Elysia validation errors.
+2. **Auth guard** — Derive `user` on protected routes. Reads Bearer header → cookie → `accessToken` cookie. Attach `AuthUser` to context.
+3. **CASL** — `checkPermission(action, subject)`. Only superadmin has `manage` on `User` and `Site`.
+4. **Error handler** — Catches all, formats JSON. Handles Elysia validation errors.
 
 ## DB
 - MSSQL 2008+ compatible.
@@ -55,4 +54,3 @@ Register routes in `src/routes.ts`.
 - Drizzle ORM is NOT used despite template docs. All DB ops are raw SQL.
 - Password: bcrypt hash (cost 10) via `Bun.password.hash`.
 - String trim utility for MSSQL CHAR/NCHAR padding artifacts.
-- Rate limiter is in-memory = not shared across instances, resets on restart.

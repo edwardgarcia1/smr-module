@@ -13,7 +13,6 @@ import {
 	getProductClassesWithVendors,
 } from "./principal.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -33,36 +32,25 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(
-				rateLimitMiddleware(
-					`${CACHE_PREFIX}ids`,
-					`${CACHE_PREFIX}address`,
-					`${CACHE_PREFIX}joined`,
-				),
-			)
-
 			// GET /principal/ids — list all principal identifiers (cached 5 min)
-			.get("/ids", async ({ rateLimit, limited, ability, user }) => {
-				if (limited) throw new BadRequestError("Rate limit exceeded");
-				if (!user) throw new UnauthorizedError("Authentication required");
+			.get("/ids", async ({ ability, user }) => {
+								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Site");
 
 				return withCache(`${CACHE_PREFIX}ids`, REF_CACHE_TTL, getAllProductClasses);
 			})
 
 			// GET /principal/address — list all principal address (cached 5 min)
-			.get("/address", async ({ rateLimit, limited, ability, user }) => {
-				if (limited) throw new BadRequestError("Rate limit exceeded");
-				if (!user) throw new UnauthorizedError("Authentication required");
+			.get("/address", async ({ ability, user }) => {
+								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Site");
 
 				return withCache(`${CACHE_PREFIX}address`, REF_CACHE_TTL, getAllVendors);
 			})
 
 			// GET /principal — Principal IDs + Address on User5 = VendId (cached 5 min)
-			.get("/", async ({ rateLimit, limited, ability, user }) => {
-				if (limited) throw new BadRequestError("Rate limit exceeded");
-				if (!user) throw new UnauthorizedError("Authentication required");
+			.get("/", async ({ ability, user }) => {
+								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Site");
 
 				return withCache(`${CACHE_PREFIX}joined`, REF_CACHE_TTL, getProductClassesWithVendors);
@@ -74,14 +62,11 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(rateLimitMiddleware())
-
 			// GET /principal/ids/:classId — single principal by classId
 			.get(
 				"/ids/:classId",
-				async ({ params: { classId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ params: { classId }, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Site");
 
 					const pc = await getProductClassById(classId);
@@ -96,9 +81,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// POST /principal/ids — create principal
 			.post(
 				"/ids",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ body, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -119,13 +103,10 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				async ({
 					params: { classId },
 					body,
-					rateLimit,
-					limited,
 					ability,
 					user,
 				}) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -143,9 +124,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// DELETE /principal/ids/:classId — delete product class
 			.delete(
 				"/ids/:classId",
-				async ({ params: { classId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ params: { classId }, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -160,9 +140,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// GET /principal/address/:venId — single address
 			.get(
 				"/address/:venId",
-				async ({ params: { venId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ params: { venId }, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Site");
 
 					const vendor = await getVendorById(venId);
@@ -177,9 +156,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// POST /principal/address — create address for a principal
 			.post(
 				"/address",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ body, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -199,9 +177,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// PUT /principal/address/:venId — update address
 			.put(
 				"/address/:venId",
-				async ({ params: { venId }, body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ params: { venId }, body, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -221,9 +198,8 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// DELETE /principal/address/:venId — delete address
 			.delete(
 				"/address/:venId",
-				async ({ params: { venId }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
-					if (!user) throw new UnauthorizedError("Authentication required");
+				async ({ params: { venId }, ability, user }) => {
+										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "Site");
 
 					invalidateCachePrefix(CACHE_PREFIX);

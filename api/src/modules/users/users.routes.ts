@@ -1,7 +1,6 @@
 import { Elysia } from "elysia";
 import { findUserById, getAllUsers } from "./user.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -10,14 +9,9 @@ import {
 } from "../../middlewares/error";
 
 export const userRoutes = new Elysia({ prefix: "/users" })
-	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
-	.get("/", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) {
-			throw new BadRequestError("Rate limit exceeded");
-		}
-
+	.get("/", async ({ ability, user }) => {
 		if (!user) {
 			throw new UnauthorizedError("Authentication required");
 		}

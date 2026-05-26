@@ -18,7 +18,6 @@ import {
 	DEFAULT_LIMIT,
 } from "./price.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -43,13 +42,10 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(rateLimitMiddleware(`${CACHE_PREFIX}class`))
-
 			// GET /price/class — distinct price_class values (cached 5 min)
 			.get(
 				"/class",
-				async ({ rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "PriceClass");
 
@@ -63,15 +59,12 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 		new Elysia()
 			.use(authGuard)
 			.use(caslMiddleware)
-			.use(rateLimitMiddleware())
-
 			// ── Price Class CRUD (simplified lookup) ─────────────────────
 
 			// GET /price/classes — all price classes
 			.get(
 				"/classes",
-				async ({ rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "PriceClass");
 
@@ -82,8 +75,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// POST /price/classes — create a price class
 			.post(
 				"/classes",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "PriceClass");
 
@@ -104,12 +96,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				async ({
 					params: { id },
 					body,
-					rateLimit,
-					limited,
 					ability,
 					user,
 				}) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "PriceClass");
 
@@ -129,8 +118,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// DELETE /price/classes/:id — delete price class by id
 			.delete(
 				"/classes/:id",
-				async ({ params: { id }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "PriceClass");
 
@@ -150,8 +138,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// GET /price/items/:id — get item price by id
 			.get(
 				"/items/:id",
-				async ({ params: { id }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "ItemPrice");
 
@@ -167,8 +154,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// POST /price/items — create item price
 			.post(
 				"/items",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "ItemPrice");
 
@@ -193,12 +179,9 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				async ({
 					params: { id },
 					body,
-					rateLimit,
-					limited,
 					ability,
 					user,
 				}) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "update", "ItemPrice");
 
@@ -238,8 +221,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// DELETE /price/items/:id — delete item price
 			.delete(
 				"/items/:id",
-				async ({ params: { id }, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "delete", "ItemPrice");
 
@@ -255,8 +237,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// POST /price/items/import — bulk import item prices from Excel data
 			.post(
 				"/items/import",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "create", "ItemPrice");
 
@@ -284,8 +265,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// POST /price/convert — batch convert prices to different units
 			.post(
 				"/convert",
-				async ({ body, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "ItemPrice");
 
@@ -311,8 +291,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 			// GET /price — paginated price records with search, unit
 			.get(
 				"/",
-				async ({ query, rateLimit, limited, ability, user }) => {
-					if (limited) throw new BadRequestError("Rate limit exceeded");
+				async ({ query, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "ItemPrice");
 

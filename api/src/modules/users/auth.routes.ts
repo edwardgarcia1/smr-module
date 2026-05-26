@@ -6,22 +6,16 @@ import {
 	validatePassword,
 } from "./user.service";
 import { jwtMiddleware, refreshTokenMiddleware } from "../../middlewares/jwt";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { authGuard } from "../../middlewares/auth";
 import { BadRequestError, UnauthorizedError } from "../../middlewares/error";
 import { extractAndVerifyToken } from "../../shared/auth";
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
-	.use(rateLimitMiddleware())
 	.use(jwtMiddleware)
 	.use(refreshTokenMiddleware)
 	.post(
 		"/register",
-		async ({ body, rateLimit, limited }) => {
-			if (limited) {
-				throw new BadRequestError("Rate limit exceeded");
-			}
-
+		async ({ body }) => {
 			const bodyTyped = body as {
 				username: string;
 				password: string;
@@ -45,11 +39,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 	)
 	.post(
 		"/login",
-		async ({ body, rateLimit, limited, jwt, refreshJwt, cookie, headers }) => {
-			if (limited) {
-				throw new BadRequestError("Rate limit exceeded");
-			}
-
+		async ({ body, jwt, refreshJwt, cookie, headers }) => {
 			const bodyTyped = body as { username: string; password: string };
 
 			const user = await findUserByUsername(bodyTyped.username);

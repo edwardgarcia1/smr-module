@@ -26,7 +26,6 @@ import {
 	updateCategory,
 } from "./min-stock.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -35,16 +34,14 @@ import {
 } from "../../middlewares/error";
 
 export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
-	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 
 	// ── Settings ────────────────────────────────────────────────────
 
 	// GET /min-stock/settings — list all setting overrides
-	.get("/settings", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/settings", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllSettings();
 	})
@@ -52,9 +49,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/settings/:invtId — get setting for one item
 	.get(
 		"/settings/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const setting = await getSettingByInvtId(invtId);
@@ -71,13 +67,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		async ({
 			params: { invtId },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
 			return upsertSetting({
@@ -105,13 +98,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		async ({
 			params: { invtId },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
 			return updateSetting(invtId, {
@@ -133,9 +123,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// DELETE /min-stock/settings/:invtId — remove setting (falls back to Default)
 	.delete(
 		"/settings/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
 			await deleteSetting(invtId);
@@ -147,9 +136,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// ── MinStock Items ──────────────────────────────────────────────
 
 	// GET /min-stock/items — list all item-level values
-	.get("/items", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/items", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllMinStockItems();
 	})
@@ -157,9 +145,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/items/:id — single item-level value by id
 	.get(
 		"/items/:id",
-		async ({ params: { id }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { id }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const item = await getMinStockItemById(id);
@@ -172,9 +159,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/items/invt/:invtId — single item-level value by invtId
 	.get(
 		"/items/invt/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const item = await getMinStockItemByInvtId(invtId);
@@ -188,9 +174,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// POST /min-stock/items — create item-level min stock
 	.post(
 		"/items",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 			return createMinStockItem(body);
 		},
@@ -208,13 +193,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		async ({
 			params: { id },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 			return updateMinStockItem(id, body);
 		},
@@ -227,9 +209,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// DELETE /min-stock/items/:id
 	.delete(
 		"/items/:id",
-		async ({ params: { id }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { id }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 			await deleteMinStockItem(id);
 			return { message: `MinStockItem ${id} deleted` };
@@ -240,9 +221,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// ── MinStock Principals ─────────────────────────────────────────
 
 	// GET /min-stock/principals — list all principal-level values
-	.get("/principals", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/principals", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllMinStockPrincipals();
 	})
@@ -250,9 +230,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/principals/:id
 	.get(
 		"/principals/:id",
-		async ({ params: { id }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { id }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const p = await getMinStockPrincipalById(id);
@@ -267,13 +246,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/principals/class/:classId",
 		async ({
 			params: { classId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const p = await getMinStockPrincipalByClassId(classId);
@@ -287,9 +263,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// POST /min-stock/principals
 	.post(
 		"/principals",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
 			const created = await createMinStockPrincipal(body);
@@ -311,13 +286,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		async ({
 			params: { id },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
 			const updated = await updateMinStockPrincipal(id, body);
@@ -334,9 +306,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// DELETE /min-stock/principals/:id
 	.delete(
 		"/principals/:id",
-		async ({ params: { id }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { id }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 			await deleteMinStockPrincipal(id);
 			return { message: `MinStockPrincipal ${id} deleted` };
@@ -347,17 +318,15 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// ── Merged (principal/item + min stock) — single-request endpoints ─
 
 	// GET /min-stock/principals-details — all principals with min stock
-	.get("/principals-details", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/principals-details", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllPrincipalsWithMinStock();
 	})
 
 	// GET /min-stock/items-details — all items with setting + min stock
-	.get("/items-details", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/items-details", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllItemsWithMinStock();
 	})
@@ -369,13 +338,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/resolve/:invtId/:classId",
 		async ({
 			params: { invtId, classId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 			return resolveMinStock(invtId, classId);
 		},
@@ -390,9 +356,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// POST /min-stock/resolve — bulk resolve
 	.post(
 		"/resolve",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 			return resolveManyMinStock(body);
 		},
@@ -409,9 +374,8 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// ── Categories ──────────────────────────────────────────────────────
 
 	// GET /min-stock/categories — list all categorisation thresholds
-	.get("/categories", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/categories", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllCategories();
 	})
@@ -422,13 +386,10 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		async ({
 			params: { id },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 			return updateCategory(id, body);
 		},

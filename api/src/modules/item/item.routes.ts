@@ -21,7 +21,6 @@ import {
 	getInventoryWithComponentsAndItemSites,
 } from "./item.service";
 import { authGuard } from "../../middlewares/auth";
-import { rateLimitMiddleware } from "../../middlewares/rateLimit";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
@@ -30,7 +29,6 @@ import {
 } from "../../middlewares/error";
 
 export const itemRoutes = new Elysia({ prefix: "/item" })
-	.use(rateLimitMiddleware())
 	.use(authGuard)
 	.use(caslMiddleware)
 
@@ -39,9 +37,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/inventory — list all inventory
 	.get(
 		"/inventory",
-		async ({ query: { promoFilter }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ query: { promoFilter }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			return getAllInventory(
@@ -62,9 +59,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/inventory/:invtId — single inventory item
 	.get(
 		"/inventory/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const inv = await getInventoryById(invtId);
@@ -79,9 +75,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// POST /item/inventory — create inventory item
 	.post(
 		"/inventory",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
 			return createInventory(body);
@@ -100,9 +95,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// PUT /item/inventory/:invtId — update inventory item
 	.put(
 		"/inventory/:invtId",
-		async ({ params: { invtId }, body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
 			return updateInventory(invtId, body);
@@ -121,9 +115,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// DELETE /item/inventory/:invtId — delete inventory item
 	.delete(
 		"/inventory/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
 			await deleteInventory(invtId);
@@ -137,9 +130,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// ── Component routes ─────────────────────────────────────────────
 
 	// GET /item/component — list all components
-	.get("/component", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/component", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 
 		return getAllComponents();
@@ -150,13 +142,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/component/:kitId/:cmpnentId",
 		async ({
 			params: { kitId, cmpnentId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const comp = await getComponentById(kitId, cmpnentId);
@@ -175,9 +164,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/component/:kitId — get components by kit
 	.get(
 		"/component/:kitId",
-		async ({ params: { kitId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { kitId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			return getComponentsByKitId(kitId);
@@ -190,9 +178,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// POST /item/component — create component
 	.post(
 		"/component",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 
 			return createComponent(body);
@@ -212,13 +199,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		async ({
 			params: { kitId, cmpnentId },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 
 			return updateComponent(kitId, cmpnentId, body);
@@ -239,13 +223,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/component/:kitId/:cmpnentId",
 		async ({
 			params: { kitId, cmpnentId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 
 			await deleteComponent(kitId, cmpnentId);
@@ -264,9 +245,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// ── ItemSite routes ───────────────────────────────────────────────
 
 	// GET /item/site — list all ItemSite records
-	.get("/site", async ({ rateLimit, limited, ability, user }) => {
-		if (limited) throw new BadRequestError("Rate limit exceeded");
-		if (!user) throw new UnauthorizedError("Authentication required");
+	.get("/site", async ({ ability, user }) => {
+				if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Site");
 		return getAllItemSites();
 	})
@@ -276,13 +256,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/site/:invtId/:siteId",
 		async ({
 			params: { invtId, siteId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			const itemSite = await getItemSiteById(invtId, siteId);
@@ -301,9 +278,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/site/:invtId — ItemSites by InvtID
 	.get(
 		"/site/:invtId",
-		async ({ params: { invtId }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ params: { invtId }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 			return getItemSitesByInvtId(invtId);
 		},
@@ -315,9 +291,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// POST /item/site — create ItemSite
 	.post(
 		"/site",
-		async ({ body, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ body, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "Site");
 			return createItemSite(body);
 		},
@@ -344,13 +319,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		async ({
 			params: { invtId, siteId },
 			body,
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "update", "Site");
 			return updateItemSite(invtId, siteId, body);
 		},
@@ -378,13 +350,10 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/site/:invtId/:siteId",
 		async ({
 			params: { invtId, siteId },
-			rateLimit,
-			limited,
 			ability,
 			user,
 		}) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "Site");
 			await deleteItemSite(invtId, siteId);
 			return { message: `ItemSite ${invtId}/${siteId} deleted` };
@@ -402,9 +371,8 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item — Inventory + Component + ItemSite on InvtID
 	.get(
 		"/",
-		async ({ query: { sites }, rateLimit, limited, ability, user }) => {
-			if (limited) throw new BadRequestError("Rate limit exceeded");
-			if (!user) throw new UnauthorizedError("Authentication required");
+		async ({ query: { sites }, ability, user }) => {
+						if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Site");
 
 			return getInventoryWithComponentsAndItemSites(sites);

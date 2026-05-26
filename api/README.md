@@ -80,7 +80,7 @@ api/
 │   │   ├── jwt.ts          # Access + refresh token sign/verify
 │   │   ├── casl.ts         # RBAC permissions
 │   │   ├── error.ts        # Custom error classes + handler
-│   │   └── rateLimit.ts    # 60 req/min per IP (in-memory)
+
 │   ├── modules/
 │   │   ├── users/          # Auth routes + user CRUD
 │   │   │   ├── auth.routes.ts
@@ -186,4 +186,3 @@ Permissions defined in `src/middlewares/casl.ts`. Enforced via `checkPermission(
 
 - No Drizzle ORM despite template docs. All DB operations are raw SQL.
 - Passwords hashed with bcrypt (cost 10) via `Bun.password.hash`.
-- Rate limiter is in-memory — single instance only. Resets on server restart.
