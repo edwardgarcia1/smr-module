@@ -436,6 +436,10 @@ const RequirementsPage: React.FC = () => {
 				bg: darkMode ? "rgba(186, 104, 200, 0.10)" : "rgba(156, 39, 176, 0.07)",
 				color: darkMode ? "#ce93d8" : "#6a1b9a",
 			},
+			inventory: {
+				bg: darkMode ? "rgba(255, 235, 59, 0.12)" : "rgba(255, 193, 7, 0.10)",
+				color: darkMode ? "#fff176" : "#f57f17",
+			},
 			custom: {
 				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
 				color: darkMode ? "#81c784" : "#2e7d32",
@@ -572,6 +576,7 @@ const RequirementsPage: React.FC = () => {
 
 	// Ref to track period keys for column building
 	const periodKeysRef = useRef<string[]>([]);
+	const [periodKeys, setPeriodKeys] = useState<string[]>([]);
 	// State for month-to-week conversion factor (updated in handleApply)
 	const [displayFactor, setDisplayFactor] = useState(1.0);
 	const categoriesRef = useRef(categories);
@@ -715,7 +720,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Unreleased",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -729,7 +734,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Incoming",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -743,7 +748,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "On Hand",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -757,7 +762,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Available",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -920,7 +925,7 @@ const RequirementsPage: React.FC = () => {
 				width: 130,
 				type: "number",
 				editable: true,
-				headerClassName: "group-custom",
+				headerClassName: "group-stock",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -1040,7 +1045,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Unreleased",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -1054,7 +1059,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Incoming",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -1068,7 +1073,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "On Hand",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -1082,7 +1087,7 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Available",
 				width: 110,
 				type: "number",
-				...staticHeader,
+				headerClassName: "group-inventory",
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -1228,7 +1233,8 @@ const RequirementsPage: React.FC = () => {
 			const periodKeys = Object.keys(data[0].periodDemand ?? {}).sort(
 				(a, b) => periodSortValue(a) - periodSortValue(b),
 			);
-periodKeysRef.current = periodKeys;
+			periodKeysRef.current = periodKeys;
+			setPeriodKeys(periodKeys);
 
 			// Compute month-to-week conversion factor for category computation
 			const df =
@@ -2427,9 +2433,45 @@ periodKeysRef.current = periodKeys;
 		}
 	}, [applied, purchasingColumns.length, bundlingColumns.length]);
 
-	// ─── Column Grouping Model (purchasing) ──────────────────────────
+	// ─── Column Grouping Models ──────────────────────────────────────
 	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(
 		() => [
+			{
+				groupId: "Monthly Demand",
+				headerClassName: "group-demand",
+				children: periodKeys.map((key) => ({
+					field: `pd_${key.replace(/[\s]/g, "_")}`,
+				})),
+			},
+			{
+				groupId: "Monthly Computation",
+				headerClassName: "group-computation",
+				children: [
+					{ field: "avgDemand" },
+					{ field: "avgDemandCS" },
+					{ field: "coverageThreshold" },
+				],
+			},
+			{
+				groupId: "Order",
+				headerClassName: "group-stock",
+				children: [
+					{ field: "stockCoverCount" },
+					{ field: "suggestedOrder" },
+					{ field: "suggestedOrderCS" },
+					{ field: "customOrder" },
+				],
+			},
+			{
+				groupId: "Inventory",
+				headerClassName: "group-inventory",
+				children: [
+					{ field: "qtyAlloc" },
+					{ field: "qtyOnPO" },
+					{ field: "qtyOnHand" },
+					{ field: "qtyAvail" },
+				],
+			},
 			{
 				groupId: "List Price (CP1)",
 				headerClassName: "group-price",
@@ -2449,7 +2491,38 @@ periodKeysRef.current = periodKeys;
 				],
 			},
 		],
-		[],
+		[periodKeys],
+	);
+
+	const bundlingColumnGroupModel = useMemo<GridColumnGroupingModel>(
+		() => [
+			{
+				groupId: "Monthly Demand",
+				headerClassName: "group-demand",
+				children: periodKeys.map((key) => ({
+					field: `pd_${key.replace(/[\s]/g, "_")}`,
+				})),
+			},
+			{
+				groupId: "Monthly Computation",
+				headerClassName: "group-computation",
+				children: [
+					{ field: "avgDemand" },
+					{ field: "stockCoverCount" },
+				],
+			},
+			{
+				groupId: "Inventory",
+				headerClassName: "group-inventory",
+				children: [
+					{ field: "qtyAlloc" },
+					{ field: "qtyOnPO" },
+					{ field: "qtyOnHand" },
+					{ field: "qtyAvail" },
+				],
+			},
+		],
+		[periodKeys],
 	);
 
 	// ─── Render ───────────────────────────────────────────────────────
@@ -2524,6 +2597,12 @@ periodKeysRef.current = periodKeys;
 								borderBottom: 2,
 								borderColor: "divider",
 							},
+							"& .MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitleContainer": {
+								justifyContent: "center",
+							},
+							"& .MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitle": {
+								textAlign: "center",
+							},
 							"& .group-demand": {
 								backgroundColor: groupColors.demand.bg,
 								color: groupColors.demand.color,
@@ -2543,6 +2622,10 @@ periodKeysRef.current = periodKeys;
 							"& .group-stock": {
 								backgroundColor: groupColors.stock.bg,
 								color: groupColors.stock.color,
+							},
+							"& .group-inventory": {
+								backgroundColor: groupColors.inventory.bg,
+								color: groupColors.inventory.color,
 							},
 							"& .row-immediate": {
 								backgroundColor: darkMode
@@ -2604,6 +2687,8 @@ periodKeysRef.current = periodKeys;
 					<DataGrid
 						rows={filteredBundlingRows}
 						columns={bundlingColumns}
+						columnGroupingModel={bundlingColumnGroupModel}
+						columnGroupHeaderHeight={36}
 						getRowClassName={getRowClassName}
 						getRowHeight={() => 42}
 						showToolbar
@@ -2635,6 +2720,12 @@ periodKeysRef.current = periodKeys;
 								borderBottom: 2,
 								borderColor: "divider",
 							},
+							"& .MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitleContainer": {
+								justifyContent: "center",
+							},
+							"& .MuiDataGrid-columnHeader--filledGroup .MuiDataGrid-columnHeaderTitle": {
+								textAlign: "center",
+							},
 							"& .group-demand": {
 								backgroundColor: groupColors.demand.bg,
 								color: groupColors.demand.color,
@@ -2650,6 +2741,10 @@ periodKeysRef.current = periodKeys;
 							"& .group-component": {
 								backgroundColor: groupColors.component.bg,
 								color: groupColors.component.color,
+							},
+							"& .group-inventory": {
+								backgroundColor: groupColors.inventory.bg,
+								color: groupColors.inventory.color,
 							},
 							"& .row-immediate": {
 								backgroundColor: darkMode
