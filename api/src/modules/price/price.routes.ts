@@ -13,6 +13,7 @@ import {
 	updatePriceClass,
 	deletePriceClass,
 	getPricesPaginated,
+	batchConvertPrices,
 	MAX_LIMIT,
 	DEFAULT_LIMIT,
 } from "./price.service";
@@ -272,6 +273,33 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 								price_class: t.String({ maxLength: 30 }),
 								valid_from: t.Optional(t.String({ maxLength: 19 })),
 								valid_to: t.Optional(t.Union([t.String({ maxLength: 19 }), t.Null()])),
+							}),
+						),
+					}),
+				},
+			)
+
+			// ── Batch price conversion ────────────────────────────────
+
+			// POST /price/convert — batch convert prices to different units
+			.post(
+				"/convert",
+				async ({ body, rateLimit, limited, ability, user }) => {
+					if (limited) throw new BadRequestError("Rate limit exceeded");
+					if (!user) throw new UnauthorizedError("Authentication required");
+					checkPermission(ability, "read", "ItemPrice");
+
+					return batchConvertPrices(body.items);
+				},
+				{
+					body: t.Object({
+						items: t.Array(
+							t.Object({
+								inventory_id: t.String({ maxLength: 30 }),
+								price: t.Number(),
+								from_unit: t.String({ maxLength: 10 }),
+								to_unit: t.String({ maxLength: 10 }),
+								price_class: t.String({ maxLength: 30 }),
 							}),
 						),
 					}),

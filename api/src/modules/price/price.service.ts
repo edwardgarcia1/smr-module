@@ -16,6 +16,8 @@ import type {
 	PaginatedResponse,
 	BulkImportItem,
 	ImportResult,
+	ConvertBatchItem,
+	ConvertBatchResult,
 } from "./price.schema";
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -420,6 +422,32 @@ async function convertPrice(
 	return { price: toBig(price), unit: fromUnit };
 }
 
+/**
+ * Batch-convert an array of prices to their respective target units.
+ * Each item specifies its inventory_id, price, from_unit, and to_unit.
+ * Items where from_unit === to_unit are returned unchanged.
+ */
+export const batchConvertPrices = async (
+	items: ConvertBatchItem[],
+): Promise<ConvertBatchResult[]> => {
+	const results: ConvertBatchResult[] = [];
+	for (const item of items) {
+		const converted = await convertPrice(
+			item.inventory_id,
+			item.price,
+			item.from_unit,
+			item.to_unit,
+		);
+		results.push({
+			inventory_id: item.inventory_id,
+			converted_price: bigToNumber(converted.price),
+			unit: converted.unit,
+			price_class: item.price_class,
+		});
+	}
+	return results;
+};
+
 // ─── Main paginated query ─────────────────────────────────────────────
 
 /**
@@ -559,6 +587,7 @@ export const getPricesPaginated = async (
 				price: toBig(r.price),
 				unit: r.unit,
 				price_class: r.price_class,
+				valid_from: r.valid_from,
 			};
 			const existing = currentMap.get(r.inventory_id) ?? [];
 			existing.push(entry);

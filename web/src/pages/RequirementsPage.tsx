@@ -38,7 +38,11 @@ import {
 	ExportCsv,
 	ExportPrint,
 } from "@mui/x-data-grid";
-import type { GridColDef, GridRowModel } from "@mui/x-data-grid";
+import type {
+	GridColDef,
+	GridRowModel,
+	GridColumnGroupingModel,
+} from "@mui/x-data-grid";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { type Dayjs } from "dayjs";
@@ -170,6 +174,33 @@ interface StorageLocation {
 
 // ─── Purchasing Row Types ────────────────────────────────────────────────────
 
+/** Matches backend PriceClassEntry from /price endpoint */
+interface PriceClassEntry {
+	item_price_id: number;
+	price: number;
+	unit: string;
+	price_class: string;
+	valid_from: string; // DATETIME — when this price became active
+}
+
+/** Matches backend PriceRecord from /price endpoint */
+interface PriceRecord {
+	inventory_id: string;
+	class_id: string | null;
+	description: string | null;
+	prices: PriceClassEntry[];
+}
+
+/** Paginated response from /price endpoint */
+interface PaginatedPriceResponse {
+	data: PriceRecord[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+	withoutPriceCount: number;
+}
+
 interface RequirementRow {
 	invtID: string;
 	descr: string;
@@ -187,6 +218,13 @@ interface RequirementRow {
 	suggestedOrder: number;
 	suggestedOrderCS: number;
 	customOrder: number | null;
+	// Price fields for column groups
+	listPrice_ao?: string;
+	listPrice_perCS?: number;
+	listPrice_perStkUnit?: number;
+	costPrice_ao?: string;
+	costPrice_perCS?: number;
+	costPrice_perStkUnit?: number;
 }
 
 // ─── Bundling Row Types ──────────────────────────────────────────────────────
@@ -409,6 +447,10 @@ const RequirementsPage: React.FC = () => {
 				bg: darkMode ? "rgba(186, 104, 200, 0.10)" : "rgba(156, 39, 176, 0.07)",
 				color: darkMode ? "#ce93d8" : "#6a1b9a",
 			},
+			price: {
+				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
+				color: darkMode ? "#81c784" : "#2e7d32",
+			},
 		}),
 		[darkMode],
 	);
@@ -567,6 +609,93 @@ const RequirementsPage: React.FC = () => {
 				width: 90,
 				...staticHeader,
 			});
+
+			// ── Price columns: List Price (CP1) ──────────────────────────
+			const priceHeader = { headerClassName: "group-price" };
+			const priceFormatter = (value?: number) =>
+				value != null
+					? value.toLocaleString(undefined, {
+							minimumFractionDigits: 2,
+							maximumFractionDigits: 4,
+						})
+					: "—";
+			const aoFormatter = (value?: string) => {
+				if (!value) return "—";
+				try {
+					const d = new Date(value);
+					return d.toLocaleString(undefined, {
+						year: "numeric",
+						month: "short",
+						day: "numeric",
+						hour: "2-digit",
+						minute: "2-digit",
+					});
+				} catch {
+					return value;
+				}
+			};
+
+			cols.push({
+				field: "listPrice_ao",
+				headerName: "ao",
+				width: 150,
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).listPrice_ao,
+				valueFormatter: aoFormatter,
+			});
+			cols.push({
+				field: "listPrice_perCS",
+				headerName: "Per CS",
+				width: 110,
+				type: "number",
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).listPrice_perCS,
+				valueFormatter: priceFormatter,
+			});
+			cols.push({
+				field: "listPrice_perStkUnit",
+				headerName: "Per StkUnit",
+				width: 110,
+				type: "number",
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).listPrice_perStkUnit,
+				valueFormatter: priceFormatter,
+			});
+
+			// ── Price columns: Price (Cost) ───────────────────────────
+			cols.push({
+				field: "costPrice_ao",
+				headerName: "ao",
+				width: 150,
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).costPrice_ao,
+				valueFormatter: aoFormatter,
+			});
+			cols.push({
+				field: "costPrice_perCS",
+				headerName: "Per CS",
+				width: 110,
+				type: "number",
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).costPrice_perCS,
+				valueFormatter: priceFormatter,
+			});
+			cols.push({
+				field: "costPrice_perStkUnit",
+				headerName: "Per StkUnit",
+				width: 110,
+				type: "number",
+				...priceHeader,
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).costPrice_perStkUnit,
+				valueFormatter: priceFormatter,
+			});
+
 			cols.push({
 				field: "qtyAlloc",
 				headerName: "Unreleased",
@@ -800,7 +929,6 @@ const RequirementsPage: React.FC = () => {
 					return o1 - o2;
 				},
 			});
-
 			return cols;
 		},
 		[frequency],
@@ -1105,6 +1233,148 @@ periodKeysRef.current = periodKeys;
 			setDisplayFactor(df);
 
 			const gridRows = data.map((item, idx) => ({ ...item, id: idx + 1 }));
+
+			// ── Fetch price data and merge onto rows ────────────────
+			if (mode === "purchasing") {
+				try {
+					// Two calls: raw (for Per StkUnit) + CS-converted (for Per CS)
+					const baseParams = new URLSearchParams({
+						classID: selectedPrincipal.ClassID,
+						page: "1",
+						limit: "10000",
+					});
+					const csParams = new URLSearchParams(baseParams);
+					csParams.set("unit", "CS");
+
+					const [rawRes, csRes] = await Promise.all([
+						apiRequest<PaginatedPriceResponse>(
+							`/price?${baseParams}`,
+						),
+						apiRequest<PaginatedPriceResponse>(
+							`/price?${csParams}`,
+						),
+					]);
+
+					// Raw prices map: inventory_id → {cp1, cost}
+					const rawMap = new Map<
+						string,
+						{ cp1?: PriceClassEntry; cost?: PriceClassEntry }
+					>();
+					for (const pr of rawRes.data ?? []) {
+						const e: {
+							cp1?: PriceClassEntry;
+							cost?: PriceClassEntry;
+						} = {};
+						for (const p of pr.prices) {
+							if (p.price_class === "CP1") e.cp1 = p;
+							else if (p.price_class === "COST") e.cost = p;
+						}
+						if (e.cp1 || e.cost) rawMap.set(pr.inventory_id, e);
+					}
+
+					// CS-converted prices map: inventory_id → {cp1, cost}
+					const csMap = new Map<
+						string,
+						{ cp1?: PriceClassEntry; cost?: PriceClassEntry }
+					>();
+					for (const pr of csRes.data ?? []) {
+						const e: {
+							cp1?: PriceClassEntry;
+							cost?: PriceClassEntry;
+						} = {};
+						for (const p of pr.prices) {
+							if (p.price_class === "CP1") e.cp1 = p;
+							else if (p.price_class === "COST") e.cost = p;
+						}
+						if (e.cp1 || e.cost) csMap.set(pr.inventory_id, e);
+					}
+
+					// First pass: set Per CS, Per StkUnit (direct match), and ao (valid_from)
+					// Collect items needing batch conversion for Per StkUnit
+					const needConvert: Array<{
+						inventory_id: string;
+						price: number;
+						from_unit: string;
+						to_unit: string;
+						price_class: string;
+					}> = [];
+
+					for (const row of gridRows as RequirementRow[]) {
+						const raw = rawMap.get(row.invtID);
+						const cs = csMap.get(row.invtID);
+
+						// ── CP1 (List Price) ──────────────────────────
+						if (cs?.cp1) {
+							row.listPrice_perCS = cs.cp1.price;
+							row.listPrice_ao = cs.cp1.valid_from;
+						}
+						if (raw?.cp1) {
+							if (raw.cp1.unit === row.stkUnit) {
+								row.listPrice_perStkUnit = raw.cp1.price;
+							} else {
+								needConvert.push({
+									inventory_id: row.invtID,
+									price: raw.cp1.price,
+									from_unit: raw.cp1.unit,
+									to_unit: row.stkUnit,
+									price_class: "CP1",
+								});
+							}
+						}
+
+						// ── COST (Cost Price) ─────────────────────────
+						if (cs?.cost) {
+							row.costPrice_perCS = cs.cost.price;
+							row.costPrice_ao = cs.cost.valid_from;
+						}
+						if (raw?.cost) {
+							if (raw.cost.unit === row.stkUnit) {
+								row.costPrice_perStkUnit = raw.cost.price;
+							} else {
+								needConvert.push({
+									inventory_id: row.invtID,
+									price: raw.cost.price,
+									from_unit: raw.cost.unit,
+									to_unit: row.stkUnit,
+									price_class: "COST",
+								});
+							}
+						}
+					}
+
+					// Second pass: batch-convert remaining Per StkUnit values
+					if (needConvert.length > 0) {
+						try {
+							const convRes = await apiRequest<
+								Array<{
+									inventory_id: string;
+									converted_price: number;
+									unit: string;
+									price_class: string;
+								}>
+							>("/price/convert", {
+								method: "POST",
+								body: { items: needConvert },
+							});
+							for (const r of convRes ?? []) {
+								const row = (gridRows as RequirementRow[]).find(
+									(gr) => gr.invtID === r.inventory_id,
+								);
+								if (!row) continue;
+								if (r.price_class === "CP1") {
+									row.listPrice_perStkUnit = r.converted_price;
+								} else if (r.price_class === "COST") {
+									row.costPrice_perStkUnit = r.converted_price;
+								}
+							}
+						} catch {
+							/* batch conversion is best-effort */
+						}
+					}
+				} catch {
+					/* price data is optional — grid still works without it */
+				}
+			}
 
 			if (mode === "purchasing") {
 				const dynamicCols = buildPurchasingColumns(periodKeys, df);
@@ -2143,6 +2413,31 @@ periodKeysRef.current = periodKeys;
 		}
 	}, [applied, purchasingColumns.length, bundlingColumns.length]);
 
+	// ─── Column Grouping Model (purchasing) ──────────────────────────
+	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(
+		() => [
+			{
+				groupId: "List Price (CP1)",
+				headerClassName: "group-price",
+				children: [
+					{ field: "listPrice_ao" },
+					{ field: "listPrice_perCS" },
+					{ field: "listPrice_perStkUnit" },
+				],
+			},
+			{
+				groupId: "Price (Cost)",
+				headerClassName: "group-price",
+				children: [
+					{ field: "costPrice_ao" },
+					{ field: "costPrice_perCS" },
+					{ field: "costPrice_perStkUnit" },
+				],
+			},
+		],
+		[],
+	);
+
 	// ─── Render ───────────────────────────────────────────────────────
 	return (
 		<>
@@ -2160,6 +2455,8 @@ periodKeysRef.current = periodKeys;
 					<DataGrid
 						rows={filteredPurchasingRows}
 						columns={purchasingColumns}
+						columnGroupingModel={purchasingColumnGroupModel}
+						columnGroupHeaderHeight={36}
 						columnVisibilityModel={columnVisibilityModel}
 						getRowClassName={getRowClassName}
 						editMode="row"
@@ -2224,6 +2521,10 @@ periodKeysRef.current = periodKeys;
 							"& .group-custom": {
 								backgroundColor: groupColors.custom.bg,
 								color: groupColors.custom.color,
+							},
+							"& .group-price": {
+								backgroundColor: groupColors.price.bg,
+								color: groupColors.price.color,
 							},
 							"& .group-stock": {
 								backgroundColor: groupColors.stock.bg,

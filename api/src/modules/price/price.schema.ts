@@ -102,6 +102,7 @@ export interface PriceClassEntry {
 	price: Big;
 	unit: string;
 	price_class: string;
+	valid_from: string; // DATETIME — when this price became active
 }
 
 // ─── Price record — response shape (one per inventory_id) ──────────────
@@ -148,6 +149,25 @@ export interface ImportResult {
 	inserted: number;
 	updated: number;
 	errors: Array<{ row: number; message: string }>;
+}
+
+// ─── Batch conversion types ───────────────────────────────────────────
+
+/** Single item in a batch conversion request */
+export interface ConvertBatchItem {
+	inventory_id: string;
+	price: Big | number;
+	from_unit: string;
+	to_unit: string;
+	price_class: string;
+}
+
+/** Single result from a batch conversion */
+export interface ConvertBatchResult {
+	inventory_id: string;
+	converted_price: number;
+	unit: string;
+	price_class: string;
 }
 
 // ─── Backward-compat aliases ──────────────────────────────────────────
