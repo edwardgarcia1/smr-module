@@ -797,6 +797,27 @@ const RequirementsPage: React.FC = () => {
 
 			// Computation columns
 			cols.push({
+				field: "totalDemand",
+				headerName: "Total",
+				width: 110,
+				type: "number",
+				headerClassName: "group-computation",
+				valueGetter: (_value, row) => {
+					const r = row as RequirementRow;
+					return Object.values(r.periodDemand ?? {}).reduce(
+						(sum, v) => sum + v,
+						0,
+					);
+				},
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
 				field: "avgDemand",
 				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (PCS)`,
 				width: 150,
@@ -2447,6 +2468,7 @@ const RequirementsPage: React.FC = () => {
 				groupId: "Monthly Computation",
 				headerClassName: "group-computation",
 				children: [
+					{ field: "totalDemand" },
 					{ field: "avgDemand" },
 					{ field: "avgDemandCS" },
 					{ field: "coverageThreshold" },
