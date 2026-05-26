@@ -8,6 +8,7 @@ import {
 import {
 	buildConversionCache,
 	canConvert,
+	getConversionFactor,
 	normaliseQtyCached,
 } from "../../utils/unitConversion";
 import { resolveManyMinStock } from "../min-stock/min-stock.service";
@@ -359,6 +360,9 @@ export async function getRequirements(
 
 		// Convert to CS (cases) using INUnit cache
 		const TARGET_CS = "CS";
+		// Qty/CS = stock units per 1 CS (e.g. 24 PCS per CS).
+		// INUnit stores CS→PCS = 24, so we ask "CS → StkUnit" to get the factor directly.
+		const qtyPerCS = getConversionFactor(convCache, id, TARGET_CS, entry.stkUnit);
 		const avgDemandCS = Math.round(
 			normaliseQtyCached(convCache, id, avgDemand, entry.stkUnit, TARGET_CS) * 100,
 		) / 100;
@@ -371,6 +375,7 @@ export async function getRequirements(
 			descr: entry.descr,
 			stkUnit: entry.stkUnit,
 			classID: entry.classID,
+			qtyPerCS,
 			qtyOnHand: Math.round(stock.qtyOnHand * 100) / 100,
 			qtyAvail: Math.round(stock.qtyAvail * 100) / 100,
 			qtyOnPO: Math.round(stock.qtyOnPO * 100) / 100,

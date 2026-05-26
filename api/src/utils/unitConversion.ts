@@ -72,6 +72,30 @@ export function canConvert(
 }
 
 /**
+ * Get the conversion factor (multiplier) to convert `fromUnit` → `toUnit`.
+ * Returns 1 when units match or no conversion is available.
+ */
+export function getConversionFactor(
+	cache: Map<string, number>,
+	invtID: string,
+	fromUnit: string,
+	toUnit: string,
+): number {
+	if (
+		!fromUnit ||
+		!toUnit ||
+		fromUnit.toUpperCase() === toUnit.toUpperCase()
+	) {
+		return 1;
+	}
+	const fwd = getCnvFactor(cache, invtID, fromUnit, toUnit);
+	if (fwd !== null && fwd > 0) return fwd;
+	const rev = getCnvFactor(cache, invtID, toUnit, fromUnit);
+	if (rev !== null && rev > 0) return 1 / rev;
+	return 1;
+}
+
+/**
  * Normalise qty using cached INUnit data.
  * Returns original qty when no conversion is needed or available.
  */

@@ -205,6 +205,7 @@ interface RequirementRow {
 	invtID: string;
 	descr: string;
 	stkUnit: string;
+	qtyPerCS: number;
 	classID: string;
 	qtyOnHand: number;
 	qtyAvail: number;
@@ -608,6 +609,19 @@ const RequirementsPage: React.FC = () => {
 				headerName: "Stock Unit",
 				width: 90,
 				...staticHeader,
+			});
+			cols.push({
+				field: "qtyPerCS",
+				headerName: "Qty/CS",
+				width: 90,
+				type: "number",
+				...staticHeader,
+				description: "Conversion factor from Stock Unit to CS (CnvFact from INUnit)",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toLocaleString(undefined, {
+						minimumFractionDigits: 4,
+						maximumFractionDigits: 4,
+					}) : "—",
 			});
 
 			// ── Price columns: List Price (CP1) ──────────────────────────

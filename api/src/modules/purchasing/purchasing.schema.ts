@@ -27,6 +27,7 @@ export interface RequirementItem {
 	// Normalized sales qtyShip per period key (e.g. "Jan 2026" or "W1 Jan 2026")
 	periodDemand: Record<string, number>;
 	// Calculated fields
+	qtyPerCS: number; // Conversion factor from StkUnit to CS (CnvFact from INUnit)
 	avgDemand: number; // Average monthly or weekly demand (in StkUnit)
 	avgDemandCS: number; // avgDemand converted to CS (cases)
 	stockCoverCount: number; // How many periods stock will last (qtyAvail / avgDemand)
