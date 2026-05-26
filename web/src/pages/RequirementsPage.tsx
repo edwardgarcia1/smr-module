@@ -656,7 +656,7 @@ const RequirementsPage: React.FC = () => {
 
 			cols.push({
 				field: "listPrice_ao",
-				headerName: "ao",
+				headerName: "Last Update",
 				width: 150,
 				...priceHeader,
 				valueGetter: (_value, row) =>
@@ -687,7 +687,7 @@ const RequirementsPage: React.FC = () => {
 			// ── Price columns: Price (Cost) ───────────────────────────
 			cols.push({
 				field: "costPrice_ao",
-				headerName: "ao",
+				headerName: "Last Update",
 				width: 150,
 				...priceHeader,
 				valueGetter: (_value, row) =>
