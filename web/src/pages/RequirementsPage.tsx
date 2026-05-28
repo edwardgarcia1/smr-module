@@ -1275,9 +1275,10 @@ const RequirementsPage: React.FC = () => {
 
 			for (const dr of dateRanges) {
 				if (dr.from && dr.to) {
+					// With month/year picker, from is 1st of month; extend to to end of month
 					params.append(
 						"dateRange",
-						`${dr.from.format("YYYY-MM-DD")},${dr.to.format("YYYY-MM-DD")}`,
+						`${dr.from.startOf("month").format("YYYY-MM-DD")},${dr.to.endOf("month").format("YYYY-MM-DD")}`,
 					);
 				}
 			}
@@ -1887,6 +1888,7 @@ const RequirementsPage: React.FC = () => {
 									>
 										<DatePicker
 											label={`From ${dateRanges.length > 1 ? index + 1 : ""}`}
+											views={["month", "year"]}
 											value={dr.from}
 											onChange={(v) => handleUpdateDateRange(index, "from", v)}
 											slotProps={{
@@ -1901,6 +1903,7 @@ const RequirementsPage: React.FC = () => {
 										/>
 										<DatePicker
 											label={`To ${dateRanges.length > 1 ? index + 1 : ""}`}
+											views={["month", "year"]}
 											value={dr.to}
 											onChange={(v) => handleUpdateDateRange(index, "to", v)}
 											slotProps={{
