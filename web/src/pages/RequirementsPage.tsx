@@ -95,6 +95,16 @@ const CATEGORY_CLASS_MAP: Record<string, string> = {
 	"No record": "row-no-record",
 };
 
+/** Map category name → Excel fill color (6-char hex, no `#`, no alpha) */
+const CAT_EXCEL_COLORS: Record<string, string> = {
+	Immediate: "ffcdd2",
+	Secondary: "fff9c4",
+	Monitoring: "bbdefb",
+	Ordered: "e1bee7",
+	Overstocked: "c8e6c9",
+	"No record": "eceff1",
+};
+
 /** Numeric sort order: Immediate (most urgent) first */
 const CATEGORY_ORDER: Record<string, number> = {
 	Immediate: 0,
@@ -1837,90 +1847,36 @@ const RequirementsPage: React.FC = () => {
 	);
 
 	// ─── Excel Export ─────────────────────────────────────────────────
-	const CAT_EXCEL_COLORS: Record<string, string> = {
-		Immediate: "ffcdd2",
-		Secondary: "fff9c4",
-		Monitoring: "bbdefb",
-		Ordered: "e1bee7",
-		Overstocked: "c8e6c9",
-		"No record": "eceff1",
-	};
-
-	const handleExcelExport = useCallback(() => {
+	const handleExcelExport = useCallback(async () => {
 		if (mode === "purchasing") {
-			// Get the grid's current filter/sort state from the apiRef
-			const gridState = (apiRef.current as any)?.state;
-			const filteredRowsLookup: Record<string | number, boolean> =
-				gridState?.filter?.filteredRowsLookup ?? {};
-			const sortModel: Array<{ field: string; sort: "asc" | "desc" }> =
-				gridState?.sorting?.sortModel ?? [];
-
-			// Apply the grid's column-level filter on top of the category-filtered rows
-			let rowsToExport = filteredPurchasingRows.filter(
-				(row) => filteredRowsLookup[row.id] !== false,
+			// Use the grid's public API to get filtered/sorted row IDs.
+			// getSortedRowIds() is part of the public GridSortApi interface and
+			// returns all rows in display order (filter + sort applied), without
+			// the virtualization problem that a DOM-based approach would have.
+			const sortedRowIds = apiRef.current.getSortedRowIds();
+			const rowById = new Map(
+				filteredPurchasingRows.map((r) => [r.id, r]),
 			);
 
-			// Apply the grid's sort model in memory to match the displayed order
-			if (sortModel.length > 0) {
-				rowsToExport = [...rowsToExport].sort((a, b) => {
-					for (const sort of sortModel) {
-						if (!sort.sort) continue;
-						const col = purchasingColumns.find(
-							(c) => c.field === sort.field,
-						);
-						if (!col) continue;
-
-						const aVal = col.valueGetter
-							? (col.valueGetter as (...args: unknown[]) => unknown)(
-									null,
-									a,
-									col,
-									null,
-								)
-							: a[sort.field];
-						const bVal = col.valueGetter
-							? (col.valueGetter as (...args: unknown[]) => unknown)(
-									null,
-									b,
-									col,
-									null,
-								)
-							: b[sort.field];
-
-						let cmp: number;
-						if (sort.field === "_category") {
-							const oa =
-								aVal != null
-									? (CATEGORY_ORDER[aVal as string] ?? 99)
-									: 99;
-							const ob =
-								bVal != null
-									? (CATEGORY_ORDER[bVal as string] ?? 99)
-									: 99;
-							cmp = oa - ob;
-						} else if (aVal == null && bVal == null) {
-							cmp = 0;
-						} else if (aVal == null) {
-							cmp = 1;
-						} else if (bVal == null) {
-							cmp = -1;
-						} else if (
-							typeof aVal === "number" &&
-							typeof bVal === "number"
-						) {
-							cmp = aVal - bVal;
-						} else {
-							cmp = String(aVal).localeCompare(String(bVal));
-						}
-
-						if (cmp !== 0) return sort.sort === "desc" ? -cmp : cmp;
-					}
-					return 0;
-				});
+			const rowsToExport: Record<string, unknown>[] = [];
+			for (const id of sortedRowIds) {
+				const row = rowById.get(id);
+				if (row) {
+					rowsToExport.push(row as Record<string, unknown>);
+				}
 			}
 
-			exportDataGridToExcel(
-				rowsToExport as Record<string, unknown>[],
+			// Fallback: if the grid returned nothing, export all category-filtered rows
+			if (rowsToExport.length === 0) {
+				rowsToExport.push(
+					...filteredPurchasingRows.map(
+						(r) => r as Record<string, unknown>,
+					),
+				);
+			}
+
+			await exportDataGridToExcel(
+				rowsToExport,
 				purchasingColumns,
 				{
 					title: "Stock Movement Report",
@@ -1938,7 +1894,7 @@ const RequirementsPage: React.FC = () => {
 				"purchase-requirements.xlsx",
 			);
 		} else {
-			exportDataGridToExcel(
+			await exportDataGridToExcel(
 				bundlingRows as unknown as Record<string, unknown>[],
 				bundlingColumns,
 				undefined,
