@@ -193,6 +193,7 @@ interface RequirementRow {
 	suggestedOrder: number;
 	suggestedOrderCS: number;
 	customOrder: number | null;
+	amount: number | null;
 	// Price fields for column groups
 	listPrice_ao?: string;
 	listPrice_perCS?: number;
@@ -987,6 +988,33 @@ const RequirementsPage: React.FC = () => {
 								maximumFractionDigits: 2,
 							})
 						: "",
+			});
+
+			// Amount
+			cols.push({
+				field: "amount",
+				headerName: "Amount",
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
+				description:
+					"Order amount: customOrder × List Price per CS, or suggestedOrderCS × List Price per CS",
+				valueGetter: (_value: unknown, row: RequirementRow) => {
+					const qty =
+						row.customOrder != null
+							? row.customOrder
+							: row.suggestedOrderCS;
+					const price = row.listPrice_perCS;
+					if (price == null) return null;
+					return Math.round(qty * price * 100) / 100;
+				},
+				valueFormatter: (value?: number | null) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "—",
 			});
 
 			// Category
@@ -2399,6 +2427,7 @@ const RequirementsPage: React.FC = () => {
 					{ field: "suggestedOrder" },
 					{ field: "suggestedOrderCS" },
 					{ field: "customOrder" },
+					{ field: "amount" },
 				],
 			},
 			{

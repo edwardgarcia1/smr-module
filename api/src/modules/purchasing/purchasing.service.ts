@@ -404,6 +404,7 @@ export async function getRequirements(
 			suggestedOrder,
 			suggestedOrderCS,
 			customOrder: null,
+			amount: null,
 		});
 	}
 
@@ -521,6 +522,16 @@ export async function getRequirements(
 						) / 100;
 				}
 			}
+		}
+
+		// ── Compute Amount ────────────────────────────────────
+		for (const item of results) {
+			const orderQty = item.customOrder ?? item.suggestedOrderCS;
+			const priceCS = item.listPrice_perCS;
+			item.amount =
+				priceCS != null
+					? Math.round(orderQty * priceCS * 100) / 100
+					: null;
 		}
 	}
 

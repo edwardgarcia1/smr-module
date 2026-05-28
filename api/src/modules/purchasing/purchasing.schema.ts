@@ -51,6 +51,8 @@ export interface RequirementItem {
 	/** suggestedOrder converted to CS (cases) */
 	suggestedOrderCS: number;
 	customOrder: number | null;
+	/** Amount = (customOrder ?? suggestedOrderCS) × listPrice_perCS (computed server-side initially, overridden client-side on customOrder edit) */
+	amount: number | null;
 	// Price enrichment (returned when prices are available for the item)
 	listPrice_ao?: string;
 	listPrice_perCS?: number;
