@@ -862,7 +862,7 @@ const RequirementsPage: React.FC = () => {
 			});
 			cols.push({
 				field: "avgDemand",
-				headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (PCS)`,
+				headerName: 			`Avg ${frequency === "monthly" ? "Monthly" : "Weekly"}`,
 				width: 150,
 				type: "number",
 				headerClassName: "group-computation",
@@ -952,7 +952,7 @@ const RequirementsPage: React.FC = () => {
 			});
 			cols.push({
 				field: "suggestedOrder",
-				headerName: "Suggested Order (PCS)",
+				headerName: "Suggested Order",
 				width: 180,
 				type: "number",
 				headerClassName: "group-stock",
@@ -2523,14 +2523,14 @@ const RequirementsPage: React.FC = () => {
 	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(
 		() => [
 			{
-				groupId: "Monthly Demand",
+				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
 				headerClassName: "group-demand",
 				children: periodKeys.map((key) => ({
 					field: `pd_${key.replace(/[\s]/g, "_")}`,
 				})),
 			},
 			{
-				groupId: "Monthly Computation",
+				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
 				headerClassName: "group-computation",
 				children: [
 					{ field: "totalDemand" },
@@ -2578,20 +2578,20 @@ const RequirementsPage: React.FC = () => {
 				],
 			},
 		],
-		[periodKeys],
+		[periodKeys, frequency],
 	);
 
 	const bundlingColumnGroupModel = useMemo<GridColumnGroupingModel>(
 		() => [
 			{
-				groupId: "Monthly Demand",
+				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
 				headerClassName: "group-demand",
 				children: periodKeys.map((key) => ({
 					field: `pd_${key.replace(/[\s]/g, "_")}`,
 				})),
 			},
 			{
-				groupId: "Monthly Computation",
+				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
 				headerClassName: "group-computation",
 				children: [
 					{ field: "avgDemand" },
@@ -2609,7 +2609,7 @@ const RequirementsPage: React.FC = () => {
 				],
 			},
 		],
-		[periodKeys],
+		[periodKeys, frequency],
 	);
 
 	// ─── Render ───────────────────────────────────────────────────────
