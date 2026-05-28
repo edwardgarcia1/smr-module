@@ -1837,17 +1837,111 @@ const RequirementsPage: React.FC = () => {
 	);
 
 	// ─── Excel Export ─────────────────────────────────────────────────
+	const CAT_EXCEL_COLORS: Record<string, string> = {
+		Immediate: "ffcdd2",
+		Secondary: "fff9c4",
+		Monitoring: "bbdefb",
+		Ordered: "e1bee7",
+		Overstocked: "c8e6c9",
+		"No record": "eceff1",
+	};
+
 	const handleExcelExport = useCallback(() => {
 		if (mode === "purchasing") {
+			// Get the grid's current filter/sort state from the apiRef
+			const gridState = (apiRef.current as any)?.state;
+			const filteredRowsLookup: Record<string | number, boolean> =
+				gridState?.filter?.filteredRowsLookup ?? {};
+			const sortModel: Array<{ field: string; sort: "asc" | "desc" }> =
+				gridState?.sorting?.sortModel ?? [];
+
+			// Apply the grid's column-level filter on top of the category-filtered rows
+			let rowsToExport = filteredPurchasingRows.filter(
+				(row) => filteredRowsLookup[row.id] !== false,
+			);
+
+			// Apply the grid's sort model in memory to match the displayed order
+			if (sortModel.length > 0) {
+				rowsToExport = [...rowsToExport].sort((a, b) => {
+					for (const sort of sortModel) {
+						if (!sort.sort) continue;
+						const col = purchasingColumns.find(
+							(c) => c.field === sort.field,
+						);
+						if (!col) continue;
+
+						const aVal = col.valueGetter
+							? (col.valueGetter as (...args: unknown[]) => unknown)(
+									null,
+									a,
+									col,
+									null,
+								)
+							: a[sort.field];
+						const bVal = col.valueGetter
+							? (col.valueGetter as (...args: unknown[]) => unknown)(
+									null,
+									b,
+									col,
+									null,
+								)
+							: b[sort.field];
+
+						let cmp: number;
+						if (sort.field === "_category") {
+							const oa =
+								aVal != null
+									? (CATEGORY_ORDER[aVal as string] ?? 99)
+									: 99;
+							const ob =
+								bVal != null
+									? (CATEGORY_ORDER[bVal as string] ?? 99)
+									: 99;
+							cmp = oa - ob;
+						} else if (aVal == null && bVal == null) {
+							cmp = 0;
+						} else if (aVal == null) {
+							cmp = 1;
+						} else if (bVal == null) {
+							cmp = -1;
+						} else if (
+							typeof aVal === "number" &&
+							typeof bVal === "number"
+						) {
+							cmp = aVal - bVal;
+						} else {
+							cmp = String(aVal).localeCompare(String(bVal));
+						}
+
+						if (cmp !== 0) return sort.sort === "desc" ? -cmp : cmp;
+					}
+					return 0;
+				});
+			}
+
 			exportDataGridToExcel(
-				filteredPurchasingRows as unknown as Record<string, unknown>[],
+				rowsToExport as Record<string, unknown>[],
 				purchasingColumns,
+				{
+					title: "Stock Movement Report",
+					subtitle: selectedPrincipal?.Descr ?? "",
+					columnGroupingModel: purchasingColumnGroupModelRef.current,
+					getRowFill: (row) => {
+						const cat = computeCategoryName(
+							row as unknown as RequirementRow,
+							categories,
+							displayFactor,
+						);
+						return cat ? (CAT_EXCEL_COLORS[cat] ?? null) : null;
+					},
+				},
 				"purchase-requirements.xlsx",
 			);
 		} else {
 			exportDataGridToExcel(
 				bundlingRows as unknown as Record<string, unknown>[],
 				bundlingColumns,
+				undefined,
 				"bundling-requirements.xlsx",
 			);
 		}
@@ -1857,6 +1951,10 @@ const RequirementsPage: React.FC = () => {
 		bundlingRows,
 		purchasingColumns,
 		bundlingColumns,
+		selectedPrincipal,
+		categories,
+		displayFactor,
+		apiRef,
 	]);
 
 	// ─── Purchasing Toolbar ──────────────────────────────────────────
@@ -2554,6 +2652,11 @@ const RequirementsPage: React.FC = () => {
 		},
 		[periodKeys, frequency, selectedPriceClass],
 	);
+
+	const purchasingColumnGroupModelRef = useRef(purchasingColumnGroupModel);
+	useEffect(() => {
+		purchasingColumnGroupModelRef.current = purchasingColumnGroupModel;
+	}, [purchasingColumnGroupModel]);
 
 	const bundlingColumnGroupModel = useMemo<GridColumnGroupingModel>(
 		() => [
