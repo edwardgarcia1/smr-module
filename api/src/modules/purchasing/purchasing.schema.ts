@@ -34,6 +34,7 @@ export interface RequirementItem {
 	qtyPerCS: number; // Conversion factor from StkUnit to CS (CnvFact from INUnit)
 	avgDemand: number; // Average monthly or weekly demand (in StkUnit)
 	avgDemandCS: number; // avgDemand converted to CS (cases)
+	totalDemandCS: number; // Total demand converted to CS (cases)
 	stockCoverCount: number; // How many periods stock will last (qtyAvail / avgDemand)
 	/**
 	 * Stock-aware coverage threshold (resolved from min-stock settings).

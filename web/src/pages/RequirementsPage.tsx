@@ -214,6 +214,7 @@ interface RequirementRow {
 	periodDemand: Record<string, number>;
 	avgDemand: number;
 	avgDemandCS: number;
+	totalDemandCS: number;
 	stockCoverCount: number;
 	coverageThreshold: number;
 	suggestedOrder: number;
@@ -852,6 +853,22 @@ const RequirementsPage: React.FC = () => {
 						0,
 					);
 				},
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+			cols.push({
+				field: "totalDemandCS",
+				headerName: "Total (CS)",
+				width: 110,
+				type: "number",
+				headerClassName: "group-computation",
+				valueGetter: (_value, row) =>
+					(row as RequirementRow).totalDemandCS,
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -2534,6 +2551,7 @@ const RequirementsPage: React.FC = () => {
 				headerClassName: "group-computation",
 				children: [
 					{ field: "totalDemand" },
+					{ field: "totalDemandCS" },
 					{ field: "avgDemand" },
 					{ field: "avgDemandCS" },
 					{ field: "stockCoverCount" },

@@ -378,6 +378,9 @@ export async function getRequirements(
 		const avgDemandCS = Math.round(
 			normaliseQtyCached(convCache, id, avgDemand, entry.stkUnit, TARGET_CS) * 100,
 		) / 100;
+		const totalDemandCS = Math.round(
+			normaliseQtyCached(convCache, id, entry.totalNormalised, entry.stkUnit, TARGET_CS) * 100,
+		) / 100;
 		const suggestedOrderCS = Math.round(
 			normaliseQtyCached(convCache, id, suggestedOrder, entry.stkUnit, TARGET_CS) * 100,
 		) / 100;
@@ -395,6 +398,7 @@ export async function getRequirements(
 			periodDemand: periodDemandObj,
 			avgDemand,
 			avgDemandCS,
+			totalDemandCS,
 			stockCoverCount,
 			coverageThreshold,
 			suggestedOrder,
