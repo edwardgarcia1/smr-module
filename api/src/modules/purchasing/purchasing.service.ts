@@ -309,10 +309,24 @@ export async function getRequirements(
 	// ── Step 8: Build response ────────────────────────────────────
 	const nPeriods = periodKeys.length || 1;
 
-	// Determine whether to use working-week (6-day) or system-week formula.
-	// When validDays is provided (from frontend's monthlyValidDays input),
+	// Weekly mode requires validDays (sum of per-month working days).
+	// Frontend always sends monthlyValidDays (→ validDays) from user inputs.
+	// Without working days, the month-to-week conversion and avgDemand cannot
+	// be computed correctly for a 6-day working week.
+	if (frequency === "weekly" && (!validDays || validDays <= 0)) {
+		throw new BadRequestError(
+			"validDays is required when frequency is weekly. " +
+				"Set working days per month in the weekly settings.",
+		);
+	}
+
+	// Use working-week (6-day) formula when in weekly mode.
 	// avgDemand = totalNormalised / validDays * 6  →  per 6-day working week.
-	// monthToWeekFactor is also adjusted to working-weeks-per-month.
+	// monthToWeekFactor converts stored months to display weeks.
+	//
+	// ⚠️ KEEP IN SYNC with frontend displayFactor computation in
+	//    web/src/pages/RequirementsPage.tsx (handleApply → df).
+	//    Both compute: (totalVD / 6) / nMonths.
 	const useWorkingWeekFormula =
 		frequency === "weekly" && validDays != null && validDays > 0;
 
@@ -326,13 +340,8 @@ export async function getRequirements(
 		);
 		const nMonths = uniqueMonths.size;
 		if (nMonths === 0) return 1.0;
-
-		if (useWorkingWeekFormula) {
-			// Working weeks per month: (total working days / 6) / nMonths
-			return (validDays! / 6) / nMonths;
-		}
-		// Fallback: system weeks per month (W1-W5 per month)
-		return nPeriods / nMonths;
+		// Working weeks per month: (total working days / 6) / nMonths
+		return (validDays! / 6) / nMonths;
 	})();
 
 	const results: RequirementItem[] = [];

@@ -980,7 +980,7 @@ const RequirementsPage: React.FC = () => {
 			// Custom Order
 			cols.push({
 				field: "customOrder",
-				headerName: "Custom Order",
+				headerName: "Custom Order (CS)",
 				width: 130,
 				type: "number",
 				editable: true,
@@ -1336,6 +1336,10 @@ const RequirementsPage: React.FC = () => {
 			// Compute month-to-week conversion factor for category computation.
 			// Uses working-weeks formula when validDays is available (weekly mode),
 			// matching the backend's monthToWeekFactor.
+			//
+			// ⚠️ KEEP IN SYNC with backend monthToWeekFactor in
+			//    api/src/modules/purchasing/purchasing.service.ts.
+			//    Both compute: (totalVD / 6) / nMonths.
 			const totalVD = Object.values(monthlyValidDays).reduce(
 				(s, v) => s + v,
 				0,
