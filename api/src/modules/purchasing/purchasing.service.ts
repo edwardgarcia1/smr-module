@@ -470,8 +470,8 @@ export async function getRequirements(
 							convCache,
 							item.invtID,
 							prices.cp1.price,
-							prices.cp1.unit,
 							"CS",
+							prices.cp1.unit,
 						) * 100,
 					) / 100;
 				if (
@@ -485,8 +485,8 @@ export async function getRequirements(
 								convCache,
 								item.invtID,
 								prices.cp1.price,
-								prices.cp1.unit,
 								item.stkUnit,
+								prices.cp1.unit,
 							) * 100,
 						) / 100;
 				}
@@ -501,8 +501,8 @@ export async function getRequirements(
 							convCache,
 							item.invtID,
 							prices.cost.price,
-							prices.cost.unit,
 							"CS",
+							prices.cost.unit,
 						) * 100,
 					) / 100;
 				if (
@@ -516,8 +516,8 @@ export async function getRequirements(
 								convCache,
 								item.invtID,
 								prices.cost.price,
-								prices.cost.unit,
 								item.stkUnit,
+								prices.cost.unit,
 							) * 100,
 						) / 100;
 				}
