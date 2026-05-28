@@ -35,7 +35,6 @@ import {
 	DataGrid,
 	ColumnsPanelTrigger,
 	FilterPanelTrigger,
-	ExportCsv,
 	ExportPrint,
 	useGridApiRef,
 } from "@mui/x-data-grid";
@@ -56,7 +55,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -2008,15 +2006,6 @@ const RequirementsPage: React.FC = () => {
 								Filters
 							</Box>
 						</FilterPanelTrigger>
-						<ExportCsv
-							size="small"
-							startIcon={<FileDownloadIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								CSV
-							</Box>
-						</ExportCsv>
 						<ExportPrint
 							size="small"
 							startIcon={<PrintIcon />}
@@ -2316,15 +2305,6 @@ const RequirementsPage: React.FC = () => {
 								Filters
 							</Box>
 						</FilterPanelTrigger>
-						<ExportCsv
-							size="small"
-							startIcon={<FileDownloadIcon />}
-							style={iconBtnSx}
-						>
-							<Box component="span" sx={labelSx}>
-								CSV
-							</Box>
-						</ExportCsv>
 						<ExportPrint
 							size="small"
 							startIcon={<PrintIcon />}
