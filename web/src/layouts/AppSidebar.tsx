@@ -210,6 +210,75 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				)}
+				<Can I="read" a="prices" ability={ability}>
+					<ListItemButton
+						selected={isActive("/prices")}
+						onClick={() => handleNav("/prices")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<MoneyIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Prices"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
+				<Can I="read" a="min-stock" ability={ability}>
+					<ListItemButton
+						selected={isActive("/min-stock")}
+						onClick={() => handleNav("/min-stock")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<LowPriorityIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Min Stock"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
+				<Can I="read" a="purchase-orders" ability={ability}>
+					<ListItemButton
+						selected={isActive("/purchase-orders")}
+						onClick={() => handleNav("/purchase-orders")}
+						sx={getSidebarItemSx(collapsed)}
+					>
+						<ListItemIcon
+							sx={{
+								color: "var(--sidebar-icon)",
+								minWidth: collapsed ? "auto" : 36,
+							}}
+						>
+							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
+						</ListItemIcon>
+						<ListItemText
+							primary="Purchase Orders"
+							sx={{
+								fontSize: 13,
+								display: collapsed ? "none" : "block",
+							}}
+						/>
+					</ListItemButton>
+				</Can>
 				<Can I="read" a="inventory-items" ability={ability}>
 					<ListItemButton
 						selected={isActive("/inventory-items")}
@@ -249,75 +318,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						</ListItemIcon>
 						<ListItemText
 							primary="Principals"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="purchase-orders" ability={ability}>
-					<ListItemButton
-						selected={isActive("/purchase-orders")}
-						onClick={() => handleNav("/purchase-orders")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Purchase Orders"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-					<Can I="read" a="prices" ability={ability}>
-					<ListItemButton
-						selected={isActive("/prices")}
-						onClick={() => handleNav("/prices")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<MoneyIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Prices"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="min-stock" ability={ability}>
-					<ListItemButton
-						selected={isActive("/min-stock")}
-						onClick={() => handleNav("/min-stock")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<LowPriorityIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Min Stock Settings"
 							sx={{
 								fontSize: 13,
 								display: collapsed ? "none" : "block",
