@@ -2009,7 +2009,14 @@ const RequirementsPage: React.FC = () => {
 						<ExportPrint
 							size="small"
 							startIcon={<PrintIcon />}
-							style={iconBtnSx}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+								color: "primary.main",
+							}}
 						>
 							<Box component="span" sx={labelSx}>
 								Print
@@ -2308,7 +2315,14 @@ const RequirementsPage: React.FC = () => {
 						<ExportPrint
 							size="small"
 							startIcon={<PrintIcon />}
-							style={iconBtnSx}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+								color: "primary.main",
+							}}
 						>
 							<Box component="span" sx={labelSx}>
 								Print
