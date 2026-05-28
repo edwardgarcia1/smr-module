@@ -51,4 +51,11 @@ export interface RequirementItem {
 	/** suggestedOrder converted to CS (cases) */
 	suggestedOrderCS: number;
 	customOrder: number | null;
+	// Price enrichment (returned when prices are available for the item)
+	listPrice_ao?: string;
+	listPrice_perCS?: number;
+	listPrice_perStkUnit?: number;
+	costPrice_ao?: string;
+	costPrice_perCS?: number;
+	costPrice_perStkUnit?: number;
 }

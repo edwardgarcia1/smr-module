@@ -407,6 +407,123 @@ export async function getRequirements(
 		});
 	}
 
+	// ── Step 9: Enrich with price data (CP1 = List Price, COST = Cost Price) ──
+	if (results.length > 0) {
+		const priceInvtIDs = results.map((r) => r.invtID);
+		const pricePH = priceInvtIDs.map((_, i) => `@pInvtID${i}`);
+
+		const priceSql = `
+			SELECT inventory_id, price, unit, price_class, valid_from
+			FROM SMR_ItemPrice
+			WHERE inventory_id IN (${pricePH.join(", ")})
+				AND valid_to IS NULL
+				AND price_class IN ('CP1', 'COST')
+		`;
+
+		const priceReq = pool.request();
+		for (const [i, id] of priceInvtIDs.entries()) {
+			priceReq.input(`pInvtID${i}`, id);
+		}
+
+		const priceResult = await priceReq.query(priceSql);
+		const priceRows = trimStrings(priceResult.recordset ?? []) as Record<
+			string,
+			any
+		>[];
+
+		// Group by inventory_id → { cp1?, cost? }
+		const priceMap = new Map<
+			string,
+			{
+				cp1?: { price: number; unit: string; valid_from: string };
+				cost?: { price: number; unit: string; valid_from: string };
+			}
+		>();
+		for (const row of priceRows) {
+			const invtID = row.inventory_id as string;
+			const priceClass = row.price_class as string;
+			const priceVal = Number(row.price) || 0;
+			const unit = (row.unit as string) ?? "";
+			const rawDate = row.valid_from;
+			const validFrom =
+				rawDate instanceof Date ? rawDate.toISOString() : String(rawDate ?? "");
+			const e = priceMap.get(invtID) ?? {};
+			if (priceClass === "CP1") {
+				e.cp1 = { price: priceVal, unit, valid_from: validFrom };
+			} else if (priceClass === "COST") {
+				e.cost = { price: priceVal, unit, valid_from: validFrom };
+			}
+			priceMap.set(invtID, e);
+		}
+
+		for (const item of results) {
+			const prices = priceMap.get(item.invtID);
+			if (!prices) continue;
+
+			// ── CP1 (List Price) ─────────────────────────────
+			if (prices.cp1) {
+				item.listPrice_ao = prices.cp1.valid_from;
+				item.listPrice_perCS =
+					Math.round(
+						normaliseQtyCached(
+							convCache,
+							item.invtID,
+							prices.cp1.price,
+							prices.cp1.unit,
+							"CS",
+						) * 100,
+					) / 100;
+				if (
+					prices.cp1.unit.toUpperCase() === item.stkUnit.toUpperCase()
+				) {
+					item.listPrice_perStkUnit = prices.cp1.price;
+				} else {
+					item.listPrice_perStkUnit =
+						Math.round(
+							normaliseQtyCached(
+								convCache,
+								item.invtID,
+								prices.cp1.price,
+								prices.cp1.unit,
+								item.stkUnit,
+							) * 100,
+						) / 100;
+				}
+			}
+
+			// ── COST (Cost Price) ────────────────────────────
+			if (prices.cost) {
+				item.costPrice_ao = prices.cost.valid_from;
+				item.costPrice_perCS =
+					Math.round(
+						normaliseQtyCached(
+							convCache,
+							item.invtID,
+							prices.cost.price,
+							prices.cost.unit,
+							"CS",
+						) * 100,
+					) / 100;
+				if (
+					prices.cost.unit.toUpperCase() === item.stkUnit.toUpperCase()
+				) {
+					item.costPrice_perStkUnit = prices.cost.price;
+				} else {
+					item.costPrice_perStkUnit =
+						Math.round(
+							normaliseQtyCached(
+								convCache,
+								item.invtID,
+								prices.cost.price,
+								prices.cost.unit,
+								item.stkUnit,
+							) * 100,
+						) / 100;
+				}
+			}
+		}
+	}
+
 	return results;
 	});
 }
