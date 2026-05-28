@@ -37,6 +37,7 @@ import {
 	FilterPanelTrigger,
 	ExportCsv,
 	ExportPrint,
+	useGridApiRef,
 } from "@mui/x-data-grid";
 import type {
 	GridColDef,
@@ -590,6 +591,9 @@ const RequirementsPage: React.FC = () => {
 	);
 	const [poReference, setPoReference] = useState("");
 	const [showDemandColumns, setShowDemandColumns] = useState(true);
+
+	// apiRef for programmatic grid access (column visibility, etc.)
+	const apiRef = useGridApiRef();
 
 	// Ref to track period keys for column building
 	const periodKeysRef = useRef<string[]>([]);
@@ -1530,18 +1534,12 @@ const RequirementsPage: React.FC = () => {
 		});
 	}, [bundlingRows, selectedCategories, categories, displayFactor]);
 
-	// ─── Column visibility model (purchasing only) ─────────────────────
-	const columnVisibilityModel = useMemo(() => {
-		const model: Record<string, boolean> = {};
-		if (!showDemandColumns && mode === "purchasing") {
-			for (const col of purchasingColumns) {
-				if (col.field.startsWith("pd_")) {
-					model[col.field] = false;
-				}
-			}
-		}
-		return model;
-	}, [showDemandColumns, purchasingColumns, mode]);
+	// Tracks the grid's column visibility model via onChange (uncontrolled).
+	// Used by the show/hide demand toggle to preserve non-demand column settings.
+	const [userColumnVisibilityModel, setUserColumnVisibilityModel] = useState<
+		Record<string, boolean>
+	>({});
+	const userColumnVisibilityModelRef = useRef<Record<string, boolean>>({});
 
 	// ─── Filter Panel ─────────────────────────────────────────────────
 	const filterPanel = (
@@ -2121,7 +2119,25 @@ const RequirementsPage: React.FC = () => {
 						startIcon={
 							showDemandColumns ? <VisibilityOffIcon /> : <VisibilityIcon />
 						}
-						onClick={() => setShowDemandColumns((v) => !v)}
+						onClick={() => {
+							const newShow = !showDemandColumns;
+							setShowDemandColumns(newShow);
+							// Programmatically toggle demand columns via apiRef,
+							// preserving user's non-demand column settings from the panel.
+							const model = {
+								...userColumnVisibilityModelRef.current,
+							};
+							for (const col of purchasingColumns) {
+								if (col.field.startsWith("pd_")) {
+									if (!newShow) {
+										model[col.field] = false;
+									} else {
+										delete model[col.field];
+									}
+								}
+							}
+							apiRef.current?.setColumnVisibilityModel(model);
+						}}
 						sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
 					>
 						{showDemandColumns ? "Hide" : "Show"} {frequency === "monthly" ? "Monthly" : "Weekly"} Demand
@@ -2130,6 +2146,7 @@ const RequirementsPage: React.FC = () => {
 			</Box>
 		);
 	}, [
+		apiRef,
 		handleExcelExport,
 		theme,
 		darkMode,
@@ -2142,6 +2159,8 @@ const RequirementsPage: React.FC = () => {
 		selectedCategories,
 		poReference,
 		showDemandColumns,
+		purchasingColumns,
+		userColumnVisibilityModelRef,
 	]);
 
 	// ─── Bundling Toolbar ───────────────────────────────────────────
@@ -2508,11 +2527,15 @@ const RequirementsPage: React.FC = () => {
 					}}
 				>
 					<DataGrid
+						apiRef={apiRef}
 						rows={filteredPurchasingRows}
 						columns={purchasingColumns}
 						columnGroupingModel={purchasingColumnGroupModel}
 						columnGroupHeaderHeight={36}
-						columnVisibilityModel={columnVisibilityModel}
+						onColumnVisibilityModelChange={(model) => {
+							setUserColumnVisibilityModel(model);
+							userColumnVisibilityModelRef.current = model;
+						}}
 						getRowClassName={getRowClassName}
 						editMode="row"
 						processRowUpdate={processRowUpdate}
