@@ -73,7 +73,7 @@ export async function getRequirements(
 	query: RequirementsQuery,
 ): Promise<RequirementItem[]> {
 	const pool = await getDb();
-	const { classID, siteID, dateRanges, frequency } = query;
+	const { classID, siteID, dateRanges, frequency, validDays } = query;
 
 	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
 		buildSiteClause(
@@ -308,10 +308,13 @@ export async function getRequirements(
 	// ── Step 8: Build response ────────────────────────────────────
 	const nPeriods = periodKeys.length || 1;
 
-	// When frequency is "weekly", convert coverageThreshold from months to weeks
-	// using the actual period ratio from the selected date range.
-	// This preserves the user's intent: minStock=1.2 means "1.2 months of coverage"
-	// even when viewing in weekly mode.
+	// Determine whether to use working-week (6-day) or system-week formula.
+	// When validDays is provided (from frontend's monthlyValidDays input),
+	// avgDemand = totalNormalised / validDays * 6  →  per 6-day working week.
+	// monthToWeekFactor is also adjusted to working-weeks-per-month.
+	const useWorkingWeekFormula =
+		frequency === "weekly" && validDays != null && validDays > 0;
+
 	const monthToWeekFactor = (() => {
 		if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
 		const uniqueMonths = new Set(
@@ -321,7 +324,14 @@ export async function getRequirements(
 			}),
 		);
 		const nMonths = uniqueMonths.size;
-		return nMonths > 0 ? nPeriods / nMonths : 1.0;
+		if (nMonths === 0) return 1.0;
+
+		if (useWorkingWeekFormula) {
+			// Working weeks per month: (total working days / 6) / nMonths
+			return (validDays! / 6) / nMonths;
+		}
+		// Fallback: system weeks per month (W1-W5 per month)
+		return nPeriods / nMonths;
 	})();
 
 	const results: RequirementItem[] = [];
@@ -334,8 +344,9 @@ export async function getRequirements(
 			qtyAlloc: 0,
 		};
 
-		const avgDemand =
-			nPeriods > 0
+		const avgDemand = useWorkingWeekFormula
+			? Math.round((entry.totalNormalised / validDays!) * 6 * 100) / 100
+			: nPeriods > 0
 				? Math.round((entry.totalNormalised / nPeriods) * 100) / 100
 				: 0;
 

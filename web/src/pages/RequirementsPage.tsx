@@ -621,6 +621,7 @@ const RequirementsPage: React.FC = () => {
 	const [periodKeys, setPeriodKeys] = useState<string[]>([]);
 	// State for month-to-week conversion factor (updated in handleApply)
 	const [displayFactor, setDisplayFactor] = useState(1.0);
+	const displayFactorRef = useRef(1.0);
 	const categoriesRef = useRef(categories);
 
 	// Ref for auto-scroll to results after apply
@@ -1310,9 +1311,15 @@ const RequirementsPage: React.FC = () => {
 			periodKeysRef.current = periodKeys;
 			setPeriodKeys(periodKeys);
 
-			// Compute month-to-week conversion factor for category computation
+			// Compute month-to-week conversion factor for category computation.
+			// Uses working-weeks formula when validDays is available (weekly mode),
+			// matching the backend's monthToWeekFactor.
+			const totalVD = Object.values(monthlyValidDays).reduce(
+				(s, v) => s + v,
+				0,
+			);
 			const df =
-				frequency !== "weekly" || periodKeys.length === 0
+				frequency !== "weekly" || periodKeys.length === 0 || totalVD === 0
 					? 1.0
 					: (() => {
 							const uniqueMonths = new Set(
@@ -1322,34 +1329,12 @@ const RequirementsPage: React.FC = () => {
 								}),
 							);
 							const nMonths = uniqueMonths.size;
-							return nMonths > 0 ? periodKeys.length / nMonths : 1.0;
+							return nMonths > 0 ? (totalVD / 6) / nMonths : 1.0;
 						})();
 			setDisplayFactor(df);
+			displayFactorRef.current = df;
 
 			const gridRows = data.map((item, idx) => ({ ...item, id: idx + 1 }));
-
-			// Override avgDemand (and avgDemandCS) with per-month Valid Days formula for weekly
-			if (frequency === "weekly") {
-				const totalVD = Object.values(monthlyValidDays).reduce(
-					(s, v) => s + v,
-					0,
-				);
-				if (totalVD > 0) {
-					for (const row of gridRows as RequirementRow[]) {
-						const total = Object.values(row.periodDemand ?? {}).reduce(
-							(s, v) => s + v,
-							0,
-						);
-						const newAvg = (total / totalVD) * 6;
-						row.avgDemand = Math.round(newAvg * 100) / 100;
-						if ("avgDemandCS" in row && row.qtyPerCS > 0) {
-							row.avgDemandCS =
-								Math.round((newAvg / (row as RequirementRow).qtyPerCS) * 100) /
-								100;
-						}
-					}
-				}
-			}
 
 			// ── Fetch price data and merge onto rows ────────────────
 			if (mode === "purchasing") {
@@ -1528,20 +1513,8 @@ const RequirementsPage: React.FC = () => {
 		const raw = parseFloat(bulkMinStock);
 		if (isNaN(raw) || raw <= 0 || !selectedPrincipal) return;
 
-		const monthToWeekFactor =
-			frequency === "weekly" && periodKeysRef.current.length > 0
-				? (() => {
-						const uniqueMonths = new Set(
-							periodKeysRef.current.map((k) => {
-								const m = k.match(/W\d+\s+(.+)/);
-								return m ? m[1] : k;
-							}),
-						);
-						const nMonths = uniqueMonths.size;
-						return nMonths > 0 ? periodKeysRef.current.length / nMonths : 1.0;
-					})()
-				: 1.0;
-		const val = frequency === "weekly" ? raw / monthToWeekFactor : raw;
+		const factor = frequency === "weekly" ? displayFactorRef.current : 1.0;
+		const val = frequency === "weekly" ? raw / factor : raw;
 
 		setIsApplying(true);
 		setGridError(null);
@@ -1616,20 +1589,8 @@ const RequirementsPage: React.FC = () => {
 					});
 				}
 
-				const monthToWeekFactor = (() => {
-					if (frequency !== "weekly") return 1.0;
-					const pKeys = periodKeysRef.current;
-					if (pKeys.length === 0) return 1.0;
-					const uniqueMonths = new Set(
-						pKeys.map((k) => {
-							const m = k.match(/W\d+\s+(.+)/);
-							return m ? m[1] : k;
-						}),
-					);
-					const nMonths = uniqueMonths.size;
-					return nMonths > 0 ? pKeys.length / nMonths : 1.0;
-				})();
-				const effectiveThreshold = newRow.coverageThreshold * monthToWeekFactor;
+				const effectiveThreshold =
+					newRow.coverageThreshold * displayFactorRef.current;
 				const targetStock = effectiveThreshold * newRow.avgDemand;
 				updatedRow.suggestedOrder = Math.max(
 					0,

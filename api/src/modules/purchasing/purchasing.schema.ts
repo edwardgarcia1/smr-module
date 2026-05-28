@@ -6,6 +6,10 @@ export interface RequirementsQuery {
 	siteID?: string[];
 	dateRanges: DateRange[];
 	frequency: "weekly" | "monthly";
+	/** Total valid working days across all months (for 6-day work week avgDemand formula) */
+	validDays?: number;
+	/** JSON string of per-month valid days: { "YYYY-MM": number } */
+	monthlyValidDays?: string;
 }
 
 export interface DateRange {

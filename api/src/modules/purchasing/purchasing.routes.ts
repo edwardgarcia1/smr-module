@@ -43,10 +43,12 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 	 * Compute purchase requirements based on sales history and inventory levels.
 	 *
 	 * Query params:
-	 *   classID    (required) — Principal ClassID filter
-	 *   siteID     (repeatable) — Inventory SiteID filter
-	 *   dateRange  (repeatable) — "YYYY-MM-DD,YYYY-MM-DD"
-	 *   frequency  (required) — "monthly" | "weekly"
+	 *   classID         (required) — Principal ClassID filter
+	 *   siteID          (repeatable) — Inventory SiteID filter
+	 *   dateRange       (repeatable) — "YYYY-MM-DD,YYYY-MM-DD"
+	 *   frequency       (required) — "monthly" | "weekly"
+	 *   validDays       (optional) — Total valid working days across all months (weekly mode only)
+	 *   monthlyValidDays (optional) — JSON string of per-month valid days (weekly mode only)
 	 */
 	.get(
 		"/requirements",
@@ -74,11 +76,20 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 					: [query.siteID]
 				: undefined;
 
+			const validDays = query.validDays !== undefined
+				? Number(query.validDays)
+				: undefined;
+			const monthlyValidDays = query.monthlyValidDays !== undefined
+				? String(query.monthlyValidDays)
+				: undefined;
+
 			return getRequirements({
 				classID: query.classID,
 				siteID: siteIDs,
 				dateRanges,
 				frequency: query.frequency as "weekly" | "monthly",
+				validDays,
+				monthlyValidDays,
 			});
 		},
 		{
@@ -91,6 +102,8 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 					t.Union([t.String(), t.Array(t.String())]),
 				),
 				frequency: t.String(),
+				validDays: t.Optional(t.String()),
+				monthlyValidDays: t.Optional(t.String()),
 			}),
 		},
 	);
