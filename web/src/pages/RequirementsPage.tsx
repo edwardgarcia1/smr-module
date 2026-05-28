@@ -889,12 +889,21 @@ const RequirementsPage: React.FC = () => {
 						: "",
 			});
 			cols.push({
+				field: "stockCoverCount",
+				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-computation",
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+			cols.push({
 				field: "coverageThreshold",
 				headerName: `Min Stock (${frequency === "weekly" ? "Weeks" : "Months"})`,
 				width: 100,
 				type: "number",
 				editable: true,
-				headerClassName: "group-computation",
+				headerClassName: "group-stock",
 				renderEditCell: (params) => {
 					const editDisplayValue =
 						frequency === "weekly" && params.value != null
@@ -939,15 +948,6 @@ const RequirementsPage: React.FC = () => {
 						frequency === "weekly" ? value * displayFactor : value;
 					return displayValue.toFixed(2);
 				},
-			});
-			cols.push({
-				field: "stockCoverCount",
-				headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
-				width: 130,
-				type: "number",
-				headerClassName: "group-stock",
-				valueFormatter: (value?: number) =>
-					value != null ? value.toFixed(2) : "",
 			});
 			cols.push({
 				field: "suggestedOrder",
@@ -2575,14 +2575,14 @@ const RequirementsPage: React.FC = () => {
 					{ field: "totalDemand" },
 					{ field: "avgDemand" },
 					{ field: "avgDemandCS" },
-					{ field: "coverageThreshold" },
+					{ field: "stockCoverCount" },
 				],
 			},
 			{
 				groupId: "Order",
 				headerClassName: "group-stock",
 				children: [
-					{ field: "stockCoverCount" },
+					{ field: "coverageThreshold" },
 					{ field: "suggestedOrder" },
 					{ field: "suggestedOrderCS" },
 					{ field: "customOrder" },
