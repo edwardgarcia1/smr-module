@@ -587,7 +587,7 @@ const RequirementsPage: React.FC = () => {
 	// Toolbar states (purchasing-specific)
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
-		null,
+		"CP1",
 	);
 	const [poReference, setPoReference] = useState("");
 	const [showDemandColumns, setShowDemandColumns] = useState(true);
@@ -2421,68 +2421,138 @@ const RequirementsPage: React.FC = () => {
 		}
 	}, [applied, purchasingColumns.length, bundlingColumns.length]);
 
+	// ─── Sync price column visibility with selectedPriceClass ────────
+	useEffect(() => {
+		if (!applied || mode !== "purchasing") return;
+
+		const listPriceFields = [
+			"listPrice_ao",
+			"listPrice_perCS",
+			"listPrice_perStkUnit",
+		];
+		const costPriceFields = [
+			"costPrice_ao",
+			"costPrice_perCS",
+			"costPrice_perStkUnit",
+		];
+
+		const model = { ...userColumnVisibilityModelRef.current };
+		if (selectedPriceClass == null) {
+			// No class selected: show all price columns
+			for (const f of [...listPriceFields, ...costPriceFields]) {
+				delete model[f];
+			}
+		} else if (selectedPriceClass === "CP1") {
+			// List Price: show list price, hide cost
+			for (const f of listPriceFields) delete model[f];
+			for (const f of costPriceFields) model[f] = false;
+		} else {
+			// Cost: show cost, hide list price
+			for (const f of costPriceFields) delete model[f];
+			for (const f of listPriceFields) model[f] = false;
+		}
+
+		// Guard: only set if apiRef is attached to a mounted grid
+		const timer = setTimeout(() => {
+			apiRef.current?.setColumnVisibilityModel(model);
+		}, 0);
+		return () => clearTimeout(timer);
+	}, [selectedPriceClass, applied, mode, apiRef]);
+
 	// ─── Column Grouping Models ──────────────────────────────────────
 	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(
-		() => [
-			{
-				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
-				headerClassName: "group-demand",
-				children: periodKeys.map((key) => ({
-					field: `pd_${key.replace(/[\s]/g, "_")}`,
-				})),
-			},
-			{
-				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
-				headerClassName: "group-computation",
-				children: [
-					{ field: "totalDemand" },
-					{ field: "totalDemandCS" },
-					{ field: "avgDemand" },
-					{ field: "avgDemandCS" },
-					{ field: "stockCoverCount" },
-				],
-			},
-			{
-				groupId: "Order",
-				headerClassName: "group-stock",
-				children: [
-					{ field: "coverageThreshold" },
-					{ field: "suggestedOrder" },
-					{ field: "suggestedOrderCS" },
-					{ field: "customOrder" },
-					{ field: "amount" },
-				],
-			},
-			{
-				groupId: "Inventory",
-				headerClassName: "group-inventory",
-				children: [
-					{ field: "qtyAlloc" },
-					{ field: "qtyOnPO" },
-					{ field: "qtyOnHand" },
-					{ field: "qtyAvail" },
-				],
-			},
-			{
-				groupId: "List Price (CP1)",
-				headerClassName: "group-price",
-				children: [
-					{ field: "listPrice_ao" },
-					{ field: "listPrice_perCS" },
-					{ field: "listPrice_perStkUnit" },
-				],
-			},
-			{
-				groupId: "Price (Cost)",
-				headerClassName: "group-price",
-				children: [
-					{ field: "costPrice_ao" },
-					{ field: "costPrice_perCS" },
-					{ field: "costPrice_perStkUnit" },
-				],
-			},
-		],
-		[periodKeys, frequency],
+		() => {
+			const groups: GridColumnGroupingModel = [
+				{
+					groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+					headerClassName: "group-demand",
+					children: periodKeys.map((key) => ({
+						field: `pd_${key.replace(/[\s]/g, "_")}`,
+					})),
+				},
+				{
+					groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
+					headerClassName: "group-computation",
+					children: [
+						{ field: "totalDemand" },
+						{ field: "totalDemandCS" },
+						{ field: "avgDemand" },
+						{ field: "avgDemandCS" },
+						{ field: "stockCoverCount" },
+					],
+				},
+				{
+					groupId: "Order",
+					headerClassName: "group-stock",
+					children: [
+						{ field: "coverageThreshold" },
+						{ field: "suggestedOrder" },
+						{ field: "suggestedOrderCS" },
+						{ field: "customOrder" },
+						{ field: "amount" },
+					],
+				},
+				{
+					groupId: "Inventory",
+					headerClassName: "group-inventory",
+					children: [
+						{ field: "qtyAlloc" },
+						{ field: "qtyOnPO" },
+						{ field: "qtyOnHand" },
+						{ field: "qtyAvail" },
+					],
+				},
+			];
+
+			// Conditionally include price column groups based on selectedPriceClass
+			const isListPrice = selectedPriceClass === "CP1";
+			if (selectedPriceClass == null) {
+				// No class selected: show both price groups
+				groups.push({
+					groupId: "List Price (CP1)",
+					headerClassName: "group-price",
+					children: [
+						{ field: "listPrice_ao" },
+						{ field: "listPrice_perCS" },
+						{ field: "listPrice_perStkUnit" },
+					],
+				});
+				groups.push({
+					groupId: "Price (Cost)",
+					headerClassName: "group-price",
+					children: [
+						{ field: "costPrice_ao" },
+						{ field: "costPrice_perCS" },
+						{ field: "costPrice_perStkUnit" },
+					],
+				});
+			} else if (isListPrice) {
+				// List Price selected: show only List Price (CP1) group
+				groups.push({
+					groupId: "List Price (CP1)",
+					headerClassName: "group-price",
+					children: [
+						{ field: "listPrice_ao" },
+						{ field: "listPrice_perCS" },
+						{ field: "listPrice_perStkUnit" },
+					],
+				});
+			} else {
+				// Cost Price selected: show only Price (Cost) group
+				groups.push({
+					groupId: "Price (Cost)",
+					headerClassName: "group-price",
+					children: [
+						{ field: "costPrice_ao" },
+						{ field: "costPrice_perCS" },
+						{ field: "costPrice_perStkUnit" },
+					],
+				});
+			}
+
+			return groups;
+		},
+		[periodKeys, frequency, selectedPriceClass],
 	);
 
 	const bundlingColumnGroupModel = useMemo<GridColumnGroupingModel>(
