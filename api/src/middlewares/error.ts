@@ -33,6 +33,12 @@ export class NotFoundError extends CustomError {
     }
 }
 
+export class InternalServerError extends CustomError {
+    constructor(message: string = "Internal Server Error") {
+        super(message, 500);
+    }
+}
+
 export const errorMiddleware = (app: Elysia) => {
     return app.onError(({ error, set }) => {
         console.error("Error:", error);

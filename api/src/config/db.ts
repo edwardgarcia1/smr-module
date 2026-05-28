@@ -43,7 +43,18 @@ async function destroyPool(): Promise<void> {
 
 export async function getDb(): Promise<sql.ConnectionPool> {
   if (pool?.connected) {
-    return pool;
+    // Health check: verify the pool is actually alive (prevents returning
+    // a pool whose underlying TCP connections have silently dropped).
+    try {
+      await pool.request().query("SELECT 1");
+      return pool;
+    } catch {
+      console.warn(
+        "[DB] Pool health check failed, reconnecting:",
+        (pool as any)?._pool?.length ?? "unknown",
+      );
+      // Fall through to reconnect
+    }
   }
 
   await destroyPool();

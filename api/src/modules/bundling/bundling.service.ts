@@ -1,4 +1,5 @@
-import { getDb, withDb } from "../../config/db";
+import { withDb } from "../../config/db";
+import type sql from "mssql";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError } from "../../middlewares/error";
 import {
@@ -68,8 +69,9 @@ function buildDateRangeClause(
 export async function getBundlingRequirements(
 	query: BundlingQuery,
 ): Promise<BundlingItem[]> {
-	const pool = await getDb();
 	const { classID, siteID, dateRanges, frequency, validDays } = query;
+
+	return withDb(async (pool) => {
 
 	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
 		buildSiteClause(
@@ -401,6 +403,7 @@ export async function getBundlingRequirements(
 	}
 
 	return results;
+	});
 }
 
 // ─── Helper: fetch stock levels for a set of InvtIDs ──────────────────
@@ -408,7 +411,7 @@ export async function getBundlingRequirements(
 async function fetchStockLevels(
 	invtIDs: string[],
 	siteIDs: string[],
-	pool: Awaited<ReturnType<typeof getDb>>,
+	pool: sql.ConnectionPool,
 ): Promise<
 	Map<string, { qtyOnHand: number; qtyAvail: number; qtyOnPO: number; qtyAlloc: number }>
 > {
@@ -462,7 +465,7 @@ interface ComponentDef {
 
 async function fetchComponentDefinitions(
 	kitIDs: string[],
-	pool: Awaited<ReturnType<typeof getDb>>,
+	pool: sql.ConnectionPool,
 ): Promise<ComponentDef[]> {
 	if (kitIDs.length === 0) return [];
 
@@ -484,7 +487,7 @@ async function fetchComponentDefinitions(
 
 async function fetchInventoryDescriptions(
 	invtIDs: string[],
-	pool: Awaited<ReturnType<typeof getDb>>,
+	pool: sql.ConnectionPool,
 ): Promise<Map<string, string>> {
 	if (invtIDs.length === 0) return new Map();
 

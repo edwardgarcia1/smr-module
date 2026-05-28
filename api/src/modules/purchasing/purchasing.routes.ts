@@ -5,6 +5,7 @@ import { caslMiddleware, checkPermission } from "../../middlewares/casl";
 import {
 	BadRequestError,
 	UnauthorizedError,
+	InternalServerError,
 } from "../../middlewares/error";
 import type { DateRange } from "./purchasing.schema";
 
@@ -53,7 +54,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 	.get(
 		"/requirements",
 		async ({ query, ability, user }) => {
-						if (!user) throw new UnauthorizedError("Authentication required");
+			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "Sales");
 
 			if (!query.classID) {
@@ -83,14 +84,31 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				? String(query.monthlyValidDays)
 				: undefined;
 
-			return getRequirements({
-				classID: query.classID,
-				siteID: siteIDs,
-				dateRanges,
-				frequency: query.frequency as "weekly" | "monthly",
-				validDays,
-				monthlyValidDays,
-			});
+			try {
+				return await getRequirements({
+					classID: query.classID,
+					siteID: siteIDs,
+					dateRanges,
+					frequency: query.frequency as "weekly" | "monthly",
+					validDays,
+					monthlyValidDays,
+				});
+			} catch (err) {
+				const msg = (err as Error)?.message ?? "";
+				if (
+					msg.includes("unexpected end of data") ||
+					msg.includes("end of data") ||
+					msg.includes("ECONNRESET") ||
+					msg.includes("socket hang up") ||
+					msg.includes("Connection lost") ||
+					msg.includes("Failed to connect")
+				) {
+					throw new InternalServerError(
+						"Database connection lost. Please try again.",
+					);
+				}
+				throw err;
+			}
 		},
 		{
 			query: t.Object({

@@ -1,4 +1,4 @@
-import { getDb, withDb } from "../../config/db";
+import { withDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
 import { NotFoundError, BadRequestError } from "../../middlewares/error";
 import {
@@ -303,8 +303,7 @@ export async function updateMinStockPrincipal(
 export async function propagatePrincipalToItems(
 	classId: string,
 ): Promise<void> {
-	const pool = await getDb();
-
+	await withDb(async (pool) => {
 	// Update existing settings from Default → Principal
 	await pool
 		.request()
@@ -328,16 +327,18 @@ export async function propagatePrincipalToItems(
       WHERE i.ClassID = @class_id
         AND s.id IS NULL
     `);
+	});
 }
 
 export async function deleteMinStockPrincipal(id: number): Promise<void> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(
-			"DELETE FROM SMR_MinStockPrincipal OUTPUT DELETED.id WHERE id = @id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(
+				"DELETE FROM SMR_MinStockPrincipal OUTPUT DELETED.id WHERE id = @id",
+			),
+	);
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`MinStockPrincipal ${id} not found`);
 	}
@@ -466,8 +467,7 @@ export async function resolveMinStock(
 	invtID: string,
 	classID: string,
 ): Promise<ResolvedMinStock> {
-	const pool = await getDb();
-
+	return withDb(async (pool) => {
 	// Step 1: fetch setting (or default)
 	const settingResult = await pool
 		.request()
@@ -554,6 +554,7 @@ export async function resolveMinStock(
 			};
 		}
 	}
+	});
 }
 
 /** Bulk resolve for multiple items at once. */

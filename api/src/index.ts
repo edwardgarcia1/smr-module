@@ -2,6 +2,16 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { routes } from "./routes";
 
+// ── Global crash prevention ──────────────────────────────────────────
+// Prevent unhandled rejections (e.g. tedious stream-parser disconnect)
+// from terminating the process. Log and move on.
+process.on("unhandledRejection", (reason) => {
+	console.error("[FATAL] Unhandled rejection (process kept alive):", reason);
+});
+process.on("uncaughtException", (err) => {
+	console.error("[FATAL] Uncaught exception (process kept alive):", err);
+});
+
 const app = new Elysia()
 	.use(
 		cors({

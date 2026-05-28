@@ -1,4 +1,4 @@
-import { getDb, withDb } from "../../config/db";
+import { withDb } from "../../config/db";
 import { NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type {
@@ -388,33 +388,33 @@ export const getInventoryWithItemSites = async (): Promise<
 export const getInventoryWithComponentsAndItemSites = async (
 	sites?: string,
 ): Promise<InventoryWithComponentsAndItemSites[]> => {
-	const pool = await getDb();
+	return withDb(async (pool) => {
+		const request = pool.request();
+		let siteFilter = "";
 
-	const request = pool.request();
-	let siteFilter = "";
-
-	if (sites) {
-		const siteList = sites.split(",").map((s) => s.trim()).filter(Boolean);
-		if (siteList.length > 0) {
-			const conditions = siteList.map((site, i) => {
-				request.input(`SiteID${i}`, site);
-				return `@SiteID${i}`;
-			});
-			siteFilter = `AND s.SiteID IN (${conditions.join(", ")})`;
+		if (sites) {
+			const siteList = sites.split(",").map((s) => s.trim()).filter(Boolean);
+			if (siteList.length > 0) {
+				const conditions = siteList.map((site, i) => {
+					request.input(`SiteID${i}`, site);
+					return `@SiteID${i}`;
+				});
+				siteFilter = `AND s.SiteID IN (${conditions.join(", ")})`;
+			}
 		}
-	}
 
-	const result = await request.query(`
-      SELECT
-        i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
-        c.KitID, c.CmpnentID, c.CmpnentQty,
-        s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
-        s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime
-      FROM Inventory i
-      LEFT JOIN Component c ON i.InvtID = c.KitID
-      LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
-      WHERE s.SiteID IS NOT NULL ${siteFilter}
-      ORDER BY i.InvtID, c.CmpnentID, s.SiteID
-    `);
-	return trimStrings(result.recordset as InventoryWithComponentsAndItemSites[]);
+		const result = await request.query(`
+			SELECT
+				i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
+				c.KitID, c.CmpnentID, c.CmpnentQty,
+				s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
+				s.QtyOnPO, s.QtyAllocPORet, s.QtyAvail, s.QtyOnHand, s.TotCost, s.LUpd_DateTime
+			FROM Inventory i
+			LEFT JOIN Component c ON i.InvtID = c.KitID
+			LEFT JOIN ItemSite s ON i.InvtID = s.InvtID
+			WHERE s.SiteID IS NOT NULL ${siteFilter}
+			ORDER BY i.InvtID, c.CmpnentID, s.SiteID
+		`);
+		return trimStrings(result.recordset as InventoryWithComponentsAndItemSites[]);
+	});
 };

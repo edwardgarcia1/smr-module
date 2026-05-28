@@ -1,4 +1,4 @@
-import { getDb } from "../../config/db";
+import { withDb } from "../../config/db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import Big from "big.js";
@@ -77,63 +77,65 @@ const DEFAULT_LIMIT = 500;
 // ─── SMR_ItemPrice CRUD (renamed from SMR_ItemCost) ───────────────────
 
 export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> => {
-	const pool = await getDb();
 	const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
 	// Normalize unit to CS if possible
 	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
-	// Expire any existing active price for this inventory_id + price_class combo
-	const current = await pool
-		.request()
-		.input("invId", item.inventory_id)
-		.input("priceClass", item.price_class)
-		.query(`
-      SELECT id FROM SMR_ItemPrice
-      WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
-    `);
-
-	if (current.recordset.length > 0) {
-		const oldValidTo = oneSecondBefore(validFrom);
-		await pool
+	return withDb(async (pool) => {
+		// Expire any existing active price for this inventory_id + price_class combo
+		const current = await pool
 			.request()
-			.input("id", current.recordset[0].id)
-			.input("valid_to", oldValidTo)
-			.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
-	}
+			.input("invId", item.inventory_id)
+			.input("priceClass", item.price_class)
+			.query(`
+				SELECT id FROM SMR_ItemPrice
+				WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
+			`);
 
-	const result = await pool
-		.request()
-		.input("inventory_id", item.inventory_id)
-		.input("price", bigToNumber(normalized.price))
-		.input("unit", normalized.unit)
-		.input("price_class", item.price_class)
-		.input("valid_from", validFrom)
-		.input("valid_to", item.valid_to ?? null)
-		.query(`
-      INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
-      VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
-    `);
+		if (current.recordset.length > 0) {
+			const oldValidTo = oneSecondBefore(validFrom);
+			await pool
+				.request()
+				.input("id", current.recordset[0].id)
+				.input("valid_to", oldValidTo)
+				.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
+		}
 
-	const created = result.recordset[0];
-	if (!created) throw new Error("Failed to create ItemPrice");
-	return {
-		...trimStrings(created as Record<string, unknown>),
-		price: toBig((created as Record<string, unknown>).price),
-	} as unknown as ItemPrice;
+		const result = await pool
+			.request()
+			.input("inventory_id", item.inventory_id)
+			.input("price", bigToNumber(normalized.price))
+			.input("unit", normalized.unit)
+			.input("price_class", item.price_class)
+			.input("valid_from", validFrom)
+			.input("valid_to", item.valid_to ?? null)
+			.query(`
+				INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
+				OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
+				VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
+			`);
+
+		const created = result.recordset[0];
+		if (!created) throw new Error("Failed to create ItemPrice");
+		return {
+			...trimStrings(created as Record<string, unknown>),
+			price: toBig((created as Record<string, unknown>).price),
+		} as unknown as ItemPrice;
+	});
 };
 
 export const getItemPriceById = async (
 	id: number,
 ): Promise<ItemPrice | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(
-			"SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to FROM SMR_ItemPrice WHERE id = @id",
-		);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(
+				"SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to FROM SMR_ItemPrice WHERE id = @id",
+			),
+	);
 	const raw = result.recordset[0] as Record<string, unknown> | undefined;
 	if (!raw) return undefined;
 	return {
@@ -145,16 +147,17 @@ export const getItemPriceById = async (
 export const getItemPricesByInventoryId = async (
 	inventoryId: string,
 ): Promise<ItemPrice[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("inventory_id", inventoryId)
-		.query(`
-      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
-      FROM SMR_ItemPrice
-      WHERE inventory_id = @inventory_id
-      ORDER BY valid_from DESC
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("inventory_id", inventoryId)
+			.query(`
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				FROM SMR_ItemPrice
+				WHERE inventory_id = @inventory_id
+				ORDER BY valid_from DESC
+			`),
+	);
 	const raw = result.recordset as Record<string, unknown>[];
 	return raw.map((r) => ({
 		...trimStrings(r),
@@ -166,7 +169,6 @@ export const updateItemPrice = async (
 	id: number,
 	updates: ItemPriceUpdate,
 ): Promise<ItemPrice> => {
-	const pool = await getDb();
 	const setClauses: string[] = [];
 	if (updates.price !== undefined) setClauses.push("price = @price");
 	if (updates.unit !== undefined) setClauses.push("unit = @unit");
@@ -179,35 +181,38 @@ export const updateItemPrice = async (
 		return existing;
 	}
 
-	const req = pool.request().input("id", id);
-	if (updates.price !== undefined) req.input("price", bigToNumber(toBig(updates.price)));
-	if (updates.unit !== undefined) req.input("unit", updates.unit);
-	if (updates.price_class !== undefined) req.input("price_class", updates.price_class);
-	if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
+	return withDb(async (pool) => {
+		const req = pool.request().input("id", id);
+		if (updates.price !== undefined) req.input("price", bigToNumber(toBig(updates.price)));
+		if (updates.unit !== undefined) req.input("unit", updates.unit);
+		if (updates.price_class !== undefined) req.input("price_class", updates.price_class);
+		if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
 
-	const result = await req.query(`
-      UPDATE SMR_ItemPrice
-      SET ${setClauses.join(", ")}
-      OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
-      WHERE id = @id
-    `);
+		const result = await req.query(`
+			UPDATE SMR_ItemPrice
+			SET ${setClauses.join(", ")}
+			OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
+			WHERE id = @id
+		`);
 
-	if (result.rowsAffected[0] === 0) {
-		throw new NotFoundError(`ItemPrice ${id} not found`);
-	}
-	const raw = result.recordset[0] as Record<string, unknown>;
-	return {
-		...trimStrings(raw),
-		price: toBig(raw.price),
-	} as unknown as ItemPrice;
+		if (result.rowsAffected[0] === 0) {
+			throw new NotFoundError(`ItemPrice ${id} not found`);
+		}
+		const raw = result.recordset[0] as Record<string, unknown>;
+		return {
+			...trimStrings(raw),
+			price: toBig(raw.price),
+		} as unknown as ItemPrice;
+	});
 };
 
 export const deleteItemPrice = async (id: number): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query("DELETE FROM SMR_ItemPrice OUTPUT DELETED.id WHERE id = @id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query("DELETE FROM SMR_ItemPrice OUTPUT DELETED.id WHERE id = @id"),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemPrice ${id} not found`);
@@ -219,12 +224,13 @@ export const deleteItemPrice = async (id: number): Promise<void> => {
  * This expires the old price record 1 second before the new price's valid_from.
  */
 export const expireItemPrice = async (id: number, validTo: string): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.input("valid_to", validTo)
-		.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.input("valid_to", validTo)
+			.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id"),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`ItemPrice ${id} not found`);
@@ -236,46 +242,47 @@ export const expireItemPrice = async (id: number, validTo: string): Promise<void
 export const createPriceClass = async (
 	pc: NewPriceClass,
 ): Promise<PriceClass> => {
-	const pool = await getDb();
+	return withDb(async (pool) => {
+		// Check for duplicate
+		const existing = await pool
+			.request()
+			.input("id", pc.id)
+			.query(`
+				SELECT COUNT(*) AS _cnt
+				FROM SMR_PriceClass
+				WHERE id = @id
+			`);
+		if (Number(existing.recordset[0]?._cnt) > 0) {
+			throw new BadRequestError(`Price class '${pc.id}' already exists.`);
+		}
 
-	// Check for duplicate
-	const existing = await pool
-		.request()
-		.input("id", pc.id)
-		.query(`
-      SELECT COUNT(*) AS _cnt
-      FROM SMR_PriceClass
-      WHERE id = @id
-    `);
-	if (Number(existing.recordset[0]?._cnt) > 0) {
-		throw new BadRequestError(`Price class '${pc.id}' already exists.`);
-	}
+		const result = await pool
+			.request()
+			.input("id", pc.id)
+			.input("description", pc.description ?? null)
+			.query(`
+				INSERT INTO SMR_PriceClass (id, description)
+				OUTPUT INSERTED.id, INSERTED.description
+				VALUES (@id, @description)
+			`);
 
-	const result = await pool
-		.request()
-		.input("id", pc.id)
-		.input("description", pc.description ?? null)
-		.query(`
-      INSERT INTO SMR_PriceClass (id, description)
-      OUTPUT INSERTED.id, INSERTED.description
-      VALUES (@id, @description)
-    `);
-
-	const created = result.recordset[0];
-	if (!created) throw new Error("Failed to create PriceClass");
-	return trimStrings(created as Record<string, unknown>) as unknown as PriceClass;
+		const created = result.recordset[0];
+		if (!created) throw new Error("Failed to create PriceClass");
+		return trimStrings(created as Record<string, unknown>) as unknown as PriceClass;
+	});
 };
 
 /** Returns all price classes ordered by id */
 export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(`
-      SELECT id, description
-      FROM SMR_PriceClass
-      ORDER BY id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query(`
+				SELECT id, description
+				FROM SMR_PriceClass
+				ORDER BY id
+			`),
+	);
 	return trimStrings(result.recordset as Record<string, unknown>[]) as unknown as PriceClass[];
 };
 
@@ -289,15 +296,16 @@ export const getCurrentPriceClasses = getAllPriceClasses;
 export const getPriceClassById = async (
 	id: string,
 ): Promise<PriceClass | undefined> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(`
-      SELECT id, description
-      FROM SMR_PriceClass
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(`
+				SELECT id, description
+				FROM SMR_PriceClass
+				WHERE id = @id
+			`),
+	);
 	const raw = result.recordset[0] as Record<string, unknown> | undefined;
 	if (!raw) return undefined;
 	return trimStrings(raw) as unknown as PriceClass;
@@ -305,14 +313,15 @@ export const getPriceClassById = async (
 
 /** Returns just the list of price class IDs */
 export const getDistinctPriceClasses = async (): Promise<string[]> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.query(`
-      SELECT id
-      FROM SMR_PriceClass
-      ORDER BY id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.query(`
+				SELECT id
+				FROM SMR_PriceClass
+				ORDER BY id
+			`),
+	);
 	const rows = result.recordset as Array<{ id: string }>;
 	return trimStrings(rows.map((r) => r.id));
 };
@@ -321,18 +330,18 @@ export const updatePriceClass = async (
 	id: string,
 	updates: PriceClassUpdate,
 ): Promise<PriceClass> => {
-	const pool = await getDb();
-
-	const result = await pool
-		.request()
-		.input("id", id)
-		.input("description", updates.description ?? null)
-		.query(`
-      UPDATE SMR_PriceClass
-      SET description = @description
-      OUTPUT INSERTED.id, INSERTED.description
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.input("description", updates.description ?? null)
+			.query(`
+				UPDATE SMR_PriceClass
+				SET description = @description
+				OUTPUT INSERTED.id, INSERTED.description
+				WHERE id = @id
+			`),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`PriceClass '${id}' not found`);
@@ -341,15 +350,16 @@ export const updatePriceClass = async (
 };
 
 export const deletePriceClass = async (id: string): Promise<void> => {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("id", id)
-		.query(`
-      DELETE FROM SMR_PriceClass
-      OUTPUT DELETED.id
-      WHERE id = @id
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("id", id)
+			.query(`
+				DELETE FROM SMR_PriceClass
+				OUTPUT DELETED.id
+				WHERE id = @id
+			`),
+	);
 
 	if (result.rowsAffected[0] === 0) {
 		throw new NotFoundError(`PriceClass '${id}' not found`);
@@ -373,17 +383,18 @@ async function findConversionFactor(
 	fromUnit: string,
 	toUnit: string,
 ): Promise<number | null> {
-	const pool = await getDb();
-	const result = await pool
-		.request()
-		.input("InvtId", inventoryId)
-		.input("FromUnit", fromUnit)
-		.input("ToUnit", toUnit)
-		.query(`
-      SELECT CnvFact, FromUnit, ToUnit
-      FROM INUnit
-      WHERE InvtId = @InvtId AND FromUnit = @FromUnit AND ToUnit = @ToUnit
-    `);
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("InvtId", inventoryId)
+			.input("FromUnit", fromUnit)
+			.input("ToUnit", toUnit)
+			.query(`
+				SELECT CnvFact, FromUnit, ToUnit
+				FROM INUnit
+				WHERE InvtId = @InvtId AND FromUnit = @FromUnit AND ToUnit = @ToUnit
+			`),
+	);
 	const row = result.recordset[0] as UnitConvRow | undefined;
 	return row ? Number(row.CnvFact) : null;
 }
@@ -469,7 +480,6 @@ export const getPricesPaginated = async (
 	reqUnit?: string,
 	classID?: string,
 ): Promise<PaginatedResponse<PriceRecord>> => {
-	const pool = await getDb();
 	const offset = (page - 1) * limit;
 
 	const conditions: string[] = [];
@@ -486,185 +496,179 @@ export const getPricesPaginated = async (
 	const whereClause =
 		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-	// ── Count total inventory items ────────────────────────────────
-	const countQuery = `
-    SELECT COUNT(*) AS _total
-    FROM Inventory i
-    ${whereClause}
-  `;
-	const countReq = pool.request();
-	if (hasSearch) countReq.input("search", `%${search.trim()}%`);
-	if (hasClassID) countReq.input("classID", classID.trim());
-	const countResult = await countReq.query(countQuery);
-	const total = Number(countResult.recordset[0]?._total) || 0;
+	return withDb(async (pool) => {
+		// ── Count total inventory items ────────────────────────────────
+		const countQuery = `
+			SELECT COUNT(*) AS _total
+			FROM Inventory i
+			${whereClause}
+		`;
+		const countReq = pool.request();
+		if (hasSearch) countReq.input("search", `%${search.trim()}%`);
+		if (hasClassID) countReq.input("classID", classID.trim());
+		const countResult = await countReq.query(countQuery);
+		const total = Number(countResult.recordset[0]?._total) || 0;
 
-	// ── Count items without any current price ──────────────────────
-	const noPriceConditions: string[] = [];
-	if (hasSearch) noPriceConditions.push(`(i.InvtID LIKE @search OR i.Descr LIKE @search)`);
-	if (hasClassID) noPriceConditions.push(`i.ClassID = @classID`);
-	const noPriceWhere = noPriceConditions.length > 0 ? `AND ${noPriceConditions.join(" AND ")}` : "";
+		// ── Count items without any current price ──────────────────────
+		const noPriceConditions: string[] = [];
+		if (hasSearch) noPriceConditions.push(`(i.InvtID LIKE @search OR i.Descr LIKE @search)`);
+		if (hasClassID) noPriceConditions.push(`i.ClassID = @classID`);
+		const noPriceWhere = noPriceConditions.length > 0 ? `AND ${noPriceConditions.join(" AND ")}` : "";
 
-	const noPriceCountQuery = `
-    SELECT COUNT(*) AS _cnt
-    FROM Inventory i
-    WHERE NOT EXISTS (
-      SELECT 1 FROM SMR_ItemPrice ip
-      WHERE ip.inventory_id = i.InvtID AND ip.valid_to IS NULL
-    )
-    ${noPriceWhere}
-  `;
-	const noPriceReq = pool.request();
-	if (hasSearch) noPriceReq.input("search", `%${search.trim()}%`);
-	if (hasClassID) noPriceReq.input("classID", classID.trim());
-	const noPriceResult = await noPriceReq.query(noPriceCountQuery);
-	const withoutPriceCount = Number(noPriceResult.recordset[0]?._cnt) || 0;
+		const noPriceCountQuery = `
+			SELECT COUNT(*) AS _cnt
+			FROM Inventory i
+			WHERE NOT EXISTS (
+				SELECT 1 FROM SMR_ItemPrice ip
+				WHERE ip.inventory_id = i.InvtID AND ip.valid_to IS NULL
+			)
+			${noPriceWhere}
+		`;
+		const noPriceReq = pool.request();
+		if (hasSearch) noPriceReq.input("search", `%${search.trim()}%`);
+		if (hasClassID) noPriceReq.input("classID", classID.trim());
+		const noPriceResult = await noPriceReq.query(noPriceCountQuery);
+		const withoutPriceCount = Number(noPriceResult.recordset[0]?._cnt) || 0;
 
-	if (total === 0) {
-		return { data: [], total: 0, page, limit, totalPages: 1, withoutPriceCount };
-	}
-
-	// ── Fetch paginated inventory items (no price join yet) ────────
-	const dataQuery = `
-    SELECT * FROM (
-      SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
-        i.InvtID AS inventory_id,
-        i.ClassID AS class_id,
-        i.Descr AS description
-      FROM Inventory i
-      ${whereClause}
-    ) AS _paginated
-    WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
-    ORDER BY _row_num
-  `;
-	const dataReq = pool.request();
-	if (hasSearch) dataReq.input("search", `%${search.trim()}%`);
-	if (hasClassID) dataReq.input("classID", classID.trim());
-	dataReq.input("_offset", offset);
-	dataReq.input("_limit", limit);
-	const dataResult = await dataReq.query(dataQuery);
-
-	type InvRawRow = {
-		inventory_id: string;
-		class_id: string | null;
-		description: string | null;
-	};
-	const invRows = trimStrings(dataResult.recordset as InvRawRow[]);
-	const invIds = invRows.map((r) => r.inventory_id);
-
-	// ── Batch fetch ALL current prices for these inventory_ids ─────
-	type PriceRawRow = {
-		id: number;
-		inventory_id: string;
-		price: number;
-		unit: string;
-		price_class: string;
-		valid_from: string;
-		valid_to: string | null;
-	};
-
-	const currentMap = new Map<string, PriceClassEntry[]>();
-	const historyMap = new Map<string, PriceHistoryEntry[]>();
-
-	if (invIds.length > 0) {
-		const priceReq = pool.request();
-		const idParams = invIds.map((id, idx) => {
-			const paramName = `_id${idx}`;
-			priceReq.input(paramName, id);
-			return `@${paramName}`;
-		});
-
-		// Current prices (valid_to IS NULL) — one per price_class
-		const currentResult = await priceReq.query(`
-      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
-      FROM SMR_ItemPrice
-      WHERE inventory_id IN (${idParams.join(", ")}) AND valid_to IS NULL
-      ORDER BY inventory_id, price_class
-    `);
-		const currentRows = trimStrings(currentResult.recordset as PriceRawRow[]);
-		for (const r of currentRows) {
-			const entry: PriceClassEntry = {
-				item_price_id: r.id,
-				price: toBig(r.price),
-				unit: r.unit,
-				price_class: r.price_class,
-				valid_from: r.valid_from,
-			};
-			const existing = currentMap.get(r.inventory_id) ?? [];
-			existing.push(entry);
-			currentMap.set(r.inventory_id, existing);
+		if (total === 0) {
+			return { data: [], total: 0, page, limit, totalPages: 1, withoutPriceCount };
 		}
 
-		// All prices (for history) — current entries are excluded from history
-		const allResult = await priceReq.query(`
-      SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
-      FROM SMR_ItemPrice
-      WHERE inventory_id IN (${idParams.join(", ")})
-      ORDER BY inventory_id, valid_from DESC
-    `);
-		const allRows = trimStrings(allResult.recordset as PriceRawRow[]);
+		// ── Fetch paginated inventory items (no price join yet) ────────
+		const dataQuery = `
+			SELECT * FROM (
+				SELECT ROW_NUMBER() OVER (ORDER BY i.InvtID) AS _row_num,
+					i.InvtID AS inventory_id,
+					i.ClassID AS class_id,
+					i.Descr AS description
+				FROM Inventory i
+				${whereClause}
+			) AS _paginated
+			WHERE _row_num BETWEEN @_offset + 1 AND @_offset + @_limit
+			ORDER BY _row_num
+		`;
+		const dataReq = pool.request();
+		if (hasSearch) dataReq.input("search", `%${search.trim()}%`);
+		if (hasClassID) dataReq.input("classID", classID.trim());
+		dataReq.input("_offset", offset);
+		dataReq.input("_limit", limit);
+		const dataResult = await dataReq.query(dataQuery);
 
-		// Build history: all entries except those that are current AND the latest per price_class
-		const currentKeys = new Set<string>();
-		for (const r of currentRows) {
-			currentKeys.add(`${r.inventory_id}::${r.price_class}`);
-		}
+		type InvRawRow = {
+			inventory_id: string;
+			class_id: string | null;
+			description: string | null;
+		};
+		const invRows = trimStrings(dataResult.recordset as InvRawRow[]);
+		const invIds = invRows.map((r) => r.inventory_id);
 
-		for (const r of allRows) {
-			const key = `${r.inventory_id}::${r.price_class}`;
-			// Skip entries that are exactly current (valid_to IS NULL and is the latest)
-			if (r.valid_to === null && currentKeys.has(key)) {
-				// Only skip the latest current entry; older same-price_class entries ARE history
-				// Actually, valid_to IS NULL means it's current, so skip entirely
-				continue;
+		// ── Batch fetch ALL current prices for these inventory_ids ─────
+		type PriceRawRow = {
+			id: number;
+			inventory_id: string;
+			price: number;
+			unit: string;
+			price_class: string;
+			valid_from: string;
+			valid_to: string | null;
+		};
+
+		const currentMap = new Map<string, PriceClassEntry[]>();
+		const historyMap = new Map<string, PriceHistoryEntry[]>();
+
+		if (invIds.length > 0) {
+			const priceReq = pool.request();
+			const idParams = invIds.map((id, idx) => {
+				const paramName = `_id${idx}`;
+				priceReq.input(paramName, id);
+				return `@${paramName}`;
+			});
+
+			// Current prices (valid_to IS NULL) — one per price_class
+			const currentResult = await priceReq.query(`
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				FROM SMR_ItemPrice
+				WHERE inventory_id IN (${idParams.join(", ")}) AND valid_to IS NULL
+				ORDER BY inventory_id, price_class
+			`);
+			const currentRows = trimStrings(currentResult.recordset as PriceRawRow[]);
+			for (const r of currentRows) {
+				const entry: PriceClassEntry = {
+					item_price_id: r.id,
+					price: toBig(r.price),
+					unit: r.unit,
+					price_class: r.price_class,
+					valid_from: r.valid_from,
+				};
+				const existing = currentMap.get(r.inventory_id) ?? [];
+				existing.push(entry);
+				currentMap.set(r.inventory_id, existing);
 			}
-			const entry: PriceHistoryEntry = {
-				valid_from: r.valid_from,
-				valid_to: r.valid_to,
-				price: toBig(r.price),
-				unit: r.unit,
-				price_class: r.price_class,
-			};
-			const existing = historyMap.get(r.inventory_id) ?? [];
-			existing.push(entry);
-			historyMap.set(r.inventory_id, existing);
+
+			// All prices (for history)
+			const allResult = await priceReq.query(`
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				FROM SMR_ItemPrice
+				WHERE inventory_id IN (${idParams.join(", ")})
+				ORDER BY inventory_id, valid_from DESC
+			`);
+			const allRows = trimStrings(allResult.recordset as PriceRawRow[]);
+
+			const currentKeys = new Set<string>();
+			for (const r of currentRows) {
+				currentKeys.add(`${r.inventory_id}::${r.price_class}`);
+			}
+
+			for (const r of allRows) {
+				if (r.valid_to === null && currentKeys.has(`${r.inventory_id}::${r.price_class}`)) {
+					continue;
+				}
+				const entry: PriceHistoryEntry = {
+					valid_from: r.valid_from,
+					valid_to: r.valid_to,
+					price: toBig(r.price),
+					unit: r.unit,
+					price_class: r.price_class,
+				};
+				const existing = historyMap.get(r.inventory_id) ?? [];
+				existing.push(entry);
+				historyMap.set(r.inventory_id, existing);
+			}
 		}
-	}
 
-	// ── Assemble response ──────────────────────────────────────────
-	const data: PriceRecord[] = [];
-	for (const inv of invRows) {
-		let prices = currentMap.get(inv.inventory_id) ?? [];
+		// ── Assemble response ──────────────────────────────────────────
+		const data: PriceRecord[] = [];
+		for (const inv of invRows) {
+			let prices = currentMap.get(inv.inventory_id) ?? [];
 
-		// Unit conversion if requested
-		if (reqUnit) {
-			prices = await Promise.all(
-				prices.map(async (p) => {
-					const converted = await convertPrice(inv.inventory_id, p.price, p.unit, reqUnit);
-					return { ...p, price: converted.price, unit: converted.unit };
-				}),
-			);
+			// Unit conversion if requested
+			if (reqUnit) {
+				prices = await Promise.all(
+					prices.map(async (p) => {
+						const converted = await convertPrice(inv.inventory_id, p.price, p.unit, reqUnit);
+						return { ...p, price: converted.price, unit: converted.unit };
+					}),
+				);
+			}
+
+			data.push({
+				inventory_id: inv.inventory_id,
+				class_id: inv.class_id,
+				description: inv.description,
+				prices,
+				history: historyMap.get(inv.inventory_id) ?? [],
+			});
 		}
 
-		// Convert history prices too
-		let history = historyMap.get(inv.inventory_id) ?? [];
-
-		data.push({
-			inventory_id: inv.inventory_id,
-			class_id: inv.class_id,
-			description: inv.description,
-			prices,
-			history,
-		});
-	}
-
-	return {
-		data,
-		total,
-		withoutPriceCount,
-		page,
-		limit,
-		totalPages: Math.ceil(total / limit) || 1,
-	};
+		return {
+			data,
+			total,
+			withoutPriceCount,
+			page,
+			limit,
+			totalPages: Math.ceil(total / limit) || 1,
+		};
+	});
 };
 
 // ─── Exported constants ────────────────────────────────────────────────
@@ -689,7 +693,6 @@ export { MAX_LIMIT, DEFAULT_LIMIT };
 export const importItemPrices = async (
 	items: BulkImportItem[],
 ): Promise<ImportResult> => {
-	const pool = await getDb();
 	let inserted = 0;
 	let updated = 0;
 
@@ -705,68 +708,69 @@ export const importItemPrices = async (
 		}
 
 		try {
-			// Check if inventory exists
-			const invCheck = await pool
-				.request()
-				.input("invtId", item.inventory_id)
-				.query("SELECT COUNT(*) AS _cnt FROM Inventory WHERE InvtID = @invtId");
-			if (Number(invCheck.recordset[0]?._cnt) === 0) {
-				errors.push({ row: rowNum, message: `Inventory '${item.inventory_id}' not found` });
-				continue;
-			}
+			await withDb(async (pool) => {
+				// Check if inventory exists
+				const invCheck = await pool
+					.request()
+					.input("invtId", item.inventory_id)
+					.query("SELECT COUNT(*) AS _cnt FROM Inventory WHERE InvtID = @invtId");
+				if (Number(invCheck.recordset[0]?._cnt) === 0) {
+					errors.push({ row: rowNum, message: `Inventory '${item.inventory_id}' not found` });
+					return;
+				}
 
-			// Check if price_class exists
-			const pcCheck = await pool
-				.request()
-				.input("priceClass", item.price_class)
-				.query("SELECT COUNT(*) AS _cnt FROM SMR_PriceClass WHERE id = @priceClass");
-			if (Number(pcCheck.recordset[0]?._cnt) === 0) {
-				errors.push({ row: rowNum, message: `Price class '${item.price_class}' not found` });
-				continue;
-			}
+				// Check if price_class exists
+				const pcCheck = await pool
+					.request()
+					.input("priceClass", item.price_class)
+					.query("SELECT COUNT(*) AS _cnt FROM SMR_PriceClass WHERE id = @priceClass");
+				if (Number(pcCheck.recordset[0]?._cnt) === 0) {
+					errors.push({ row: rowNum, message: `Price class '${item.price_class}' not found` });
+					return;
+				}
 
-			// Default valid_from to current datetime
-			const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
+				// Default valid_from to current datetime
+				const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
-			// Normalize unit to CS if possible
-			const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
+				// Normalize unit to CS if possible
+				const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
 
-			// Find current price for this inventory item + price_class combo
-			const current = await pool
-				.request()
-				.input("invId", item.inventory_id)
-				.input("priceClass", item.price_class)
-				.query(`
-          SELECT id, price, unit, price_class, valid_from, valid_to
-          FROM SMR_ItemPrice
-          WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
-        `);
+				// Find current price for this inventory item + price_class combo
+				const current = await pool
+					.request()
+					.input("invId", item.inventory_id)
+					.input("priceClass", item.price_class)
+					.query(`
+						SELECT id, price, unit, price_class, valid_from, valid_to
+						FROM SMR_ItemPrice
+						WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
+					`);
 
-			if (current.recordset.length > 0) {
-				// Expire the old current price — 1 second before new valid_from
-				const oldValidTo = oneSecondBefore(validFrom);
+				if (current.recordset.length > 0) {
+					const oldValidTo = oneSecondBefore(validFrom);
+					await pool
+						.request()
+						.input("id", current.recordset[0].id)
+						.input("valid_to", oldValidTo)
+						.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
+					updated++;
+				}
+
+				// Insert new price
 				await pool
 					.request()
-					.input("id", current.recordset[0].id)
-					.input("valid_to", oldValidTo)
-					.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
-				updated++;
-			}
-
-			// Insert new price
-			await pool
-				.request()
-				.input("inventory_id", item.inventory_id)
-				.input("price", bigToNumber(normalized.price))
-				.input("unit", normalized.unit)
-				.input("price_class", item.price_class)
-				.input("valid_from", validFrom)
-				.input("valid_to", item.valid_to ?? null)
-				.query(`
-          INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
-          VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
-        `);
-			inserted++;
+					.input("inventory_id", item.inventory_id)
+					.input("price", bigToNumber(normalized.price))
+					.input("unit", normalized.unit)
+					.input("price_class", item.price_class)
+					.input("valid_from", validFrom)
+					.input("valid_to", item.valid_to ?? null)
+					.query(`
+						INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
+						VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
+					`);
+				inserted++;
+			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : "Unknown error";
 			errors.push({ row: rowNum, message: msg });
