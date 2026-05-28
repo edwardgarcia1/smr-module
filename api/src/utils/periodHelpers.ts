@@ -53,9 +53,12 @@ export function generatePeriodKeys(
 			if (freq === "monthly") {
 				set.add(monthLabel(y, m));
 			} else {
-				// Generate all 5 week labels for this month so SQL GROUP BY
-				// results for W1–W5 always have a matching column.
-				for (let w = 1; w <= 5; w++) {
+				// Generate week labels for this month based on actual days.
+				// W5 (days 29-31) exists only when daysInMonth >= 29.
+				// Feb (28d) → W1-W4; Feb leap (29d) → W1-W5; 30/31d → W1-W5.
+				const daysInMonth = new Date(y, m, 0).getDate();
+				const maxWeek = daysInMonth >= 29 ? 5 : 4;
+				for (let w = 1; w <= maxWeek; w++) {
 					set.add(weekLabel(y, m, w));
 				}
 			}
