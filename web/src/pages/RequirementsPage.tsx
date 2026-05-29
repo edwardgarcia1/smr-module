@@ -56,10 +56,15 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import PrintIcon from "@mui/icons-material/Print";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
+import { exportPurchaseOrderToPdf } from "../utils/exportToPdf";
+import { downloadBlob } from "../utils/download";
+import type { PurchaseOrderExportRow } from "../utils/exportToPdf";
+import logoSrc from "../assets/MLDI HD 1.jpg";
 import apiRequest from "../services/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -537,6 +542,7 @@ const RequirementsPage: React.FC = () => {
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
+	const [isPdfExporting, setIsPdfExporting] = useState(false);
 	const [categories, setCategories] = useState<MinStockCategory[]>([]);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 	const categoryOptions = useMemo(() => [...CATEGORY_NAMES], []);
@@ -1959,6 +1965,77 @@ const RequirementsPage: React.FC = () => {
 		selectedStorage,
 	]);
 
+	// ─── PDF Export (purchasing only) ─────────────────────────────────
+	const handlePdfExport = useCallback(async () => {
+		if (mode !== "purchasing") return;
+
+		setIsPdfExporting(true);
+		setGridError(null);
+
+		try {
+			const sortedRowIds = apiRef.current.getSortedRowIds();
+			const rowById = new Map(
+				filteredPurchasingRows.map((r) => [r.id, r]),
+			);
+
+			const rowsToExport: Record<string, unknown>[] = [];
+			for (const id of sortedRowIds) {
+				const row = rowById.get(id);
+				if (row) rowsToExport.push(row as Record<string, unknown>);
+			}
+			if (rowsToExport.length === 0) {
+				rowsToExport.push(
+					...filteredPurchasingRows.map((r) => r as Record<string, unknown>),
+				);
+			}
+
+			// Map grid rows → PO export rows, computing amount inline so edits
+			// to customOrder are reflected (the raw row.amount is API-precomputed).
+			const poRows: PurchaseOrderExportRow[] = rowsToExport.map((r) => {
+				const finalQty =
+					r.customOrder != null
+						? Number(r.customOrder)
+						: r.suggestedOrderCS != null
+							? Number(r.suggestedOrderCS)
+							: 0;
+				const price = r.price_perCS != null ? Number(r.price_perCS) : null;
+				return {
+					invtID: String(r.invtID ?? ""),
+					descr: String(r.descr ?? ""),
+					qtyPerCS: Number(r.qtyPerCS) || 0,
+					price_perCS: price,
+					finalOrderCS: finalQty,
+					amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
+				};
+			});
+
+			const dt = dayjs().format("YYYYMMDD_HHmmss");
+			const storageIDs = selectedStorage.map((s) => s.id).join("-");
+			const fileName = `PO_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}.pdf`;
+
+			const pdfBuf = await exportPurchaseOrderToPdf(poRows, logoSrc, {
+				poReference: poReference || undefined,
+				attn: "",
+				note: "Full Case",
+			});
+			downloadBlob(pdfBuf, fileName, "application/pdf");
+		} catch (err) {
+			const msg =
+				err instanceof Error ? err.message : "Failed to generate PDF.";
+			console.error("PDF export error:", msg);
+			setGridError(msg);
+		} finally {
+			setIsPdfExporting(false);
+		}
+	}, [
+		mode,
+		filteredPurchasingRows,
+		selectedPrincipal,
+		selectedStorage,
+		apiRef,
+		poReference,
+	]);
+
 	// ─── Purchasing Toolbar ──────────────────────────────────────────
 	const PurchasingToolbar = useCallback(() => {
 		const labelSx = { display: { xs: "none", md: "inline" } };
@@ -2086,6 +2163,33 @@ const RequirementsPage: React.FC = () => {
 							>
 								<Box component="span" sx={labelSx}>
 									Excel
+								</Box>
+							</Button>
+						</Tooltip>
+						<Tooltip title="Export to PO PDF">
+							<Button
+								size="small"
+								color="primary"
+								variant="outlined"
+								startIcon={
+									isPdfExporting ? (
+										<CircularProgress size={14} thickness={2.5} />
+									) : (
+										<PictureAsPdfIcon />
+									)
+								}
+								onClick={handlePdfExport}
+								disabled={isPdfExporting}
+								sx={{
+									minWidth: "auto",
+									textTransform: "none",
+									fontSize: "0.8125rem",
+									fontWeight: 500,
+									px: 0.75,
+								}}
+							>
+								<Box component="span" sx={labelSx}>
+									{isPdfExporting ? "Exporting..." : "PO PDF"}
 								</Box>
 							</Button>
 						</Tooltip>
@@ -2253,6 +2357,8 @@ const RequirementsPage: React.FC = () => {
 	}, [
 		apiRef,
 		handleExcelExport,
+		handlePdfExport,
+		isPdfExporting,
 		theme,
 		darkMode,
 		frequency,
@@ -2691,6 +2797,7 @@ const RequirementsPage: React.FC = () => {
 						slotProps={{
 							toolbar: {
 								handleExcelExport,
+								handlePdfExport,
 								bulkMinStock,
 								setBulkMinStock,
 								handleBulkMinStockApply,

@@ -3,6 +3,7 @@ import type {
 	GridColDef,
 	GridColumnGroupingModel,
 } from "@mui/x-data-grid";
+import { downloadBlob } from "./download";
 
 export interface ExcelExportOptions {
 	/** First row — bold centered title spanning all columns */
@@ -276,15 +277,9 @@ export async function exportDataGridToExcel(
 
 	// ── Build workbook & download ───────────────────────────────────
 	const buffer = await workbook.xlsx.writeBuffer();
-	const blob = new Blob([buffer], {
-		type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	});
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = filename;
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
+	downloadBlob(
+		buffer,
+		filename,
+		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	);
 }
