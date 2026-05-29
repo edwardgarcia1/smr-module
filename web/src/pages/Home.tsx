@@ -431,21 +431,39 @@ const Home: React.FC = () => {
 						<CardContent sx={{ pt: 1 }}>
 							<Box
 								sx={{
-									display: "grid",
-									gridTemplateColumns: "1fr 1fr",
-									gap: 1,
+									display: "flex",
+									flexDirection: "column",
+									gap: 0.5,
 								}}
 							>
 								{quickStatsData.map((stat, index) => (
-									<Box key={index} sx={{ textAlign: "center", py: 1 }}>
+									<Box
+										key={index}
+										sx={{
+											display: "flex",
+											alignItems: "baseline",
+											justifyContent: "space-between",
+											gap: 1,
+											py: 1,
+											...(index < quickStatsData.length - 1 && {
+												borderBottom: 1,
+												borderColor: "divider",
+											}),
+										}}
+									>
+										<Typography variant="body2" color="text.secondary">
+											{stat.label}
+										</Typography>
 										<Typography
-											variant="h6"
-											sx={{ fontWeight: "bold", color: "primary.main" }}
+											variant="subtitle1"
+											sx={{
+												fontWeight: "bold",
+												color: "primary.main",
+												whiteSpace: "nowrap",
+												fontVariantNumeric: "tabular-nums",
+											}}
 										>
 											{stat.value}
-										</Typography>
-										<Typography variant="caption" color="text.secondary">
-											{stat.label}
 										</Typography>
 									</Box>
 								))}
