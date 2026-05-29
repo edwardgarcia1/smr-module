@@ -1833,6 +1833,12 @@ const RequirementsPage: React.FC = () => {
 
 	// ─── Excel Export ─────────────────────────────────────────────────
 	const handleExcelExport = useCallback(async () => {
+		const dt = dayjs().format("YYYYMMDD_HHmmss");
+		const dateRangeStr = dateRanges
+			.filter((dr) => dr.from && dr.to)
+			.map((dr) => `${dr.from!.format("YYYYMM")}-${dr.to!.format("YYYYMM")}`)
+			.join("_");
+
 		if (mode === "purchasing") {
 			// Use the grid's public API to get filtered/sorted row IDs.
 			// getSortedRowIds() is part of the public GridSortApi interface and
@@ -1860,6 +1866,9 @@ const RequirementsPage: React.FC = () => {
 				);
 			}
 
+			const storageIDs = selectedStorage.map((s) => s.id).join("-");
+			const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
+
 			await exportDataGridToExcel(
 				rowsToExport,
 				purchasingColumns,
@@ -1876,14 +1885,17 @@ const RequirementsPage: React.FC = () => {
 						return cat ? (CAT_EXCEL_COLORS[cat] ?? null) : null;
 					},
 				},
-				"purchase-requirements.xlsx",
+				fileName,
 			);
 		} else {
+			const storageIDs = selectedStorage.map((s) => s.id).join("-");
+			const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
+
 			await exportDataGridToExcel(
 				bundlingRows as unknown as Record<string, unknown>[],
 				bundlingColumns,
 				undefined,
-				"bundling-requirements.xlsx",
+				fileName,
 			);
 		}
 	}, [
@@ -1896,6 +1908,9 @@ const RequirementsPage: React.FC = () => {
 		categories,
 		displayFactor,
 		apiRef,
+		dateRanges,
+		frequency,
+		selectedStorage,
 	]);
 
 	// ─── Purchasing Toolbar ──────────────────────────────────────────
