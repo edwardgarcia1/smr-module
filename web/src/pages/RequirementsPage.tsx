@@ -974,6 +974,67 @@ const RequirementsPage: React.FC = () => {
 						: "",
 			});
 
+			// Order Cover (Months/Weeks)
+			const periodLabel = frequency === "monthly" ? "Months" : "Weeks";
+			const getFinalQty = (row: RequirementRow) =>
+				row.customOrder != null ? row.customOrder : row.suggestedOrderCS;
+			cols.push({
+				field: "orderCover",
+				headerName: `Order Cover (${periodLabel})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
+				description:
+					"Final Order (CS) ÷ Avg demand (CS) — how many periods the final order covers",
+				valueGetter: (_value: unknown, row: RequirementRow) => {
+					const finalQty = getFinalQty(row);
+					if (row.avgDemandCS == null || row.avgDemandCS === 0 || finalQty == null) return null;
+					return finalQty / row.avgDemandCS;
+				},
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+
+			// Incoming Cover (Months/Weeks)
+			cols.push({
+				field: "incomingCover",
+				headerName: `Incoming Cover (${periodLabel})`,
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
+				description:
+					"Incoming (PO) ÷ Avg demand — how many periods the incoming stock covers",
+				valueGetter: (_value: unknown, row: RequirementRow) => {
+					if (row.avgDemand == null || row.avgDemand === 0 || row.qtyOnPO == null) return null;
+					return row.qtyOnPO / row.avgDemand;
+				},
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+
+			// Total Cover (Months/Weeks)
+			cols.push({
+				field: "totalCover",
+				headerName: `Total Cover (${periodLabel})`,
+				width: 140,
+				type: "number",
+				headerClassName: "group-stock",
+				description:
+					"Stock Cover + Order Cover + Incoming Cover — total coverage including everything",
+				valueGetter: (_value: unknown, row: RequirementRow) => {
+					const finalQty = getFinalQty(row);
+					if (row.avgDemandCS == null || row.avgDemandCS === 0 || finalQty == null) return null;
+					const orderCover = finalQty / row.avgDemandCS;
+					const incomingCover = (row.qtyOnPO != null && row.avgDemand != null && row.avgDemand > 0)
+						? row.qtyOnPO / row.avgDemand
+						: 0;
+					const sc = row.stockCoverCount ?? 0;
+					return sc + orderCover + incomingCover;
+				},
+				valueFormatter: (value?: number) =>
+					value != null ? value.toFixed(2) : "",
+			});
+
 			// Amount
 			cols.push({
 				field: "amount",
@@ -2519,6 +2580,9 @@ const RequirementsPage: React.FC = () => {
 						{ field: "suggestedOrderCS" },
 						{ field: "customOrder" },
 						{ field: "finalOrderCS" },
+						{ field: "orderCover" },
+						{ field: "incomingCover" },
+						{ field: "totalCover" },
 						{ field: "amount" },
 					],
 				},
