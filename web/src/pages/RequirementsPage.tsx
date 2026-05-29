@@ -433,6 +433,10 @@ const RequirementsPage: React.FC = () => {
 				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
 				color: darkMode ? "#81c784" : "#2e7d32",
 			},
+			finalOrder: {
+				bg: darkMode ? "rgba(186, 104, 200, 0.15)" : "rgba(156, 39, 176, 0.10)",
+				color: darkMode ? "#ce93d8" : "#7b1fa2",
+			},
 		}),
 		[darkMode],
 	);
@@ -940,6 +944,27 @@ const RequirementsPage: React.FC = () => {
 				type: "number",
 				editable: true,
 				headerClassName: "group-stock",
+				valueFormatter: (value?: number) =>
+					value != null
+						? value.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							})
+						: "",
+			});
+
+			// Final Order (CS)
+			cols.push({
+				field: "finalOrderCS",
+				headerName: "Final Order (CS)",
+				width: 130,
+				type: "number",
+				headerClassName: "group-final-order",
+				description:
+					"Actual order: Custom Order (CS) when set, otherwise Suggested Order (CS)",
+				valueGetter: (_value: unknown, row: RequirementRow) => {
+					return row.customOrder != null ? row.customOrder : row.suggestedOrderCS;
+				},
 				valueFormatter: (value?: number) =>
 					value != null
 						? value.toLocaleString(undefined, {
@@ -2493,6 +2518,7 @@ const RequirementsPage: React.FC = () => {
 						{ field: "suggestedOrder" },
 						{ field: "suggestedOrderCS" },
 						{ field: "customOrder" },
+						{ field: "finalOrderCS" },
 						{ field: "amount" },
 					],
 				},
@@ -2657,6 +2683,10 @@ const RequirementsPage: React.FC = () => {
 							"& .group-stock": {
 								backgroundColor: groupColors.stock.bg,
 								color: groupColors.stock.color,
+							},
+							"& .group-final-order": {
+								backgroundColor: groupColors.finalOrder.bg,
+								color: groupColors.finalOrder.color,
 							},
 							"& .group-inventory": {
 								backgroundColor: groupColors.inventory.bg,
