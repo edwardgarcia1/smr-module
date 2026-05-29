@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
 	Box,
 	Card,
@@ -8,95 +8,153 @@ import {
 	Typography,
 	Button,
 	Divider,
+	Skeleton,
+	Alert,
 } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import WarehouseIcon from "@mui/icons-material/Warehouse";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
 import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
+import apiRequest from "../services/api";
+
+// ─── API response shape ───────────────────────────────────────────────
+
+interface DashboardSummary {
+	totalInventoryItems: number;
+	totalPrincipals: number;
+	itemsWithoutPrice: number;
+	itemsZeroAvailable: number;
+	totalQtyOnPO: number;
+	totalStockValue: number;
+	totalUsers: number;
+	itemsPerPrincipal: Array<{
+		classID: string;
+		description: string;
+		itemCount: number;
+	}>;
+	minStockSettingDistribution: {
+		custom: number;
+		principal: number;
+		default: number;
+	};
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+function fmtNumber(n: number): string {
+	return n.toLocaleString(undefined, {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 0,
+	});
+}
+
+function fmtCurrency(n: number): string {
+	return n.toLocaleString(undefined, {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+}
+
+// ─── Component ────────────────────────────────────────────────────────
 
 const Home: React.FC = () => {
 	const user = useAuthStore((state) => state.user);
+	const [data, setData] = useState<DashboardSummary | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
-	const dashboardCards = [
-		{
-			id: 1,
-			title: "Immediate Purchase",
-			value: 5,
-			subtitle: "Items requiring urgent reorder",
-			icon: <ShoppingCartIcon />,
-			color: "error.main",
-			path: "/purchasing-requirements?filter=urgent",
-		},
-		{
-			id: 2,
-			title: "Secondary Purchase",
-			value: 4,
-			subtitle: "Items approaching reorder point",
-			icon: <Inventory2Icon />,
-			color: "warning.main",
-			path: "/purchasing-requirements?filter=secondary",
-		},
-		{
-			id: 3,
-			title: "Monitoring",
-			value: 1,
-			subtitle: "Items to keep under watch",
-			icon: <VisibilityIcon />,
-			color: "info.main",
-			path: "/purchasing-requirements?filter=monitor",
-		},
-		{
-			id: 4,
-			title: "Total Inventory",
-			value: 11,
-			subtitle: "Active inventory items",
-			icon: <WarehouseIcon />,
-			color: "success.main",
-			path: "/inventory-items",
-		},
-	];
+	useEffect(() => {
+		const abort = new AbortController();
 
-	const purchaseRequirementsData = [
-		{
-			id: 1,
-			initials: "PG",
-			companyName: "PRIME GLOBAL CORPORATION",
-			items: 2,
-			statuses: [{ type: "secondary", count: 1 }],
-		},
-		{
-			id: 2,
-			initials: "ZE",
-			companyName: "ZESTO CORPORATION",
-			items: 6,
-			statuses: [
-				{ type: "urgent", count: 5 },
-				{ type: "secondary", count: 1 },
-			],
-		},
-		{
-			id: 3,
-			initials: "ZP",
-			companyName: "ZUELLIG PHARMA CORPORATION",
-			items: 3,
-			statuses: [
-				{ type: "secondary", count: 2 },
-				{ type: "monitor", count: 1 },
-			],
-		},
-	];
+		const fetchData = async () => {
+			setLoading(true);
+			setError(null);
+			try {
+				const result = await apiRequest<DashboardSummary>(
+					"/dashboard/summary",
+					{ signal: abort.signal },
+				);
+				setData(result);
+			} catch (err: unknown) {
+				if (err instanceof DOMException && err.name === "AbortError") return;
+				setError(
+					err instanceof Error
+						? err.message
+						: "Failed to load dashboard data",
+				);
+			} finally {
+				if (!abort.signal.aborted) setLoading(false);
+			}
+		};
 
-	const quickStatsData = [
-		{ label: "Active Suppliers", value: "8" },
-		{ label: "Inventory Items", value: "11" },
-		{ label: "Draft POs", value: "1" },
-		{ label: "Monthly Factor", value: "1.5×" },
-	];
+		fetchData();
+		return () => abort.abort();
+	}, []);
+
+	// ── Derive display data ──────────────────────────────────────────
+
+	const dashboardCards = data
+		? [
+				{
+					id: 1,
+					title: "Total Inventory",
+					value: fmtNumber(data.totalInventoryItems),
+					subtitle: "Active inventory items",
+					icon: <WarehouseIcon />,
+					color: "success.main",
+					path: "/inventory-items",
+				},
+				{
+					id: 2,
+					title: "Active Principals",
+					value: fmtNumber(data.totalPrincipals),
+					subtitle: "Registered suppliers",
+					icon: <AssignmentIcon />,
+					color: "info.main",
+					path: "/principals",
+				},
+				{
+					id: 3,
+					title: "Items Without Price",
+					value: fmtNumber(data.itemsWithoutPrice),
+					subtitle: "Missing current price",
+					icon: <ShoppingCartIcon />,
+					color: "error.main",
+					path: "/prices",
+				},
+				{
+					id: 4,
+					title: "Zero Available",
+					value: fmtNumber(data.itemsZeroAvailable),
+					subtitle: "Items out of stock",
+					icon: <Inventory2Icon />,
+					color: "warning.main",
+					path: "/inventory-items",
+				},
+			]
+		: [];
+
+	const quickStatsData = data
+		? [
+				{ label: "Active Suppliers", value: fmtNumber(data.totalPrincipals) },
+				{
+					label: "Inventory Items",
+					value: fmtNumber(data.totalInventoryItems),
+				},
+				{
+					label: "Incoming Stock",
+					value: fmtNumber(data.totalQtyOnPO),
+				},
+				{
+					label: "Stock Value",
+					value: fmtCurrency(data.totalStockValue),
+				},
+			]
+		: [];
 
 	const quickActionsData = [
 		{
@@ -116,18 +174,83 @@ const Home: React.FC = () => {
 		},
 	];
 
-	const getStatusColor = (type: string) => {
-		switch (type) {
-			case "urgent":
-				return "error.main";
-			case "secondary":
-				return "warning.main";
-			case "monitor":
-				return "info.main";
-			default:
-				return "text.secondary";
-		}
-	};
+	// ── Loading skeleton ─────────────────────────────────────────────
+
+	if (loading) {
+		return (
+			<Box sx={{ width: "100%" }}>
+				<Skeleton variant="text" width={320} height={40} sx={{ mb: 3 }} />
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: {
+							xs: "1fr",
+							md: "repeat(2, 1fr)",
+							xl: "repeat(3, 1fr)",
+						},
+						gap: 2,
+						mb: 3,
+					}}
+				>
+					{[1, 2, 3, 4].map((i) => (
+						<Card key={i} sx={{ borderRadius: 3 }}>
+							<CardHeader
+								avatar={
+									<Skeleton
+										variant="rectangular"
+										width={48}
+										height={48}
+										sx={{ borderRadius: 2 }}
+									/>
+								}
+								title={<Skeleton variant="text" width="60%" />}
+							/>
+							<CardContent>
+								<Skeleton variant="text" width="40%" height={48} />
+								<Skeleton variant="text" width="70%" />
+							</CardContent>
+						</Card>
+					))}
+				</Box>
+				<Box
+					sx={{
+						display: "grid",
+						gridTemplateColumns: { xs: "1fr", md: "7fr 3fr" },
+						gap: 2,
+					}}
+				>
+					<Card sx={{ borderRadius: 3, height: 200 }}>
+						<Skeleton variant="rectangular" sx={{ height: "100%", borderRadius: 3 }} />
+					</Card>
+					<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+						<Card sx={{ borderRadius: 3, height: 120 }}>
+							<Skeleton variant="rectangular" sx={{ height: "100%", borderRadius: 3 }} />
+						</Card>
+						<Card sx={{ borderRadius: 3, height: 120 }}>
+							<Skeleton variant="rectangular" sx={{ height: "100%", borderRadius: 3 }} />
+						</Card>
+					</Box>
+				</Box>
+			</Box>
+		);
+	}
+
+	// ── Error state ──────────────────────────────────────────────────
+
+	if (error) {
+		return (
+			<Box sx={{ width: "100%" }}>
+				<Typography variant="h5" component="h1" sx={{ mb: 3 }}>
+					Welcome to the dashboard, {user?.name}!
+				</Typography>
+				<Alert severity="error" sx={{ mb: 2 }}>
+					{error}
+				</Alert>
+			</Box>
+		);
+	}
+
+	// ── Main render ──────────────────────────────────────────────────
 
 	return (
 		<Box sx={{ width: "100%" }}>
@@ -219,15 +342,15 @@ const Home: React.FC = () => {
 					width: "100%",
 				}}
 			>
-				{/* Left: Purchase Requirements by Supplier (70%) */}
+				{/* Left: Principals Overview (70%) */}
 				<Card sx={{ borderRadius: 3, height: "100%" }}>
 					<CardHeader
-						title="Purchase Requirements by Supplier"
+						title="Principals Overview"
 						action={
 							<Button
 								size="small"
 								component={Link}
-								to="/purchasing-requirements"
+								to="/principals"
 								sx={{ textTransform: "none" }}
 							>
 								View All
@@ -236,63 +359,67 @@ const Home: React.FC = () => {
 						sx={{ pb: 0 }}
 					/>
 					<CardContent sx={{ pt: 1 }}>
-						{purchaseRequirementsData.map((req, index) => (
-							<Box key={req.id}>
-								{index > 0 && <Divider sx={{ my: 1.5 }} />}
-								<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-									<Avatar
+						{data &&
+							data.itemsPerPrincipal.slice(0, 8).map((principal, index) => (
+								<Box key={principal.classID}>
+									{index > 0 && <Divider sx={{ my: 1.5 }} />}
+									<Box
 										sx={{
-											bgcolor: "primary.main",
-											width: 40,
-											height: 40,
-											fontSize: "0.8rem",
-											fontWeight: "bold",
-											borderRadius: 2,
+											display: "flex",
+											alignItems: "center",
+											gap: 2,
 										}}
 									>
-										{req.initials}
-									</Avatar>
-									<Box sx={{ flexGrow: 1 }}>
-										<Typography variant="body1" sx={{ fontWeight: "medium" }}>
-											{req.companyName}
-										</Typography>
-										<Typography variant="body2" color="text.secondary">
-											{req.items} items
-										</Typography>
-									</Box>
-									<Box sx={{ display: "flex", gap: 1 }}>
-										{req.statuses.map((status, sIndex) => (
-											<Box
-												key={sIndex}
-												sx={{
-													bgcolor: getStatusColor(status.type),
-													color: "white",
-													display: "flex",
-													alignItems: "center",
-													justifyContent: "center",
-													width: { xs: 28, sm: "auto" },
-													height: { xs: 28, sm: "auto" },
-													minWidth: { xs: 28, sm: "auto" },
-													borderRadius: { xs: "50%", sm: 2 },
-													fontSize: "0.75rem",
-													fontWeight: { xs: "bold", sm: "normal" },
-													px: { xs: 0, sm: 1 },
-													py: { xs: 0, sm: 0.5 },
-												}}
+										<Avatar
+											sx={{
+												bgcolor: "primary.main",
+												width: 40,
+												height: 40,
+												fontSize: "0.8rem",
+												fontWeight: "bold",
+												borderRadius: 2,
+											}}
+										>
+											{principal.classID.slice(0, 2)}
+										</Avatar>
+										<Box sx={{ flexGrow: 1 }}>
+											<Typography
+												variant="body1"
+												sx={{ fontWeight: "medium" }}
 											>
-												{status.count}
-												<Box
-													component="span"
-													sx={{ display: { xs: "none", sm: "inline" }, ml: 0.5 }}
-												>
-													{status.type}
-												</Box>
-											</Box>
-										))}
+												{principal.description || principal.classID}
+											</Typography>
+											<Typography
+												variant="body2"
+												color="text.secondary"
+											>
+												{principal.itemCount} item
+												{principal.itemCount !== 1 ? "s" : ""}
+											</Typography>
+										</Box>
+										<Typography
+											variant="body2"
+											sx={{
+												fontWeight: "bold",
+												color: "primary.main",
+												minWidth: 32,
+												textAlign: "right",
+											}}
+										>
+											{principal.itemCount}
+										</Typography>
 									</Box>
 								</Box>
-							</Box>
-						))}
+							))}
+						{data && data.itemsPerPrincipal.length === 0 && (
+							<Typography
+								variant="body2"
+								color="text.secondary"
+								sx={{ py: 2, textAlign: "center" }}
+							>
+								No principals found
+							</Typography>
+						)}
 					</CardContent>
 				</Card>
 
@@ -303,7 +430,11 @@ const Home: React.FC = () => {
 						<CardHeader title="Quick Stats" sx={{ pb: 0 }} />
 						<CardContent sx={{ pt: 1 }}>
 							<Box
-								sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}
+								sx={{
+									display: "grid",
+									gridTemplateColumns: "1fr 1fr",
+									gap: 1,
+								}}
 							>
 								{quickStatsData.map((stat, index) => (
 									<Box key={index} sx={{ textAlign: "center", py: 1 }}>
@@ -326,7 +457,13 @@ const Home: React.FC = () => {
 					<Card sx={{ borderRadius: 3, flexGrow: 1 }}>
 						<CardHeader title="Quick Actions" sx={{ pb: 0 }} />
 						<CardContent sx={{ pt: 1 }}>
-							<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+							<Box
+								sx={{
+									display: "flex",
+									flexDirection: "column",
+									gap: 1,
+								}}
+							>
 								{quickActionsData.map((action, index) => (
 									<Button
 										key={index}
