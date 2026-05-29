@@ -72,7 +72,8 @@ function buildDateRangeClause(
 export async function getRequirements(
 	query: RequirementsQuery,
 ): Promise<RequirementItem[]> {
-	const { classID, siteID, dateRanges, frequency, validDays } = query;
+	const { classID, siteID, dateRanges, frequency, validDays, priceClass } = query;
+	const activePriceClass = priceClass ?? "CP1";
 
 	return withDb(async (pool) => {
 
@@ -417,7 +418,7 @@ export async function getRequirements(
 		});
 	}
 
-	// ── Step 9: Enrich with price data (CP1 = List Price, COST = Cost Price) ──
+	// ── Step 9: Enrich with price data for the selected priceClass ──
 	if (results.length > 0) {
 		const priceInvtIDs = results.map((r) => r.invtID);
 		const pricePH = priceInvtIDs.map((_, i) => `@pInvtID${i}`);
@@ -427,13 +428,14 @@ export async function getRequirements(
 			FROM SMR_ItemPrice
 			WHERE inventory_id IN (${pricePH.join(", ")})
 				AND valid_to IS NULL
-				AND price_class IN ('CP1', 'COST')
+				AND price_class = @priceClass
 		`;
 
 		const priceReq = pool.request();
 		for (const [i, id] of priceInvtIDs.entries()) {
 			priceReq.input(`pInvtID${i}`, id);
 		}
+		priceReq.input("priceClass", activePriceClass);
 
 		const priceResult = await priceReq.query(priceSql);
 		const priceRows = trimStrings(priceResult.recordset ?? []) as Record<
@@ -441,102 +443,58 @@ export async function getRequirements(
 			any
 		>[];
 
-		// Group by inventory_id → { cp1?, cost? }
+		// Map by inventory_id → { price, unit, valid_from }
 		const priceMap = new Map<
 			string,
-			{
-				cp1?: { price: number; unit: string; valid_from: string };
-				cost?: { price: number; unit: string; valid_from: string };
-			}
+			{ price: number; unit: string; valid_from: string }
 		>();
 		for (const row of priceRows) {
 			const invtID = row.inventory_id as string;
-			const priceClass = row.price_class as string;
 			const priceVal = Number(row.price) || 0;
 			const unit = (row.unit as string) ?? "";
 			const rawDate = row.valid_from;
 			const validFrom =
 				rawDate instanceof Date ? rawDate.toISOString() : String(rawDate ?? "");
-			const e = priceMap.get(invtID) ?? {};
-			if (priceClass === "CP1") {
-				e.cp1 = { price: priceVal, unit, valid_from: validFrom };
-			} else if (priceClass === "COST") {
-				e.cost = { price: priceVal, unit, valid_from: validFrom };
-			}
-			priceMap.set(invtID, e);
+			priceMap.set(invtID, { price: priceVal, unit, valid_from: validFrom });
 		}
 
 		for (const item of results) {
-			const prices = priceMap.get(item.invtID);
-			if (!prices) continue;
+			const priceEntry = priceMap.get(item.invtID);
+			if (!priceEntry) continue;
 
-			// ── CP1 (List Price) ─────────────────────────────
-			if (prices.cp1) {
-				item.listPrice_ao = prices.cp1.valid_from;
-				item.listPrice_perCS =
+			item.price_ao = priceEntry.valid_from;
+			item.price_perCS =
+				Math.round(
+					normaliseQtyCached(
+						convCache,
+						item.invtID,
+						priceEntry.price,
+						"CS",
+						priceEntry.unit,
+					) * 100,
+				) / 100;
+			if (
+				priceEntry.unit.toUpperCase() === item.stkUnit.toUpperCase()
+			) {
+				item.price_perStkUnit = priceEntry.price;
+			} else {
+				item.price_perStkUnit =
 					Math.round(
 						normaliseQtyCached(
 							convCache,
 							item.invtID,
-							prices.cp1.price,
-							"CS",
-							prices.cp1.unit,
+							priceEntry.price,
+							item.stkUnit,
+							priceEntry.unit,
 						) * 100,
 					) / 100;
-				if (
-					prices.cp1.unit.toUpperCase() === item.stkUnit.toUpperCase()
-				) {
-					item.listPrice_perStkUnit = prices.cp1.price;
-				} else {
-					item.listPrice_perStkUnit =
-						Math.round(
-							normaliseQtyCached(
-								convCache,
-								item.invtID,
-								prices.cp1.price,
-								item.stkUnit,
-								prices.cp1.unit,
-							) * 100,
-						) / 100;
-				}
-			}
-
-			// ── COST (Cost Price) ────────────────────────────
-			if (prices.cost) {
-				item.costPrice_ao = prices.cost.valid_from;
-				item.costPrice_perCS =
-					Math.round(
-						normaliseQtyCached(
-							convCache,
-							item.invtID,
-							prices.cost.price,
-							"CS",
-							prices.cost.unit,
-						) * 100,
-					) / 100;
-				if (
-					prices.cost.unit.toUpperCase() === item.stkUnit.toUpperCase()
-				) {
-					item.costPrice_perStkUnit = prices.cost.price;
-				} else {
-					item.costPrice_perStkUnit =
-						Math.round(
-							normaliseQtyCached(
-								convCache,
-								item.invtID,
-								prices.cost.price,
-								item.stkUnit,
-								prices.cost.unit,
-							) * 100,
-						) / 100;
-				}
 			}
 		}
 
 		// ── Compute Amount ────────────────────────────────────
 		for (const item of results) {
 			const orderQty = item.customOrder ?? item.suggestedOrderCS;
-			const priceCS = item.listPrice_perCS;
+			const priceCS = item.price_perCS;
 			item.amount =
 				priceCS != null
 					? Math.round(orderQty * priceCS * 100) / 100

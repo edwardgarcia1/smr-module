@@ -203,13 +203,10 @@ interface RequirementRow {
 	suggestedOrderCS: number;
 	customOrder: number | null;
 	amount: number | null;
-	// Price fields for column groups
-	listPrice_ao?: string;
-	listPrice_perCS?: number;
-	listPrice_perStkUnit?: number;
-	costPrice_ao?: string;
-	costPrice_perCS?: number;
-	costPrice_perStkUnit?: number;
+	// Price fields for the selected price class (dynamic based on selectedPriceClass)
+	price_ao?: string;
+	price_perCS?: number;
+	price_perStkUnit?: number;
 }
 
 // ─── Bundling Row Types ──────────────────────────────────────────────────────
@@ -424,10 +421,6 @@ const RequirementsPage: React.FC = () => {
 				bg: darkMode ? "rgba(255, 235, 59, 0.12)" : "rgba(255, 193, 7, 0.10)",
 				color: darkMode ? "#fff176" : "#f57f17",
 			},
-			custom: {
-				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
-				color: darkMode ? "#81c784" : "#2e7d32",
-			},
 			bundling: {
 				bg: darkMode ? "rgba(129, 199, 132, 0.10)" : "rgba(76, 175, 80, 0.07)",
 				color: darkMode ? "#81c784" : "#2e7d32",
@@ -581,9 +574,7 @@ const RequirementsPage: React.FC = () => {
 
 	// Toolbar states (purchasing-specific)
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
-	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
-		"CP1",
-	);
+	const [selectedPriceClass, setSelectedPriceClass] = useState<string>("COST");
 	const [poReference, setPoReference] = useState("");
 	const [showDemandColumns, setShowDemandColumns] = useState(true);
 
@@ -646,7 +637,7 @@ const RequirementsPage: React.FC = () => {
 					}) : "—",
 			});
 
-			// ── Price columns: List Price (CP1) ──────────────────────────
+			// ── Price columns (for the selected price class) ────────────
 			const priceHeader = { headerClassName: "group-price" };
 			const priceFormatter = (value?: number) =>
 				value != null
@@ -672,63 +663,32 @@ const RequirementsPage: React.FC = () => {
 			};
 
 			cols.push({
-				field: "listPrice_ao",
+				field: "price_ao",
 				headerName: "Last Update",
 				width: 150,
 				...priceHeader,
 				valueGetter: (_value, row) =>
-					(row as RequirementRow).listPrice_ao,
+					(row as RequirementRow).price_ao,
 				valueFormatter: aoFormatter,
 			});
 			cols.push({
-				field: "listPrice_perCS",
+				field: "price_perCS",
 				headerName: "Per CS",
 				width: 110,
 				type: "number",
 				...priceHeader,
 				valueGetter: (_value, row) =>
-					(row as RequirementRow).listPrice_perCS,
+					(row as RequirementRow).price_perCS,
 				valueFormatter: priceFormatter,
 			});
 			cols.push({
-				field: "listPrice_perStkUnit",
+				field: "price_perStkUnit",
 				headerName: "Per StkUnit",
 				width: 110,
 				type: "number",
 				...priceHeader,
 				valueGetter: (_value, row) =>
-					(row as RequirementRow).listPrice_perStkUnit,
-				valueFormatter: priceFormatter,
-			});
-
-			// ── Price columns: Price (Cost) ───────────────────────────
-			cols.push({
-				field: "costPrice_ao",
-				headerName: "Last Update",
-				width: 150,
-				...priceHeader,
-				valueGetter: (_value, row) =>
-					(row as RequirementRow).costPrice_ao,
-				valueFormatter: aoFormatter,
-			});
-			cols.push({
-				field: "costPrice_perCS",
-				headerName: "Per CS",
-				width: 110,
-				type: "number",
-				...priceHeader,
-				valueGetter: (_value, row) =>
-					(row as RequirementRow).costPrice_perCS,
-				valueFormatter: priceFormatter,
-			});
-			cols.push({
-				field: "costPrice_perStkUnit",
-				headerName: "Per StkUnit",
-				width: 110,
-				type: "number",
-				...priceHeader,
-				valueGetter: (_value, row) =>
-					(row as RequirementRow).costPrice_perStkUnit,
+					(row as RequirementRow).price_perStkUnit,
 				valueFormatter: priceFormatter,
 			});
 
@@ -997,13 +957,13 @@ const RequirementsPage: React.FC = () => {
 				type: "number",
 				headerClassName: "group-stock",
 				description:
-					"Order amount: customOrder × List Price per CS, or suggestedOrderCS × List Price per CS",
+					"Order amount: customOrder × Price per CS, or suggestedOrderCS × Price per CS",
 				valueGetter: (_value: unknown, row: RequirementRow) => {
 					const qty =
 						row.customOrder != null
 							? row.customOrder
 							: row.suggestedOrderCS;
-					const price = row.listPrice_perCS;
+					const price = row.price_perCS;
 					if (price == null) return null;
 					return Math.round(qty * price * 100) / 100;
 				},
@@ -1031,7 +991,7 @@ const RequirementsPage: React.FC = () => {
 			});
 			return cols;
 		},
-		[frequency],
+		[frequency, selectedPriceClass],
 	);
 
 	// ─── Build Bundling Columns ────────────────────────────────────────
@@ -1280,6 +1240,7 @@ const RequirementsPage: React.FC = () => {
 			const params = new URLSearchParams();
 			params.set("classID", selectedPrincipal.ClassID);
 			params.set("frequency", frequency);
+			params.set("priceClass", selectedPriceClass);
 			if (frequency === "weekly") {
 				const totalVD = Object.values(monthlyValidDays).reduce(
 					(s, v) => s + v,
@@ -1386,6 +1347,7 @@ const RequirementsPage: React.FC = () => {
 		frequency,
 		monthlyValidDays,
 		mode,
+		selectedPriceClass,
 		buildPurchasingColumns,
 		buildBundlingColumns,
 	]);
@@ -1839,6 +1801,10 @@ const RequirementsPage: React.FC = () => {
 			.map((dr) => `${dr.from!.format("YYYYMM")}-${dr.to!.format("YYYYMM")}`)
 			.join("_");
 
+		// Build dynamic filename once (shared by both export branches)
+		const storageIDs = selectedStorage.map((s) => s.id).join("-");
+		const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
+
 		if (mode === "purchasing") {
 			// Use the grid's public API to get filtered/sorted row IDs.
 			// getSortedRowIds() is part of the public GridSortApi interface and
@@ -1866,9 +1832,6 @@ const RequirementsPage: React.FC = () => {
 				);
 			}
 
-			const storageIDs = selectedStorage.map((s) => s.id).join("-");
-			const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
-
 			await exportDataGridToExcel(
 				rowsToExport,
 				purchasingColumns,
@@ -1888,9 +1851,6 @@ const RequirementsPage: React.FC = () => {
 				fileName,
 			);
 		} else {
-			const storageIDs = selectedStorage.map((s) => s.id).join("-");
-			const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
-
 			await exportDataGridToExcel(
 				bundlingRows as unknown as Record<string, unknown>[],
 				bundlingColumns,
@@ -2079,9 +2039,12 @@ const RequirementsPage: React.FC = () => {
 					</Box>
 					<Autocomplete
 						size="small"
+						disableClearable
 						options={priceClasses}
 						value={selectedPriceClass}
-						onChange={(_, newVal) => setSelectedPriceClass(newVal)}
+						onChange={(_, newVal) => {
+							if (newVal) setSelectedPriceClass(newVal);
+						}}
 						sx={{ width: 180 }}
 						renderInput={(params) => (
 							<TextField
@@ -2471,38 +2434,29 @@ const RequirementsPage: React.FC = () => {
 		}
 	}, [applied, purchasingColumns.length, bundlingColumns.length]);
 
-	// ─── Sync price column visibility with selectedPriceClass ────────
+	// ─── Track previous price class for auto-re-fetch ────────────────
+	const prevPriceClassRef = useRef<string>(selectedPriceClass);
+
+	// ─── Auto re-fetch when price class changes (columns + data stay in sync) ──
+	// When the user changes the price class dropdown after data is already loaded,
+	// re-fetch so the row data reflects the newly selected class.
+	// We intentionally prevent infinite loops by comparing against prevPriceClassRef.
 	useEffect(() => {
 		if (!applied || mode !== "purchasing") return;
-
-		const listPriceFields = [
-			"listPrice_ao",
-			"listPrice_perCS",
-			"listPrice_perStkUnit",
-		];
-		const costPriceFields = [
-			"costPrice_ao",
-			"costPrice_perCS",
-			"costPrice_perStkUnit",
-		];
-
-		const model = { ...userColumnVisibilityModelRef.current };
-		if (selectedPriceClass == null) {
-			// No class selected: show all price columns
-			for (const f of [...listPriceFields, ...costPriceFields]) {
-				delete model[f];
-			}
-		} else if (selectedPriceClass === "CP1") {
-			// List Price: show list price, hide cost
-			for (const f of listPriceFields) delete model[f];
-			for (const f of costPriceFields) model[f] = false;
-		} else {
-			// Cost: show cost, hide list price
-			for (const f of costPriceFields) delete model[f];
-			for (const f of listPriceFields) model[f] = false;
+		const prev = prevPriceClassRef.current;
+		if (selectedPriceClass !== prev) {
+			prevPriceClassRef.current = selectedPriceClass;
+			handleApply();
 		}
+	}, [selectedPriceClass, applied, mode, handleApply]);
 
-		// Guard: only set if apiRef is attached to a mounted grid
+	// ─── Sync price column visibility with selectedPriceClass ────────
+	// Ensure price columns are visible when the price class changes.
+	useEffect(() => {
+		if (!applied || mode !== "purchasing") return;
+		const priceFields = ["price_ao", "price_perCS", "price_perStkUnit"];
+		const model = { ...userColumnVisibilityModelRef.current };
+		for (const f of priceFields) delete model[f];
 		const timer = setTimeout(() => {
 			apiRef.current?.setColumnVisibilityModel(model);
 		}, 0);
@@ -2554,51 +2508,16 @@ const RequirementsPage: React.FC = () => {
 				},
 			];
 
-			// Conditionally include price column groups based on selectedPriceClass
-			const isListPrice = selectedPriceClass === "CP1";
-			if (selectedPriceClass == null) {
-				// No class selected: show both price groups
-				groups.push({
-					groupId: "List Price (CP1)",
-					headerClassName: "group-price",
-					children: [
-						{ field: "listPrice_ao" },
-						{ field: "listPrice_perCS" },
-						{ field: "listPrice_perStkUnit" },
-					],
-				});
-				groups.push({
-					groupId: "Price (Cost)",
-					headerClassName: "group-price",
-					children: [
-						{ field: "costPrice_ao" },
-						{ field: "costPrice_perCS" },
-						{ field: "costPrice_perStkUnit" },
-					],
-				});
-			} else if (isListPrice) {
-				// List Price selected: show only List Price (CP1) group
-				groups.push({
-					groupId: "List Price (CP1)",
-					headerClassName: "group-price",
-					children: [
-						{ field: "listPrice_ao" },
-						{ field: "listPrice_perCS" },
-						{ field: "listPrice_perStkUnit" },
-					],
-				});
-			} else {
-				// Cost Price selected: show only Price (Cost) group
-				groups.push({
-					groupId: "Price (Cost)",
-					headerClassName: "group-price",
-					children: [
-						{ field: "costPrice_ao" },
-						{ field: "costPrice_perCS" },
-						{ field: "costPrice_perStkUnit" },
-					],
-				});
-			}
+			// Price group for the selected price class
+			groups.push({
+				groupId: `Price (${selectedPriceClass})`,
+				headerClassName: "group-price",
+				children: [
+					{ field: "price_ao" },
+					{ field: "price_perCS" },
+					{ field: "price_perStkUnit" },
+				],
+			});
 
 			return groups;
 		},
@@ -2730,10 +2649,6 @@ const RequirementsPage: React.FC = () => {
 							"& .group-computation": {
 								backgroundColor: groupColors.computation.bg,
 								color: groupColors.computation.color,
-							},
-							"& .group-custom": {
-								backgroundColor: groupColors.custom.bg,
-								color: groupColors.custom.color,
 							},
 							"& .group-price": {
 								backgroundColor: groupColors.price.bg,

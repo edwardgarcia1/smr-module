@@ -85,13 +85,14 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				: undefined;
 
 			try {
-				return await getRequirements({
+				return 			await getRequirements({
 					classID: query.classID,
 					siteID: siteIDs,
 					dateRanges,
 					frequency: query.frequency as "weekly" | "monthly",
 					validDays,
 					monthlyValidDays,
+					priceClass: query.priceClass,
 				});
 			} catch (err) {
 				const msg = (err as Error)?.message ?? "";
@@ -122,6 +123,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				frequency: t.String(),
 				validDays: t.Optional(t.String()),
 				monthlyValidDays: t.Optional(t.String()),
+				priceClass: t.Optional(t.String()),
 			}),
 		},
 	);

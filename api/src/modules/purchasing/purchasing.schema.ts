@@ -10,6 +10,8 @@ export interface RequirementsQuery {
 	validDays?: number;
 	/** JSON string of per-month valid days: { "YYYY-MM": number } */
 	monthlyValidDays?: string;
+	/** Price class to fetch prices for (e.g. "CP1", "COST"). Defaults to "CP1". */
+	priceClass?: string;
 }
 
 export interface DateRange {
@@ -51,13 +53,10 @@ export interface RequirementItem {
 	/** suggestedOrder converted to CS (cases) */
 	suggestedOrderCS: number;
 	customOrder: number | null;
-	/** Amount = (customOrder ?? suggestedOrderCS) × listPrice_perCS (computed server-side initially, overridden client-side on customOrder edit) */
+	/** Amount = (customOrder ?? suggestedOrderCS) × price_perCS (computed server-side initially, overridden client-side on customOrder edit) */
 	amount: number | null;
-	// Price enrichment (returned when prices are available for the item)
-	listPrice_ao?: string;
-	listPrice_perCS?: number;
-	listPrice_perStkUnit?: number;
-	costPrice_ao?: string;
-	costPrice_perCS?: number;
-	costPrice_perStkUnit?: number;
+	/** Price data for the requested price class (e.g. "CP1", "COST", or any dynamic class). */
+	price_ao?: string;
+	price_perCS?: number;
+	price_perStkUnit?: number;
 }
