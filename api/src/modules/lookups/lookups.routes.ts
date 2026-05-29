@@ -14,14 +14,14 @@ export const lookupsRoutes = new Elysia({ prefix: "/lookups" })
 	/**
 	 * GET /lookups — All reference data in one request.
 	 *
-	 * Returns sites, principals, and price classes in a single
-	 * paginated-free call. Data is cached for 5 minutes.
+	 * Returns sites, principals, price classes, and min-stock categories
+	 * in a single paginated-free call. Data is cached for 5 minutes.
 	 *
 	 * Frontends use this to populate dropdowns/autocompletes
-	 * instead of making 3 separate requests.
+	 * instead of making 4 separate requests.
 	 *
 	 * Response:
-	 *   { sites: Site[], principals: ProductClass[], priceClasses: string[] }
+	 *   { sites: Site[], principals: ProductClass[], priceClasses: string[], minStockCategories: MinStockCategory[] }
 	 */
 	.get("/", async ({ ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");

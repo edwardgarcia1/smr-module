@@ -499,26 +499,28 @@ const RequirementsPage: React.FC = () => {
 		[],
 	);
 
-	// ─── Fetch options (sites, principals, price classes) ────────────
+	// ─── Fetch all reference data via /lookups (single request) ──────
 	const [priceClasses, setPriceClasses] = useState<string[]>([]);
 
 	useEffect(() => {
 		let cancelled = false;
 		const fetchOptions = async () => {
 			try {
-				const [sites, principalList, pClasses] = await Promise.all([
-					apiRequest<{ SiteId: string; Name: string }[]>("/inventory"),
-					apiRequest<Principal[]>("/principal/ids"),
-					apiRequest<string[]>("/price/class"),
-				]);
-				if (!cancelled) {
+				const data = await apiRequest<{
+					sites: { SiteId: string; Name: string }[];
+					principals: Principal[];
+					priceClasses: string[];
+					minStockCategories: MinStockCategory[];
+				}>("/lookups");
+				if (!cancelled && data) {
 					setStorageLocations(
-						sites
+						data.sites
 							.filter((s) => ALLOWED_SITE_IDS.has(s.SiteId))
 							.map((s) => ({ id: s.SiteId, name: s.Name })),
 					);
-					setPrincipals(principalList);
-					setPriceClasses(pClasses ?? []);
+					setPrincipals(data.principals);
+					setPriceClasses(data.priceClasses ?? []);
+					setCategories(data.minStockCategories ?? []);
 				}
 			} catch {
 				// non-critical
@@ -541,21 +543,6 @@ const RequirementsPage: React.FC = () => {
 	const [categories, setCategories] = useState<MinStockCategory[]>([]);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 	const categoryOptions = useMemo(() => [...CATEGORY_NAMES], []);
-
-	// Fetch categories once on mount
-	useEffect(() => {
-		let cancelled = false;
-		apiRequest<MinStockCategory[]>("/min-stock/categories")
-			.then((data) => {
-				if (!cancelled) setCategories(data ?? []);
-			})
-			.catch(() => {
-				/* non-critical */
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
 
 	// ─── Compute per-month valid days from date ranges (weekly only) ──
 	useEffect(() => {
