@@ -18,16 +18,17 @@ import { LinearProgress, Box } from "@mui/material";
 // 1. Lazy Load Pages for better performance (Code Splitting)
 	const Login = lazy(() => import("./pages/Login"));
 	const Register = lazy(() => import("./pages/Register"));
-	const Home = lazy(() => import("./pages/Home"));
 	const Users = lazy(() => import("./pages/Users"));
 	const InventoryItems = lazy(() => import("./pages/InventoryItems"));
 	const Principals = lazy(() => import("./pages/Principals"));
-	const PurchaseOrders = lazy(() => import("./pages/PurchaseOrders"));
 	const Settings = lazy(() => import("./pages/Settings"));
 	const Profile = lazy(() => import("./pages/Profile"));
-	const PurchasingRequirements = lazy(() => import("./pages/RequirementsPage"));
-	const Prices = lazy(() => import("./pages/Prices"));
-const MinStock = lazy(() => import("./pages/MinStock"));
+// Eager-loaded pages for faster navigation from startup
+import Home from "./pages/Home";
+import PurchaseOrders from "./pages/PurchaseOrders";
+import PurchasingRequirements from "./pages/RequirementsPage";
+import Prices from "./pages/Prices";
+import MinStock from "./pages/MinStock";
 
 // 2. Map root paths to display labels for breadcrumb generation
 const ROOT_LABEL_MAP: Record<string, string> = {
@@ -172,11 +173,7 @@ const AppRoutes: React.FC = () => {
 				<Route element={<AuthenticatedLayout />}>
 					<Route
 						path="/"
-						element={
-							<AppSuspense>
-								<Home />
-							</AppSuspense>
-						}
+						element={<Home />}
 					/>
 				<Route
 					path="/users"
@@ -204,19 +201,11 @@ const AppRoutes: React.FC = () => {
 				/>
 				<Route
 					path="/purchase-orders"
-					element={
-						<AppSuspense>
-							<PurchaseOrders />
-						</AppSuspense>
-					}
+					element={<PurchaseOrders />}
 				/>
 				<Route
 					path="/purchasing-requirements"
-					element={
-						<AppSuspense>
-							<PurchasingRequirements />
-						</AppSuspense>
-					}
+					element={<PurchasingRequirements />}
 				/>
 <Route
 					path="/bundling-requirements"
@@ -224,19 +213,11 @@ const AppRoutes: React.FC = () => {
 				/>
 				<Route
 					path="/prices"
-					element={
-						<AppSuspense>
-							<Prices />
-						</AppSuspense>
-					}
+					element={<Prices />}
 				/>
 				<Route
 					path="/min-stock"
-					element={
-						<AppSuspense>
-							<MinStock />
-						</AppSuspense>
-					}
+					element={<MinStock />}
 				/>
 				<Route
 					path="/settings"
