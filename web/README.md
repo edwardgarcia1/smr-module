@@ -62,7 +62,7 @@ web/
 │   │   ├── Register.tsx          # Registration form with validation
 │   │   ├── Users.tsx             # User list (real API, superadmin only)
 │   │   ├── Profile.tsx           # User profile (real API)
-│   │   ├── Settings.tsx          # Dark mode toggle + monthly factor
+│   │   ├── Settings.tsx          # Dark mode toggle
 │   │   ├── InventoryItems.tsx    # Placeholder inventory item grid
 │   │   ├── Suppliers.tsx         # Placeholder supplier card grid
 │   │   ├── PurchaseOrders.tsx    # Placeholder PO tracker

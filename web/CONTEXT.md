@@ -67,7 +67,7 @@ actions: login(user), logout(), checkAuth(), setLoading(bool)
 ## Key Pages
 
 ### PurchasingRequirements (most complex)
-- Filter panel: principal selector (grouped by category color), inventory storage, price class, frequency, monthly factor, PO ref, date range.
+- Filter panel: principal selector (grouped by category color), inventory storage, price class, frequency, PO ref, date range.
 - DataGrid with dynamic columns (monthly demand per date range).
 - Row coloring by principal category (red/orange/blue).
 - Editable: Factor and Custom Order columns.
