@@ -133,7 +133,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 									options={principals}
 									value={selectedPrincipal}
 									onChange={(_, newVal) => onPrincipalChange(newVal)}
-									getOptionLabel={(option) => option.Descr}
+									getOptionLabel={(option) => `${option.ClassID} — ${option.Descr}`}
 									isOptionEqualToValue={(option, val) =>
 										option.ClassID === val.ClassID
 									}
