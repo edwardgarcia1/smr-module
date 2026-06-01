@@ -35,7 +35,6 @@ import {
 	DataGrid,
 	ColumnsPanelTrigger,
 	FilterPanelTrigger,
-	ExportPrint,
 	useGridApiRef,
 } from "@mui/x-data-grid";
 import type {
@@ -55,7 +54,6 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
-import PrintIcon from "@mui/icons-material/Print";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -2131,22 +2129,6 @@ const RequirementsPage: React.FC = () => {
 								Filters
 							</Box>
 						</FilterPanelTrigger>
-						<ExportPrint
-							size="small"
-							startIcon={<PrintIcon />}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-								color: "primary.main",
-							}}
-						>
-							<Box component="span" sx={labelSx}>
-								Print
-							</Box>
-						</ExportPrint>
 						<Tooltip title="Export to Excel">
 							<Button
 								size="small"
@@ -2170,7 +2152,6 @@ const RequirementsPage: React.FC = () => {
 							<Button
 								size="small"
 								color="primary"
-								variant="outlined"
 								startIcon={
 									isPdfExporting ? (
 										<CircularProgress size={14} thickness={2.5} />
@@ -2469,22 +2450,6 @@ const RequirementsPage: React.FC = () => {
 								Filters
 							</Box>
 						</FilterPanelTrigger>
-						<ExportPrint
-							size="small"
-							startIcon={<PrintIcon />}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-								color: "primary.main",
-							}}
-						>
-							<Box component="span" sx={labelSx}>
-								Print
-							</Box>
-						</ExportPrint>
 						<Tooltip title="Export to Excel">
 							<Button
 								size="small"
