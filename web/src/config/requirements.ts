@@ -23,6 +23,16 @@ export interface Principal {
 	ClassID: string;
 	Descr: string;
 	User5: string;
+	/** Vendor identifier (from Vendor table join) */
+	VendId?: string;
+	/** Vendor address line 1 */
+	VendorAddr1?: string;
+	/** Vendor address line 2 */
+	VendorAddr2?: string;
+	/** Vendor city */
+	VendorCity?: string;
+	/** Vendor payment terms */
+	VendorTerms?: string;
 }
 
 export interface StorageLocation {

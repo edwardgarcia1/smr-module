@@ -26,7 +26,7 @@ import {
 interface PurchasingToolbarProps {
 	apiRef: { current: { setColumnVisibilityModel: (model: Record<string, boolean>) => void } | null };
 	handleExcelExport: () => void;
-	handlePdfExport: () => void;
+	onOpenPdfDialog: () => void;
 	isPdfExporting: boolean;
 	darkMode: boolean;
 	frequency: string;
@@ -38,8 +38,6 @@ interface PurchasingToolbarProps {
 	setSelectedPriceClass: (val: string) => void;
 	selectedCategories: string[];
 	setSelectedCategories: (val: string[]) => void;
-	poReference: string;
-	setPoReference: (val: string) => void;
 	showDemandColumns: boolean;
 	setShowDemandColumns: (val: boolean) => void;
 	purchasingColumns: GridColDef[];
@@ -49,7 +47,7 @@ interface PurchasingToolbarProps {
 const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 	apiRef,
 	handleExcelExport,
-	handlePdfExport,
+	onOpenPdfDialog,
 	isPdfExporting,
 	darkMode,
 	frequency,
@@ -61,8 +59,6 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 	setSelectedPriceClass,
 	selectedCategories,
 	setSelectedCategories,
-	poReference,
-	setPoReference,
 	showDemandColumns,
 	setShowDemandColumns,
 	purchasingColumns,
@@ -158,7 +154,7 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 									<PictureAsPdfIcon />
 								)
 							}
-							onClick={handlePdfExport}
+							onClick={onOpenPdfDialog}
 							disabled={isPdfExporting}
 							sx={{
 								minWidth: "auto",
@@ -228,13 +224,6 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 					selectedCategories={selectedCategories}
 					onChange={setSelectedCategories}
 					getCategoryColor={getCategoryColor}
-				/>
-				<TextField
-					size="small"
-					label="PO Reference No."
-					value={poReference}
-					onChange={(e) => setPoReference(e.target.value)}
-					sx={{ width: 200, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 				/>
 				<Button
 					size="small"

@@ -17,6 +17,7 @@ import { useRequirements } from "../hooks/useRequirements";
 import FilterPanel from "../components/requirements/FilterPanel";
 import PurchasingToolbar from "../components/requirements/PurchasingToolbar";
 import BundlingToolbar from "../components/requirements/BundlingToolbar";
+import PoPdfExportDialog from "../components/requirements/PoPdfExportDialog";
 import {
 	purchasingGroupSelectors,
 	bundlingGroupSelectors,
@@ -56,10 +57,12 @@ const RequirementsPage: React.FC = () => {
 		// Handlers
 		handleApply, handleBulkMinStockApply, processRowUpdate, getRowClassName,
 		handleExcelExport, handlePdfExport,
+		// Dialog
+		pdfDialogOpen, openPdfDialog, closePdfDialog, logoOptions,
 		// Toolbar state
 		bulkMinStock, setBulkMinStock,
 		selectedPriceClass, setSelectedPriceClass,
-		poReference, setPoReference,
+		poReference,
 		showDemandColumns, setShowDemandColumns,
 		isPdfExporting,
 		priceClasses, selectedCategories, setSelectedCategories,
@@ -126,8 +129,8 @@ const RequirementsPage: React.FC = () => {
 						showToolbar
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						slots={{ toolbar: PurchasingToolbar as React.ComponentType<any> }}
-						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						slotProps={{ toolbar: { apiRef, handleExcelExport, handlePdfExport, isPdfExporting, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, poReference, setPoReference, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef } as any, pagination: { labelRowsPerPage: "Rows:" } }}
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					slotProps={{ toolbar: { apiRef, handleExcelExport, onOpenPdfDialog: openPdfDialog, isPdfExporting, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef } as any, pagination: { labelRowsPerPage: "Rows:" } }}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
 							sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
@@ -165,6 +168,19 @@ const RequirementsPage: React.FC = () => {
 						sx={buildBaseGridSx(darkMode, groupColors, bundlingGroupSelectors(groupColors))}
 					/>
 				</GridPaper>
+			)}
+
+			{/* ── PO PDF Export Dialog ─────────────────────────────── */}
+			{applied && mode === "purchasing" && (
+				<PoPdfExportDialog
+					key={`pdf-dialog-${pdfDialogOpen}`}
+					open={pdfDialogOpen}
+					onClose={closePdfDialog}
+					onExport={handlePdfExport}
+					initialValues={{ poReference }}
+					logoOptions={logoOptions}
+					isExporting={isPdfExporting}
+				/>
 			)}
 
 			{/* Scroll anchor for auto-scroll on apply */}

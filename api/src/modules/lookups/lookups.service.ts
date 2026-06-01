@@ -1,10 +1,10 @@
 import { getAllSites } from "../inventory/inventory.service";
-import { getAllProductClasses } from "../principal/principal.service";
+import { getProductClassesWithVendors } from "../principal/principal.service";
 import { getDistinctCatalogNbr } from "../price/price.service";
 import { getAllCategories } from "../min-stock/min-stock.service";
 import { withCache } from "../../utils/cache";
 import type { Site } from "../inventory/inventory.schema";
-import type { ProductClass } from "../principal/principal.schema";
+import type { ProductClassWithVendor } from "../principal/principal.schema";
 import type { MinStockCategory } from "../min-stock/min-stock.schema";
 
 /** Cache TTL for combined lookups: 5 minutes */
@@ -13,7 +13,7 @@ const CACHE_KEY = "lookups:all";
 
 export interface LookupsResponse {
 	sites: Site[];
-	principals: ProductClass[];
+	principals: ProductClassWithVendor[];
 	priceClasses: string[];
 	minStockCategories: MinStockCategory[];
 }
@@ -29,7 +29,7 @@ export async function getLookups(): Promise<LookupsResponse> {
 		const [sites, principals, priceClasses, minStockCategories] =
 			await Promise.all([
 				getAllSites(),
-				getAllProductClasses(),
+				getProductClassesWithVendors(),
 				getDistinctCatalogNbr(),
 				getAllCategories(),
 			]);

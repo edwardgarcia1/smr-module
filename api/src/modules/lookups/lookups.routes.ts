@@ -21,7 +21,7 @@ export const lookupsRoutes = new Elysia({ prefix: "/lookups" })
 	 * instead of making 4 separate requests.
 	 *
 	 * Response:
-	 *   { sites: Site[], principals: ProductClass[], priceClasses: string[], minStockCategories: MinStockCategory[] }
+	 *   { sites: Site[], principals: ProductClassWithVendor[], priceClasses: string[], minStockCategories: MinStockCategory[] }
 	 */
 	.get("/", async ({ ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");

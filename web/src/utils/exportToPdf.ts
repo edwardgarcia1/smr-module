@@ -31,6 +31,10 @@ export interface PurchaseOrderExportOptions {
 	poReference?: string;
 	/** Principal / supplier name displayed prominently in the header */
 	principalName?: string;
+	/** Principal address line 1 (replaces hardcoded COMPANY_ADDRESS_LINE1) */
+	principalAddress1?: string;
+	/** Principal address line 2 (replaces hardcoded COMPANY_ADDRESS_LINE2) */
+	principalAddress2?: string;
 	/** Date string (defaults to today) */
 	date?: string;
 	/** Terms (defaults to "30 days") */
@@ -39,13 +43,21 @@ export interface PurchaseOrderExportOptions {
 	attn?: string;
 	/** Note */
 	note?: string;
+	/** Prepared by name */
+	preparedBy?: string;
+	/** Endorsed by name */
+	endorsedBy?: string;
+	/** Checked by name */
+	checkedBy?: string;
+	/** Approved by name */
+	approvedBy?: string;
+	/** Noted by name */
+	notedBy?: string;
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 const COMPANY_NAME = "MLDI";
-const COMPANY_ADDRESS_LINE1 = "9 Temasek Boulevard, #24-01, Suntec Tower Two";
-const COMPANY_ADDRESS_LINE2 = "Singapore 038989";
 
 // ─── Main Export ─────────────────────────────────────────────────────────────
 
@@ -74,10 +86,17 @@ export async function exportPurchaseOrderToPdf(
 		logoBuffer,
 		poReference,
 		principalName,
+		principalAddress1 = "",
+		principalAddress2 = "",
 		date,
 		terms = "30 days",
 		attn = "",
 		note = "",
+		preparedBy = "",
+		endorsedBy = "",
+		checkedBy = "",
+		approvedBy = "",
+		notedBy = "",
 	} = options ?? {};
 
 	const workbook = new Workbook();
@@ -91,25 +110,50 @@ export async function exportPurchaseOrderToPdf(
 			: logoBuffer
 		: undefined;
 
+	let imageBuffer: Uint8Array | undefined;
 	if (rawLogoBuffer) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		logoImageId = workbook.addImage({
-			name: "logo",
-			extension: "jpeg",
-			buffer: rawLogoBuffer,
-		} as any);
+		imageBuffer = rawLogoBuffer;
 	} else if (logoUrl) {
 		try {
 			const resp = await fetch(logoUrl);
 			const ab = await resp.arrayBuffer();
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			logoImageId = workbook.addImage({
-				name: "logo",
-				extension: "jpeg",
-				buffer: new Uint8Array(ab),
-			} as any);
+			imageBuffer = new Uint8Array(ab);
 		} catch {
 			// Silently skip logo on fetch failure
+		}
+	}
+
+	// Compute image dimensions for aspect-ratio-aware rendering
+	let logoExtWidth = 300;
+	let logoExtHeight = 100;
+	if (imageBuffer) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		(logoImageId as any) = (workbook as any).addImage({
+			name: "logo",
+			extension: "jpeg",
+			buffer: imageBuffer,
+		});
+
+		try {
+			const blob = new Blob([imageBuffer], { type: "image/jpeg" });
+			const blobUrl = URL.createObjectURL(blob);
+			const img = new Image();
+			img.src = blobUrl;
+			await img.decode();
+			URL.revokeObjectURL(blobUrl);
+
+			const aspectRatio = img.naturalWidth / img.naturalHeight;
+			const maxW = 300;
+			const maxH = 100;
+			if (aspectRatio > maxW / maxH) {
+				logoExtWidth = maxW;
+				logoExtHeight = Math.round(maxW / aspectRatio);
+			} else {
+				logoExtHeight = maxH;
+				logoExtWidth = Math.round(maxH * aspectRatio);
+			}
+		} catch {
+			// Fall back to hardcoded dimensions
 		}
 	}
 
@@ -133,7 +177,7 @@ export async function exportPurchaseOrderToPdf(
 	if (logoImageId != null) {
 		ws.addImage(logoImageId, {
 			tl: { col: 0, row: 0 },
-			ext: { width: 110, height: 80 },
+			ext: { width: logoExtWidth, height: logoExtHeight },
 		});
 	}
 
@@ -167,11 +211,10 @@ export async function exportPurchaseOrderToPdf(
 	ws.mergeCells(rowNum, 5, rowNum, NUM_COLS);
 	ws.getRow(rowNum).height = 30;
 
-	// Row 3: Empty spacer
-	rowNum++;
-
-	// Row 4: Extra spacer
-	rowNum++;
+	// Spacers to clear the logo (now up to 300px wide, ~100px tall)
+	for (let i = 0; i < 4; i++) {
+		rowNum++;
+	}
 
 	// ── 2. Principal Name (where "PURCHASE ORDER" title used to be) ────
 	ws.getCell(rowNum, 1).value = principalName || "";
@@ -180,15 +223,17 @@ export async function exportPurchaseOrderToPdf(
 	ws.mergeCells(rowNum, 1, rowNum, NUM_COLS);
 	rowNum++;
 
-	// Row 4: Address line 1
-	ws.getCell(rowNum, 1).value = COMPANY_ADDRESS_LINE1;
-	ws.getCell(rowNum, 1).font = headerSmall;
-	rowNum++;
-
-	// Row 5: Address line 2
-	ws.getCell(rowNum, 1).value = COMPANY_ADDRESS_LINE2;
-	ws.getCell(rowNum, 1).font = headerSmall;
-	rowNum++;
+	// Principal address (from vendor data joined in /lookups)
+	if (principalAddress1) {
+		ws.getCell(rowNum, 1).value = principalAddress1;
+		ws.getCell(rowNum, 1).font = headerSmall;
+		rowNum++;
+	}
+	if (principalAddress2) {
+		ws.getCell(rowNum, 1).value = principalAddress2;
+		ws.getCell(rowNum, 1).font = headerSmall;
+		rowNum++;
+	}
 
 	// Row 6: Empty spacer
 	rowNum++;
@@ -382,11 +427,11 @@ export async function exportPurchaseOrderToPdf(
 	rowNum++; // spacer
 
 	const signatureLabels = [
-		"Prepared by:",
-		"Checked by:",
-		"Noted by:",
-		"Endorsed by:",
-		"Approved by:",
+		{ label: "Prepared by:", value: preparedBy ? `  ${preparedBy}` : "" },
+		{ label: "Checked by:", value: checkedBy ? `  ${checkedBy}` : "" },
+		{ label: "Noted by:", value: notedBy ? `  ${notedBy}` : "" },
+		{ label: "Endorsed by:", value: endorsedBy ? `  ${endorsedBy}` : "" },
+		{ label: "Approved by:", value: approvedBy ? `  ${approvedBy}` : "" },
 	];
 
 	// Signature labels in columns 1-3, names/signatures in columns 4-6
@@ -394,8 +439,9 @@ export async function exportPurchaseOrderToPdf(
 	for (let i = 0; i < signatureLabels.length; i++) {
 		const c = i < 3 ? 1 : 4;
 		const r = i < 3 ? rowNum + i : rowNum + i - 3;
+		const s = signatureLabels[i];
 
-		ws.getCell(r, c).value = signatureLabels[i];
+		ws.getCell(r, c).value = s.label + s.value;
 		ws.getCell(r, c).font = { size: 10, name: "Calibri" };
 		ws.getCell(r, c).alignment = { vertical: "middle" };
 		if (halfCols > 1) {
