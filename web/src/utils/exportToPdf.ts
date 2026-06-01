@@ -267,7 +267,7 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── 4. Table header ────────────────────────────────────────────────
 	const headerLabels = [
-		"3M Stock No.",
+		"ID",
 		"PRODUCT DESCRIPTION",
 		"Units Per CS",
 		"Transfer Price\nwithout VAT",
