@@ -187,7 +187,10 @@ export async function exportPurchaseOrderToPdf(
 
 	ws.getCell(rowNum, 4).value = "PURCHASE ORDER";
 	ws.getCell(rowNum, 4).font = { bold: true, size: 16, name: "Calibri" };
-	ws.getCell(rowNum, 4).alignment = { horizontal: "center", vertical: "middle" };
+	ws.getCell(rowNum, 4).alignment = {
+		horizontal: "center",
+		vertical: "middle",
+	};
 	ws.mergeCells(rowNum, 4, rowNum, NUM_COLS);
 	rowNum++;
 
@@ -201,12 +204,18 @@ export async function exportPurchaseOrderToPdf(
 
 	ws.getCell(rowNum, 4).value = "P.O. #";
 	ws.getCell(rowNum, 4).font = { bold: true, size: 16, name: "Calibri" };
-	ws.getCell(rowNum, 4).alignment = { horizontal: "center", vertical: "middle" };
+	ws.getCell(rowNum, 4).alignment = {
+		horizontal: "center",
+		vertical: "middle",
+	};
 	ws.getCell(rowNum, 4).border = thickBorder;
 
 	ws.getCell(rowNum, 5).value = poNum;
 	ws.getCell(rowNum, 5).font = { size: 16, name: "Calibri" };
-	ws.getCell(rowNum, 5).alignment = { horizontal: "center", vertical: "middle" };
+	ws.getCell(rowNum, 5).alignment = {
+		horizontal: "center",
+		vertical: "middle",
+	};
 	ws.getCell(rowNum, 5).border = thickBorder;
 	ws.mergeCells(rowNum, 5, rowNum, NUM_COLS);
 	ws.getRow(rowNum).height = 30;
@@ -218,7 +227,12 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── 2. Principal Name (where "PURCHASE ORDER" title used to be) ────
 	ws.getCell(rowNum, 1).value = principalName || "";
-	ws.getCell(rowNum, 1).font = { bold: true, size: 12, name: "Calibri", underline: "double" };
+	ws.getCell(rowNum, 1).font = {
+		bold: true,
+		size: 12,
+		name: "Calibri",
+		underline: "double",
+	};
 	ws.getCell(rowNum, 1).alignment = { horizontal: "left", vertical: "middle" };
 	ws.mergeCells(rowNum, 1, rowNum, NUM_COLS);
 	rowNum++;
@@ -254,11 +268,17 @@ export async function exportPurchaseOrderToPdf(
 	for (const f of infoLabels) {
 		ws.getCell(rowNum, 1).value = f.label;
 		ws.getCell(rowNum, 1).font = infoLabelFont;
-		ws.getCell(rowNum, 1).alignment = { horizontal: "left", vertical: "middle" };
+		ws.getCell(rowNum, 1).alignment = {
+			horizontal: "left",
+			vertical: "middle",
+		};
 
 		ws.getCell(rowNum, 2).value = f.value;
 		ws.getCell(rowNum, 2).font = infoValueFont;
-		ws.getCell(rowNum, 2).alignment = { horizontal: "left", vertical: "middle" };
+		ws.getCell(rowNum, 2).alignment = {
+			horizontal: "left",
+			vertical: "middle",
+		};
 		rowNum++;
 	}
 
@@ -306,35 +326,53 @@ export async function exportPurchaseOrderToPdf(
 		// PKG / Stock No. (column 1)
 		ws.getCell(rowIdx, PKG_COL).value = row.invtID;
 		ws.getCell(rowIdx, PKG_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, PKG_COL).alignment = { horizontal: "left", vertical: "middle" };
+		ws.getCell(rowIdx, PKG_COL).alignment = {
+			horizontal: "left",
+			vertical: "middle",
+		};
 
 		// PRODUCT DESCRIPTION (column 2)
 		ws.getCell(rowIdx, DESC_COL).value = row.descr;
 		ws.getCell(rowIdx, DESC_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, DESC_COL).alignment = { horizontal: "left", vertical: "middle" };
+		ws.getCell(rowIdx, DESC_COL).alignment = {
+			horizontal: "left",
+			vertical: "middle",
+		};
 
 		// Units Per CS (column 3) — qtyPerCS
 		ws.getCell(rowIdx, CS_COL).value = row.qtyPerCS;
 		ws.getCell(rowIdx, CS_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, CS_COL).alignment = { horizontal: "center", vertical: "middle" };
+		ws.getCell(rowIdx, CS_COL).alignment = {
+			horizontal: "center",
+			vertical: "middle",
+		};
 
 		// Transfer Price / Per CS (column 4)
 		ws.getCell(rowIdx, QTY_COL).value = row.price_perCS ?? 0;
 		ws.getCell(rowIdx, QTY_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, QTY_COL).alignment = { horizontal: "right", vertical: "middle" };
+		ws.getCell(rowIdx, QTY_COL).alignment = {
+			horizontal: "right",
+			vertical: "middle",
+		};
 		ws.getCell(rowIdx, QTY_COL).numFmt = "#,##0.00";
 
 		// QTY (CS) (column 5) — finalOrderCS
 		const qty = row.finalOrderCS ?? 0;
 		ws.getCell(rowIdx, U_PRICE_COL).value = qty;
 		ws.getCell(rowIdx, U_PRICE_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, U_PRICE_COL).alignment = { horizontal: "right", vertical: "middle" };
+		ws.getCell(rowIdx, U_PRICE_COL).alignment = {
+			horizontal: "right",
+			vertical: "middle",
+		};
 
 		// Amount (column 6)
 		const amt = row.amount ?? 0;
 		ws.getCell(rowIdx, AMOUNT_COL).value = amt;
 		ws.getCell(rowIdx, AMOUNT_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, AMOUNT_COL).alignment = { horizontal: "right", vertical: "middle" };
+		ws.getCell(rowIdx, AMOUNT_COL).alignment = {
+			horizontal: "right",
+			vertical: "middle",
+		};
 		ws.getCell(rowIdx, AMOUNT_COL).numFmt = "#,##0.00";
 
 		// Row height for vertical spacing
@@ -363,6 +401,34 @@ export async function exportPurchaseOrderToPdf(
 
 	// Empty spacer
 	rowNum++;
+
+	// ── Conditional page break before summary group ──────────────────────
+	// If the estimated remaining space on the current page is less than the
+	// summary group height (~80pt), force a break so all 4 totals stay
+	// together on the next page.  The library's auto-pagination can split
+	// the group when there's just enough room for Total Amount but not for
+	// the remaining rows, so we pre-empt that scenario.
+	//
+	// These constants must match the excelToPdf call below:
+	//   pageSize: "Letter" (792pt), margins: ±20pt, showPageNumbers (+20pt footer)
+	//   => available height = 792 - 20 - 20 - 20 = 732pt
+	// Data-row height is explicitly set to 26pt.  Non-data rows (header,
+	// principal, info, table header) are conservatively estimated at ~200pt.
+	{
+		const AVAIL_PT = 737;
+		const HEADER_EST_PT = 200;
+		const DATA_ROW_PT = 26;
+		const SUMMARY_HT_PT = 80; // 3×18pt + 1×26pt
+		const BUFFER_PT = 10;
+
+		const totalPt = HEADER_EST_PT + rows.length * DATA_ROW_PT;
+		const usedOnPage = totalPt % AVAIL_PT;
+		const remainPt = usedOnPage === 0 ? 0 : AVAIL_PT - usedOnPage;
+
+		if (remainPt < SUMMARY_HT_PT + BUFFER_PT) {
+			ws.getRow(rowNum - 1).addPageBreak();
+		}
+	}
 
 	// ── Total Amount row (QTY sum under col 5, Amount sum under col 6) ─
 	ws.getCell(rowNum, 4).value = "Total Amount";
@@ -425,6 +491,27 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── 7. Signature block ─────────────────────────────────────────────
 	rowNum++; // spacer
+
+	// ── Conditional page break before signature block ────────────────────
+	// Same logic as the summary group: if the estimated remaining space is
+	// insufficient for all 5 signature fields, force a break so they stay
+	// together.  Estimate includes the summary group height (~80pt).
+	{
+		const AVAIL_PT = 732;
+		const HEADER_EST_PT = 200;
+		const DATA_ROW_PT = 26;
+		const SUMMARY_HT_PT = 80;
+		const SIG_HT_PT = 150; // 5 signatories × 2 visible rows × 15pt
+		const BUFFER_PT = 10;
+
+		const totalPt = HEADER_EST_PT + rows.length * DATA_ROW_PT + SUMMARY_HT_PT;
+		const usedOnPage = totalPt % AVAIL_PT;
+		const remainPt = usedOnPage === 0 ? 0 : AVAIL_PT - usedOnPage;
+
+		if (remainPt < SIG_HT_PT + BUFFER_PT) {
+			ws.getRow(rowNum - 1).addPageBreak();
+		}
+	}
 
 	/**
 	 * Signature block layout (each field takes 2 rows: label + indented value):
@@ -515,5 +602,3 @@ export async function exportPurchaseOrderToPdf(
 
 	return pdfBuffer;
 }
-
-
