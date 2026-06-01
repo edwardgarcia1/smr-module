@@ -510,6 +510,7 @@ export async function exportPurchaseOrderToPdf(
 			bottom: 20,
 			left: 20,
 		},
+		showPageNumbers: true,
 	});
 
 	return pdfBuffer;
