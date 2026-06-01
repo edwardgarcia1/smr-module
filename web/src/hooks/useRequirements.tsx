@@ -826,20 +826,21 @@ export function useRequirements(): UseRequirementsReturn {
 				rowsToExport.push(...filteredPurchasingRows.map((r) => r as Record<string, unknown>));
 			}
 
-			const poRows: PurchaseOrderExportRow[] = rowsToExport
-				.map((r) => {
-					const finalQty = r.customOrder != null ? Number(r.customOrder) : r.suggestedOrderCS != null ? Number(r.suggestedOrderCS) : 0;
-					const price = r.price_perCS != null ? Number(r.price_perCS) : null;
-					return {
-						invtID: String(r.invtID ?? ""),
-						descr: String(r.descr ?? ""),
-						qtyPerCS: Number(r.qtyPerCS) || 0,
-						price_perCS: price,
-						finalOrderCS: finalQty,
-						amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
-					};
-				})
-				.filter((r) => r.finalOrderCS !== 0);
+		const poRows: PurchaseOrderExportRow[] = rowsToExport
+			.map((r) => {
+				const rawFinalQty = r.customOrder != null ? Number(r.customOrder) : r.suggestedOrderCS != null ? Number(r.suggestedOrderCS) : 0;
+				const finalQty = Math.round(rawFinalQty);
+				const price = r.price_perCS != null ? Number(r.price_perCS) : null;
+				return {
+					invtID: String(r.invtID ?? ""),
+					descr: String(r.descr ?? ""),
+					qtyPerCS: Number(r.qtyPerCS) || 0,
+					price_perCS: price,
+					finalOrderCS: finalQty,
+					amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
+				};
+			})
+			.filter((r) => r.finalOrderCS !== 0);
 
 			const dt = dayjs().format("YYYYMMDD_HHmmss");
 			const storageIDs = selectedStorage.map((s) => s.id).join("-");
