@@ -29,6 +29,8 @@ export interface PurchaseOrderExportOptions {
 	logoBuffer?: ArrayBuffer | Uint8Array | null;
 	/** PO reference number (defaults to auto-generated) */
 	poReference?: string;
+	/** Principal / supplier name displayed prominently in the header */
+	principalName?: string;
 	/** Date string (defaults to today) */
 	date?: string;
 	/** Terms (defaults to "30 days") */
@@ -50,9 +52,9 @@ const COMPANY_ADDRESS_LINE2 = "Singapore 038989";
 /**
  * Generate a Purchase Order PDF from DataGrid rows.
  *
- * Layout matches `sample_3MP_PO.pdf`:
- *   1. Logo (top-right) + Company info
- *   2. Title "PURCHASE ORDER" + PO number
+ * Layout:
+ *   1. Logo (top-left) + Company info (left) + "PURCHASE ORDER" (right)
+ *   2. Principal name
  *   3. Info fields: Date, Terms, Attn, Note
  *   4. Table with mapped columns
  *   5. Summary row (total / VAT / grand total)
@@ -71,6 +73,7 @@ export async function exportPurchaseOrderToPdf(
 	const {
 		logoBuffer,
 		poReference,
+		principalName,
 		date,
 		terms = "30 days",
 		attn = "",
@@ -112,83 +115,107 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── Layout constants ───────────────────────────────────────────────
 	const PKG_COL = 1;
-	const CS_COL = 2;
-	const DESC_COL = 3;
+	const DESC_COL = 2;
+	const CS_COL = 3;
 	const QTY_COL = 4;
 	const U_PRICE_COL = 5;
 	const AMOUNT_COL = 6;
 	const NUM_COLS = 6;
 
+	const poNum = poReference || `PO-${dayjs().format("YYYYMMDD-HHmmss")}`;
+	const headerSmall = { size: 9, name: "Calibri", color: { argb: "FF555555" } };
+
 	// ── Row pointer ────────────────────────────────────────────────────
 	let rowNum = 1;
 
-	// ── 1. Company header (logo + name) ────────────────────────────────
+	// ── 1. Company header ──────────────────────────────────────────────
+	// Logo on the left (was top-right)
 	if (logoImageId != null) {
-		// Place logo in top-right
 		ws.addImage(logoImageId, {
-			tl: { col: 5, row: 0 },
-			ext: { width: 180, height: 60 },
+			tl: { col: 0, row: 0 },
+			ext: { width: 110, height: 80 },
 		});
 	}
 
-	// Row 1: Company name (left side)
+	// Row 1: Company name (left)  +  PURCHASE ORDER (right)
 	ws.getCell(rowNum, 1).value = COMPANY_NAME;
 	ws.getCell(rowNum, 1).font = { bold: true, size: 16, name: "Calibri" };
+
+	ws.getCell(rowNum, 4).value = "PURCHASE ORDER";
+	ws.getCell(rowNum, 4).font = { bold: true, size: 16, name: "Calibri" };
+	ws.getCell(rowNum, 4).alignment = { horizontal: "center", vertical: "middle" };
+	ws.mergeCells(rowNum, 4, rowNum, NUM_COLS);
 	rowNum++;
 
-	// Row 2: Address line 1
+	// Row 2: PO number (small table with border)
+	const thickBorder = {
+		top: { style: "thick", color: { argb: "FF000000" } },
+		bottom: { style: "thick", color: { argb: "FF000000" } },
+		left: { style: "thick", color: { argb: "FF000000" } },
+		right: { style: "thick", color: { argb: "FF000000" } },
+	};
+
+	ws.getCell(rowNum, 4).value = "P.O. #";
+	ws.getCell(rowNum, 4).font = { bold: true, size: 16, name: "Calibri" };
+	ws.getCell(rowNum, 4).alignment = { horizontal: "center", vertical: "middle" };
+	ws.getCell(rowNum, 4).border = thickBorder;
+
+	ws.getCell(rowNum, 5).value = poNum;
+	ws.getCell(rowNum, 5).font = { size: 16, name: "Calibri" };
+	ws.getCell(rowNum, 5).alignment = { horizontal: "center", vertical: "middle" };
+	ws.getCell(rowNum, 5).border = thickBorder;
+	ws.mergeCells(rowNum, 5, rowNum, NUM_COLS);
+	ws.getRow(rowNum).height = 30;
+
+	// Row 3: Empty spacer
+	rowNum++;
+
+	// Row 4: Extra spacer
+	rowNum++;
+
+	// ── 2. Principal Name (where "PURCHASE ORDER" title used to be) ────
+	ws.getCell(rowNum, 1).value = principalName || "";
+	ws.getCell(rowNum, 1).font = { bold: true, size: 12, name: "Calibri", underline: "double" };
+	ws.getCell(rowNum, 1).alignment = { horizontal: "left", vertical: "middle" };
+	ws.mergeCells(rowNum, 1, rowNum, NUM_COLS);
+	rowNum++;
+
+	// Row 4: Address line 1
 	ws.getCell(rowNum, 1).value = COMPANY_ADDRESS_LINE1;
-	ws.getCell(rowNum, 1).font = { size: 9, name: "Calibri", color: { argb: "FF555555" } };
+	ws.getCell(rowNum, 1).font = headerSmall;
 	rowNum++;
 
-	// Row 3: Address line 2
+	// Row 5: Address line 2
 	ws.getCell(rowNum, 1).value = COMPANY_ADDRESS_LINE2;
-	ws.getCell(rowNum, 1).font = { size: 9, name: "Calibri", color: { argb: "FF555555" } };
+	ws.getCell(rowNum, 1).font = headerSmall;
 	rowNum++;
 
-	// Row 4: Empty spacer
+	// Row 6: Empty spacer
 	rowNum++;
 
-	// ── 2. Title + PO number ───────────────────────────────────────────
-	const poNum = poReference || `PO-${dayjs().format("YYYYMMDD-HHmmss")}`;
-	ws.getCell(rowNum, 1).value = "PURCHASE ORDER";
-	ws.getCell(rowNum, 1).font = { bold: true, size: 14, name: "Calibri" };
-	ws.getCell(rowNum, 1).alignment = { horizontal: "center", vertical: "middle" };
-	ws.mergeCells(rowNum, 1, rowNum, NUM_COLS);
-	rowNum++;
-
-	// PO number row
-	ws.getCell(rowNum, 1).value = `P.O. # ${poNum}`;
-	ws.getCell(rowNum, 1).font = { bold: true, size: 11, name: "Calibri" };
-	ws.getCell(rowNum, 1).alignment = { horizontal: "center", vertical: "middle" };
-	ws.mergeCells(rowNum, 1, rowNum, NUM_COLS);
-	rowNum++;
-
-	// ── 3. Info fields ─────────────────────────────────────────────────
+	// ── 3. Info fields (all on left, values tab-aligned) ────────────────
 	const todayStr = date
 		? dayjs(date).format("MMMM D, YYYY")
 		: dayjs().format("MMMM D, YYYY");
+	const infoLabelFont = { bold: true, size: 10, name: "Calibri" };
 	const infoValueFont = { size: 10, name: "Calibri" };
 
-	// NOTE field (full width, top)
-	ws.getCell(rowNum, 1).value = `DATE: ${todayStr}`;
-	ws.getCell(rowNum, 1).font = infoValueFont;
-	ws.mergeCells(rowNum, 1, rowNum, 3);
+	const infoLabels = [
+		{ label: "DATE:", value: todayStr },
+		{ label: "TERMS:", value: terms },
+		{ label: "ATTN:", value: attn || "______________________" },
+		{ label: "NOTE:", value: note || "Full Case" },
+	];
+	for (const f of infoLabels) {
+		ws.getCell(rowNum, 1).value = f.label;
+		ws.getCell(rowNum, 1).font = infoLabelFont;
+		ws.getCell(rowNum, 1).alignment = { horizontal: "left", vertical: "middle" };
 
-	ws.getCell(rowNum, 4).value = `TERMS: ${terms}`;
-	ws.getCell(rowNum, 4).font = infoValueFont;
-	ws.mergeCells(rowNum, 4, rowNum, NUM_COLS);
-	rowNum++;
-
-	// ATTN field
-	ws.getCell(rowNum, 1).value = `ATTN: ${attn || "______________________"}`;
-	ws.getCell(rowNum, 1).font = infoValueFont;
-	ws.mergeCells(rowNum, 1, rowNum, 3);
-
-	ws.getCell(rowNum, 4).value = `NOTE: ${note || "Full Case"}`;
-	ws.getCell(rowNum, 4).font = infoValueFont;
-	ws.mergeCells(rowNum, 4, rowNum, NUM_COLS);
-	rowNum++;
+		ws.getCell(rowNum, 2).value = f.value;
+		ws.getCell(rowNum, 2).font = infoValueFont;
+		ws.getCell(rowNum, 2).alignment = { horizontal: "left", vertical: "middle" };
+		rowNum++;
+	}
 
 	// Empty spacer
 	rowNum++;
@@ -196,13 +223,14 @@ export async function exportPurchaseOrderToPdf(
 	// ── 4. Table header ────────────────────────────────────────────────
 	const headerLabels = [
 		"3M Stock No.",
-		"CS",
 		"PRODUCT DESCRIPTION",
-		"QTY",
+		"Units Per CS",
 		"Transfer Price\nwithout VAT",
+		"QTY (CS)",
 		"Amount",
 	];
 
+	ws.getRow(rowNum).height = 32;
 	for (let c = 1; c <= NUM_COLS; c++) {
 		const cell = ws.getCell(rowNum, c);
 		cell.value = headerLabels[c - 1];
@@ -235,27 +263,27 @@ export async function exportPurchaseOrderToPdf(
 		ws.getCell(rowIdx, PKG_COL).font = { size: 10, name: "Calibri" };
 		ws.getCell(rowIdx, PKG_COL).alignment = { horizontal: "left", vertical: "middle" };
 
-		// CS (column 2) — qtyPerCS
-		ws.getCell(rowIdx, CS_COL).value = row.qtyPerCS;
-		ws.getCell(rowIdx, CS_COL).font = { size: 10, name: "Calibri" };
-		ws.getCell(rowIdx, CS_COL).alignment = { horizontal: "center", vertical: "middle" };
-
-		// PRODUCT DESCRIPTION (column 3)
+		// PRODUCT DESCRIPTION (column 2)
 		ws.getCell(rowIdx, DESC_COL).value = row.descr;
 		ws.getCell(rowIdx, DESC_COL).font = { size: 10, name: "Calibri" };
 		ws.getCell(rowIdx, DESC_COL).alignment = { horizontal: "left", vertical: "middle" };
 
-		// QTY (column 4) — finalOrderCS
-		const qty = row.finalOrderCS ?? 0;
-		ws.getCell(rowIdx, QTY_COL).value = qty;
+		// Units Per CS (column 3) — qtyPerCS
+		ws.getCell(rowIdx, CS_COL).value = row.qtyPerCS;
+		ws.getCell(rowIdx, CS_COL).font = { size: 10, name: "Calibri" };
+		ws.getCell(rowIdx, CS_COL).alignment = { horizontal: "center", vertical: "middle" };
+
+		// Transfer Price / Per CS (column 4)
+		ws.getCell(rowIdx, QTY_COL).value = row.price_perCS ?? 0;
 		ws.getCell(rowIdx, QTY_COL).font = { size: 10, name: "Calibri" };
 		ws.getCell(rowIdx, QTY_COL).alignment = { horizontal: "right", vertical: "middle" };
+		ws.getCell(rowIdx, QTY_COL).numFmt = "#,##0.00";
 
-		// Transfer Price / Per CS (column 5)
-		ws.getCell(rowIdx, U_PRICE_COL).value = row.price_perCS ?? 0;
+		// QTY (CS) (column 5) — finalOrderCS
+		const qty = row.finalOrderCS ?? 0;
+		ws.getCell(rowIdx, U_PRICE_COL).value = qty;
 		ws.getCell(rowIdx, U_PRICE_COL).font = { size: 10, name: "Calibri" };
 		ws.getCell(rowIdx, U_PRICE_COL).alignment = { horizontal: "right", vertical: "middle" };
-		ws.getCell(rowIdx, U_PRICE_COL).numFmt = "#,##0.00";
 
 		// Amount (column 6)
 		const amt = row.amount ?? 0;
@@ -263,6 +291,9 @@ export async function exportPurchaseOrderToPdf(
 		ws.getCell(rowIdx, AMOUNT_COL).font = { size: 10, name: "Calibri" };
 		ws.getCell(rowIdx, AMOUNT_COL).alignment = { horizontal: "right", vertical: "middle" };
 		ws.getCell(rowIdx, AMOUNT_COL).numFmt = "#,##0.00";
+
+		// Row height for vertical spacing
+		ws.getRow(rowIdx).height = 26;
 
 		// Borders for data rows
 		for (let c = 1; c <= NUM_COLS; c++) {
@@ -274,56 +305,77 @@ export async function exportPurchaseOrderToPdf(
 		rowNum++;
 	}
 
-	// ── 6. Summary rows ────────────────────────────────────────────────
+	// ── 6. Summary rows (invisible table — no borders) ──────────────────
 	const totalAmount = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+	const totalQty = rows.reduce((sum, r) => sum + (r.finalOrderCS ?? 0), 0);
 	const vatAmount = Math.round(totalAmount * 0.12 * 100) / 100;
 	const grandTotal = totalAmount + vatAmount;
 	// LP (List Price) = total × 1.2 markup, then × 1.12 VAT = × 1.344
 	const lpTotal = Math.round(totalAmount * 1.2 * 100) / 100;
 
+	const summaryFont = { size: 10, name: "Calibri" };
+	const summaryFontBold = { bold: true, size: 10, name: "Calibri" };
+
 	// Empty spacer
 	rowNum++;
 
-	// Total Amount row
-	ws.getCell(rowNum, 1).value = "Total Amount";
-	ws.getCell(rowNum, 1).font = { bold: true, size: 10, name: "Calibri" };
-	ws.mergeCells(rowNum, 1, rowNum, 4);
-	ws.getCell(rowNum, 5).value = "";
+	// ── Total Amount row (QTY sum under col 5, Amount sum under col 6) ─
+	ws.getCell(rowNum, 4).value = "Total Amount";
+	ws.getCell(rowNum, 4).font = summaryFontBold;
+	ws.getCell(rowNum, 4).alignment = { horizontal: "right", vertical: "middle" };
+
+	ws.getCell(rowNum, 5).value = totalQty;
+	ws.getCell(rowNum, 5).font = summaryFont;
+	ws.getCell(rowNum, 5).alignment = { horizontal: "right", vertical: "middle" };
+
 	ws.getCell(rowNum, 6).value = totalAmount;
-	ws.getCell(rowNum, 6).font = { bold: true, size: 10, name: "Calibri" };
+	ws.getCell(rowNum, 6).font = summaryFontBold;
 	ws.getCell(rowNum, 6).alignment = { horizontal: "right", vertical: "middle" };
 	ws.getCell(rowNum, 6).numFmt = "#,##0.00";
+	ws.getRow(rowNum).height = 18;
 	rowNum++;
 
-	// VAT row
-	ws.getCell(rowNum, 1).value = "VAT 12%";
-	ws.getCell(rowNum, 1).font = { size: 10, name: "Calibri" };
-	ws.mergeCells(rowNum, 1, rowNum, 4);
-	ws.getCell(rowNum, 5).value = "";
+	// ── VAT row ────────────────────────────────────────────────────────
+	ws.getCell(rowNum, 4).value = "VAT 12%";
+	ws.getCell(rowNum, 4).font = summaryFont;
+	ws.getCell(rowNum, 4).alignment = { horizontal: "right", vertical: "middle" };
+
 	ws.getCell(rowNum, 6).value = vatAmount;
-	ws.getCell(rowNum, 6).font = { size: 10, name: "Calibri" };
+	ws.getCell(rowNum, 6).font = summaryFont;
 	ws.getCell(rowNum, 6).alignment = { horizontal: "right", vertical: "middle" };
 	ws.getCell(rowNum, 6).numFmt = "#,##0.00";
+	ws.getRow(rowNum).height = 18;
 	rowNum++;
 
-	// Total Amount w/ VAT
-	ws.getCell(rowNum, 1).value = "Total Amount w/ VAT";
-	ws.getCell(rowNum, 1).font = { bold: true, size: 10, name: "Calibri" };
-	ws.mergeCells(rowNum, 1, rowNum, 4);
+	// ── Total Amount w/ VAT ────────────────────────────────────────────
+	ws.getCell(rowNum, 4).value = "Total w/ VAT";
+	ws.getCell(rowNum, 4).font = summaryFontBold;
+	ws.getCell(rowNum, 4).alignment = { horizontal: "right", vertical: "middle" };
+
 	ws.getCell(rowNum, 6).value = grandTotal;
-	ws.getCell(rowNum, 6).font = { bold: true, size: 10, name: "Calibri" };
+	ws.getCell(rowNum, 6).font = summaryFontBold;
 	ws.getCell(rowNum, 6).alignment = { horizontal: "right", vertical: "middle" };
 	ws.getCell(rowNum, 6).numFmt = "#,##0.00";
+	ws.getRow(rowNum).height = 18;
+
+	// Double line separator before Total @ LP
+	for (let c = 4; c <= 6; c++) {
+		ws.getCell(rowNum, c).border = {
+			bottom: { style: "double", color: { argb: "FF000000" } },
+		};
+	}
 	rowNum++;
 
-	// Total @ LP
-	ws.getCell(rowNum, 1).value = "Total Amount @ LP:";
-	ws.getCell(rowNum, 1).font = { size: 10, name: "Calibri" };
-	ws.mergeCells(rowNum, 1, rowNum, 4);
+	// ── Total @ LP ─────────────────────────────────────────────────────
+	ws.getCell(rowNum, 4).value = "Total @ LP";
+	ws.getCell(rowNum, 4).font = summaryFont;
+	ws.getCell(rowNum, 4).alignment = { horizontal: "right", vertical: "middle" };
+
 	ws.getCell(rowNum, 6).value = lpTotal;
-	ws.getCell(rowNum, 6).font = { size: 10, name: "Calibri" };
+	ws.getCell(rowNum, 6).font = summaryFont;
 	ws.getCell(rowNum, 6).alignment = { horizontal: "right", vertical: "middle" };
 	ws.getCell(rowNum, 6).numFmt = "#,##0.00";
+	ws.getRow(rowNum).height = 26;
 	rowNum++;
 
 	// ── 7. Signature block ─────────────────────────────────────────────
@@ -353,15 +405,15 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── Column widths ──────────────────────────────────────────────────
 	ws.getColumn(1).width = 18;
-	ws.getColumn(2).width = 10;
-	ws.getColumn(3).width = 45;
-	ws.getColumn(4).width = 14;
-	ws.getColumn(5).width = 18;
+	ws.getColumn(2).width = 45;
+	ws.getColumn(3).width = 10;
+	ws.getColumn(4).width = 13;
+	ws.getColumn(5).width = 22;
 	ws.getColumn(6).width = 18;
 
 	// ── Convert to PDF ─────────────────────────────────────────────────
 	const pdfBuffer = await excelToPdf(workbook, {
-		pageSize: "A4",
+		pageSize: "Letter",
 		margins: {
 			top: 20,
 			right: 20,
