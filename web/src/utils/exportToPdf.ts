@@ -135,7 +135,7 @@ export async function exportPurchaseOrderToPdf(
 		});
 
 		try {
-			const blob = new Blob([imageBuffer], { type: "image/jpeg" });
+			const blob = new Blob([imageBuffer as BlobPart], { type: "image/jpeg" });
 			const blobUrl = URL.createObjectURL(blob);
 			const img = new Image();
 			img.src = blobUrl;
@@ -196,10 +196,10 @@ export async function exportPurchaseOrderToPdf(
 
 	// Row 2: PO number (small table with border)
 	const thickBorder = {
-		top: { style: "thick", color: { argb: "FF000000" } },
-		bottom: { style: "thick", color: { argb: "FF000000" } },
-		left: { style: "thick", color: { argb: "FF000000" } },
-		right: { style: "thick", color: { argb: "FF000000" } },
+		top: { style: "thick" as const, color: { argb: "FF000000" } },
+		bottom: { style: "thick" as const, color: { argb: "FF000000" } },
+		left: { style: "thick" as const, color: { argb: "FF000000" } },
+		right: { style: "thick" as const, color: { argb: "FF000000" } },
 	};
 
 	ws.getCell(rowNum, 4).value = "P.O. #";
@@ -590,7 +590,7 @@ export async function exportPurchaseOrderToPdf(
 
 	// ── Convert to PDF ─────────────────────────────────────────────────
 	const pdfBuffer = await excelToPdf(workbook, {
-		pageSize: "Letter",
+		pageSize: "LETTER",
 		margins: {
 			top: 20,
 			right: 20,
