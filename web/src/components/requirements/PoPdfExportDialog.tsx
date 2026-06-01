@@ -162,13 +162,22 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 						sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 					/>
 
-					{/* Row: Prepared By + Endorsed By */}
-					<Box sx={{ display: "flex", gap: 2 }}>
+				{/* Two-column signature block: left = Prepared, Checked, Endorsed | right = Noted, Approved */}
+				<Box sx={{ display: "flex", gap: 2 }}>
+					<Box sx={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
 						<TextField
 							size="small"
 							label="Prepared By"
 							value={preparedBy}
 							onChange={(e) => setPreparedBy(e.target.value)}
+							fullWidth
+							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+						/>
+						<TextField
+							size="small"
+							label="Checked By"
+							value={checkedBy}
+							onChange={(e) => setCheckedBy(e.target.value)}
 							fullWidth
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
@@ -181,14 +190,12 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
 					</Box>
-
-					{/* Row: Checked By + Approved By */}
-					<Box sx={{ display: "flex", gap: 2 }}>
+					<Box sx={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
 						<TextField
 							size="small"
-							label="Checked By"
-							value={checkedBy}
-							onChange={(e) => setCheckedBy(e.target.value)}
+							label="Noted By"
+							value={notedBy}
+							onChange={(e) => setNotedBy(e.target.value)}
 							fullWidth
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
@@ -201,16 +208,7 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
 					</Box>
-
-					{/* Noted By */}
-					<TextField
-						size="small"
-						label="Noted By"
-						value={notedBy}
-						onChange={(e) => setNotedBy(e.target.value)}
-						fullWidth
-						sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
-					/>
+				</Box>
 
 					{/* Company Logo Selection */}
 					<FormControl component="fieldset" sx={{ mt: 1 }}>

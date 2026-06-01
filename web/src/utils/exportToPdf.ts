@@ -426,28 +426,72 @@ export async function exportPurchaseOrderToPdf(
 	// ── 7. Signature block ─────────────────────────────────────────────
 	rowNum++; // spacer
 
-	const signatureLabels = [
-		{ label: "Prepared by:", value: preparedBy ? `  ${preparedBy}` : "" },
-		{ label: "Checked by:", value: checkedBy ? `  ${checkedBy}` : "" },
-		{ label: "Noted by:", value: notedBy ? `  ${notedBy}` : "" },
-		{ label: "Endorsed by:", value: endorsedBy ? `  ${endorsedBy}` : "" },
-		{ label: "Approved by:", value: approvedBy ? `  ${approvedBy}` : "" },
+	/**
+	 * Signature block layout (each field takes 2 rows: label + indented value):
+	 *
+	 * Left (cols 1-3):                Right (cols 4-6):
+	 *   Prepared by:                    Noted by:
+	 *     <name>                          <name>
+	 *   Checked by:                     Approved by:
+	 *     <name>                          <name>
+	 *   Endorsed by:
+	 *     <name>
+	 */
+	const sigLabelFont = { size: 10, name: "Calibri" };
+	const sigValueFont = { size: 10, name: "Calibri" };
+
+	const leftSignatures = [
+		{ label: "Prepared by:", value: preparedBy },
+		{ label: "Checked by:", value: checkedBy },
+		{ label: "Endorsed by:", value: endorsedBy },
 	];
 
-	// Signature labels in columns 1-3, names/signatures in columns 4-6
-	const halfCols = Math.floor(NUM_COLS / 2);
-	for (let i = 0; i < signatureLabels.length; i++) {
-		const c = i < 3 ? 1 : 4;
-		const r = i < 3 ? rowNum + i : rowNum + i - 3;
-		const s = signatureLabels[i];
+	const rightSignatures = [
+		{ label: "Noted by:", value: notedBy },
+		{ label: "Approved by:", value: approvedBy },
+	];
 
-		ws.getCell(r, c).value = s.label + s.value;
-		ws.getCell(r, c).font = { size: 10, name: "Calibri" };
-		ws.getCell(r, c).alignment = { vertical: "middle" };
-		if (halfCols > 1) {
-			ws.mergeCells(r, c, r, c + halfCols - 1);
+	// Left group: cols 1-3
+	let r = rowNum;
+	for (const s of leftSignatures) {
+		ws.getCell(r, 1).value = s.label;
+		ws.getCell(r, 1).font = sigLabelFont;
+		ws.getCell(r, 1).alignment = { vertical: "middle" };
+		ws.mergeCells(r, 1, r, 3);
+
+		if (s.value) {
+			ws.getCell(r + 1, 2).value = s.value;
+			ws.getCell(r + 1, 2).font = sigValueFont;
+			ws.getCell(r + 1, 2).alignment = { vertical: "middle" };
+			ws.mergeCells(r + 1, 2, r + 1, 3);
 		}
+		r += 4; // label row + value row + 2 spacer rows
 	}
+
+	// The right-group labels and values use bold to emphasize approval fields
+	const sigRightLabelFont = { bold: true, size: 10, name: "Calibri" };
+	const sigRightValueFont = { bold: true, size: 10, name: "Calibri" };
+
+	// Right group: cols 4-6 — starts 2 fields down to align
+	// Noted by ↔ Checked by,  Approved by ↔ Endorsed by
+	r = rowNum + 4; // align Noted by with Checked by
+	for (const s of rightSignatures) {
+		ws.getCell(r, 4).value = s.label;
+		ws.getCell(r, 4).font = sigRightLabelFont;
+		ws.getCell(r, 4).alignment = { vertical: "middle" };
+		ws.mergeCells(r, 4, r, 6);
+
+		if (s.value) {
+			ws.getCell(r + 1, 5).value = s.value;
+			ws.getCell(r + 1, 5).font = sigRightValueFont;
+			ws.getCell(r + 1, 5).alignment = { vertical: "middle" };
+			ws.mergeCells(r + 1, 5, r + 1, 6);
+		}
+		r += 4; // label row + value row + 2 spacer rows
+	}
+
+	// Advance rowNum past the tallest group
+	rowNum += Math.max(leftSignatures.length, rightSignatures.length) * 4;
 
 	// ── Column widths ──────────────────────────────────────────────────
 	ws.getColumn(1).width = 18;
