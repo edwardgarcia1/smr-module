@@ -3,7 +3,7 @@
  * Requirements purchasing grid. Click a row to view the saved CSV data
  * in a DataGrid.
  */
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
 	Box,
 	Table,
@@ -28,14 +28,27 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CloseIcon from "@mui/icons-material/Close";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, ColumnsPanelTrigger, FilterPanelTrigger } from "@mui/x-data-grid";
 import apiRequest from "../services/api";
+import ViewColumnIcon from "@mui/icons-material/ViewColumn";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import { useThemeMode } from "../providers/AppProvider";
+import {
+	buildGroupColors,
+	computeCategoryName,
+	periodSortValue,
+	CATEGORY_CLASS_MAP,
+	CATEGORY_ORDER,
+} from "../config/requirements";
+import type { MinStockCategory } from "../config/requirements";
+import { buildBaseGridSx, purchasingGroupSelectors } from "../components/requirements/gridStyles";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
 interface PurchaseOrder {
 	id: number;
 	ref_num: string;
+	principal_id: string;
 	site_id: string;
 	demand_mode: string;
 	frequency: string;
@@ -57,6 +70,90 @@ type Order = "asc" | "desc";
 type OrderBy = keyof PurchaseOrder;
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+// ─── Detail grid column width/label maps (matching RequirementsPage) ──
+
+const DETAIL_COL_WIDTHS: Record<string, number> = {
+	invtID: 110,
+	descr: 260,
+	stkUnit: 90,
+	qtyPerCS: 90,
+	price_ao: 150,
+	price_perCS: 110,
+	price_perStkUnit: 110,
+	qtyOnHand: 110,
+	qtyAvail: 110,
+	qtyOnPO: 110,
+	qtyAlloc: 110,
+	avgDemand: 150,
+	avgDemandCS: 120,
+	totalDemandCS: 110,
+	stockCoverCount: 130,
+	coverageThreshold: 100,
+	suggestedOrder: 180,
+	suggestedOrderCS: 130,
+	customOrder: 130,
+	amount: 130,
+	finalOrderCS: 130,
+	orderCover: 130,
+	incomingCover: 130,
+	totalCover: 140,
+	totalDemand: 110,
+	_category: 130,
+};
+
+const DETAIL_HEADER_LABELS: Record<string, string> = {
+	invtID: "Inventory ID",
+	descr: "Description",
+	stkUnit: "Stock Unit",
+	qtyPerCS: "Qty/CS",
+	price_ao: "Last Update",
+	price_perCS: "Per CS",
+	price_perStkUnit: "Per StkUnit",
+	qtyOnHand: "On Hand",
+	qtyAvail: "Available",
+	qtyOnPO: "Incoming",
+	qtyAlloc: "Unreleased",
+	avgDemand: "Avg Demand",
+	avgDemandCS: "Avg Demand (CS)",
+	totalDemandCS: "Total (CS)",
+	stockCoverCount: "Stock Cover",
+	coverageThreshold: "Min Stock",
+	suggestedOrder: "Suggested Order",
+	suggestedOrderCS: "Suggested Order (CS)",
+	customOrder: "Custom Order (CS)",
+	amount: "Amount",
+	finalOrderCS: "Final Order (CS)",
+	orderCover: "Order Cover",
+	incomingCover: "Incoming Cover",
+	totalCover: "Total Cover",
+	totalDemand: "Total",
+	_category: "Category",
+};
+
+// ─── Column display order (matching RequirementsPage purchasing grid) ──
+// pd_* (period demand) fields are interleaved after qtyAvail, sorted by name.
+
+const DETAIL_COL_ORDER: string[] = [
+	"invtID", "descr", "stkUnit", "qtyPerCS",
+	"price_ao", "price_perCS", "price_perStkUnit",
+	"qtyAlloc", "qtyOnPO", "qtyOnHand", "qtyAvail",
+	"totalDemand", "totalDemandCS", "avgDemand", "avgDemandCS", "stockCoverCount",
+	"coverageThreshold", "suggestedOrder", "suggestedOrderCS", "customOrder",
+	"finalOrderCS",
+	"orderCover", "incomingCover", "totalCover", "amount",
+	"_category",
+];
+
+// Fields that are numeric — right-aligned with decimal formatting
+const DETAIL_NUMERIC_FIELDS = new Set([
+	"qtyPerCS", "price_perCS", "price_perStkUnit",
+	"qtyOnHand", "qtyAvail", "qtyOnPO", "qtyAlloc",
+	"totalDemand", "totalDemandCS", "avgDemand", "avgDemandCS",
+	"stockCoverCount", "coverageThreshold",
+	"suggestedOrder", "suggestedOrderCS", "customOrder", "amount",
+	"finalOrderCS", "orderCover", "incomingCover", "totalCover",
+]);
 
 const formatDate = (dateStr: string): string => {
 	if (!dateStr) return "—";
@@ -104,6 +201,31 @@ const PurchaseOrders: React.FC = () => {
 	const [detailData, setDetailData] = useState<PurchaseOrderDetail | null>(null);
 	const [detailLoading, setDetailLoading] = useState(false);
 	const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+
+	const { darkMode } = useThemeMode();
+	const groupColors = useMemo(() => buildGroupColors(darkMode), [darkMode]);
+	const gridSx = useMemo(
+		() => buildBaseGridSx(darkMode, groupColors, purchasingGroupSelectors(groupColors)),
+		[darkMode, groupColors],
+	);
+
+	const [categories, setCategories] = useState<MinStockCategory[]>([]);
+
+	useEffect(() => {
+		let cancelled = false;
+		apiRequest<{ minStockCategories: MinStockCategory[] }>("/lookups")
+			.then((data) => {
+				if (!cancelled && data) {
+					setCategories(data.minStockCategories ?? []);
+				}
+			})
+			.catch(() => {
+				/* non-critical */
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	// ─── Fetch list ───────────────────────────────────────────────
 
@@ -195,30 +317,173 @@ const PurchaseOrders: React.FC = () => {
 		}
 	}, []);
 
+	// ─── Detail grid row class (category highlighting) ───────────
+	// Uses the saved _category field from CSV (added at save time).
+	// Falls back to computeCategoryName for legacy POs that lack _category.
+
+	const getRowClassName = useCallback(
+		(params: { row: Record<string, string> }) => {
+			const r = params.row;
+			// Direct lookup from saved _category field
+			if (r._category && CATEGORY_CLASS_MAP[r._category]) {
+				return CATEGORY_CLASS_MAP[r._category];
+			}
+			// Fallback: compute from raw fields for legacy POs
+			const stockCoverCount = r.stockCoverCount ? Number(r.stockCoverCount) : null;
+			const coverageThreshold = r.coverageThreshold ? Number(r.coverageThreshold) : null;
+			const avgDemand = r.avgDemand ? Number(r.avgDemand) : null;
+			const suggestedOrder = r.suggestedOrder ? Number(r.suggestedOrder) : null;
+			const cat = computeCategoryName(
+				{ stockCoverCount, coverageThreshold, avgDemand, suggestedOrder },
+				categories,
+			);
+			return cat ? (CATEGORY_CLASS_MAP[cat] ?? "") : "";
+		},
+		[categories],
+	);
+
 	// ─── Build detail grid columns from CSV headers ──────────────
 
 	const detailColumns = React.useMemo<GridColDef[]>(() => {
 		if (!detailData) return [];
-		return detailData.csvData.headers.map((header) => ({
-			field: header,
-			headerName: header,
-			width: 130,
-			flex: header === "descr" ? 1 : undefined,
-		}));
+
+		const orderIdx: Record<string, number> = {};
+		DETAIL_COL_ORDER.forEach((name, i) => {
+			orderIdx[name] = i;
+		});
+
+		const sortedHeaders = [...detailData.csvData.headers].sort((a, b) => {
+			const getKey = (h: string): number => {
+				const idx = orderIdx[h];
+				if (idx !== undefined) return idx;
+				if (h.startsWith("pd_")) return 10.5; // between qtyAvail (10) and totalDemand (11)
+				return 999; // unknown → end
+			};
+			const ka = getKey(a);
+			const kb = getKey(b);
+			if (ka !== kb) return ka - kb;
+			// Both pd_* → chronological
+			if (a.startsWith("pd_") && b.startsWith("pd_")) {
+				return periodSortValue(a.slice(3)) - periodSortValue(b.slice(3));
+			}
+			// Both unknown → alphabetical
+			if (ka === 999) return a.localeCompare(b);
+			return 0;
+		});
+
+		return sortedHeaders.map((header) => {
+			const isPeriodField = header.startsWith("pd_");
+			const isNumeric = DETAIL_NUMERIC_FIELDS.has(header) || isPeriodField;
+			const col: GridColDef = {
+				field: header,
+				headerName: DETAIL_HEADER_LABELS[header]
+					?? (isPeriodField ? header.slice(3) : header),
+				width: DETAIL_COL_WIDTHS[header] ?? (isPeriodField ? 110 : 130),
+				flex: header === "descr" ? 1 : undefined,
+			};
+			// Numeric columns: right-aligned with decimal formatting
+			if (isNumeric) {
+				col.type = "number";
+				col.valueFormatter = (value?: string) => {
+					if (value == null || value === "") return "";
+					const n = Number(value);
+					return Number.isNaN(n) ? value : n.toLocaleString(undefined, {
+						minimumFractionDigits: 2,
+						maximumFractionDigits: 2,
+					});
+				};
+			}
+			// Format date fields like price_ao
+			if (header === "price_ao") {
+				col.valueFormatter = (value?: string) => {
+					if (!value) return "—";
+					try {
+						return new Date(value).toLocaleDateString("en-US", {
+							year: "numeric", month: "short", day: "numeric",
+						});
+					} catch {
+						return value;
+					}
+				};
+			}
+			// Category sort: Immediate → Secondary → Monitoring → Ordered → Overstocked → No record
+			if (header === "_category") {
+				col.sortComparator = (v1: string | null, v2: string | null) => {
+					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
+					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
+					return o1 - o2;
+				};
+			}
+			return col;
+		});
 	}, [detailData]);
 
 	// ─── Head cells for the list table ───────────────────────────
 
 	const headCells: { id: OrderBy; label: string }[] = [
-		{ id: "id", label: "ID" },
 		{ id: "ref_num", label: "Ref Nbr" },
-		{ id: "site_id", label: "Site" },
+		{ id: "principal_id", label: "Principal" },
+		{ id: "site_id", label: "Site(s)" },
 		{ id: "demand_mode", label: "Demand Mode" },
 		{ id: "frequency", label: "Frequency" },
 		{ id: "sales_from", label: "Sales From" },
 		{ id: "sales_to", label: "Sales To" },
 		{ id: "created_at", label: "Created" },
 	];
+
+	// ─── Detail grid toolbar ────────────────────────────────────
+
+	const DetailGridToolbar: React.FC = () => (
+		<Box
+			sx={{
+				display: "flex",
+				justifyContent: "space-between",
+				alignItems: "center",
+				px: 2,
+				py: 1,
+				borderBottom: "1px solid",
+				borderColor: "divider",
+			}}
+		>
+			<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+				{selectedPo?.ref_num ?? "Purchase Order Data"}
+			</Typography>
+			<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+				<ColumnsPanelTrigger
+					size="small"
+					color="primary"
+					startIcon={<ViewColumnIcon />}
+					sx={{
+						minWidth: "auto",
+						textTransform: "none",
+						fontSize: "0.8125rem",
+						fontWeight: 500,
+						px: 0.75,
+					}}
+				>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						Columns
+					</Box>
+				</ColumnsPanelTrigger>
+				<FilterPanelTrigger
+					size="small"
+					color="primary"
+					startIcon={<FilterListIcon />}
+					sx={{
+						minWidth: "auto",
+						textTransform: "none",
+						fontSize: "0.8125rem",
+						fontWeight: 500,
+						px: 0.75,
+					}}
+				>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						Filters
+					</Box>
+				</FilterPanelTrigger>
+			</Box>
+		</Box>
+	);
 
 	// ─── Render ─────────────────────────────────────────────────
 
@@ -230,28 +495,7 @@ const PurchaseOrders: React.FC = () => {
 				</Alert>
 			)}
 
-			<Paper sx={{ width: "100%", mb: 2 }}>
-				<Box
-					sx={{
-						px: 2,
-						py: 1.5,
-						borderBottom: 1,
-						borderColor: "divider",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "space-between",
-					}}
-				>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-						Saved Purchase Orders
-					</Typography>
-					{!loading && (
-						<Typography variant="body2" color="text.secondary">
-							{orders.length} record{orders.length !== 1 ? "s" : ""}
-						</Typography>
-					)}
-				</Box>
-
+			<Paper sx={{ width: "100%", mb: 2, borderRadius: 2, overflow: "hidden" }}>
 				{loading ? (
 					<Box sx={{ p: 4, textAlign: "center" }}>
 						<Typography color="text.secondary">Loading purchase orders…</Typography>
@@ -266,42 +510,25 @@ const PurchaseOrders: React.FC = () => {
 				) : (
 					<>
 						<TableContainer sx={{ maxHeight: 520 }}>
-							<Table stickyHeader aria-label="purchase orders list">
-								<TableHead>
+							<Table size="small">
+									<TableHead>
 									<TableRow>
 										{headCells.map((hc) => (
 											<TableCell
 												key={hc.id}
 												sortDirection={orderBy === hc.id ? order : false}
-												sx={{
-													bgcolor: "var(--sidebar-bg)",
-													color: "var(--sidebar-text)",
-												}}
+												sx={{ fontWeight: 600 }}
 											>
 												<TableSortLabel
 													active={orderBy === hc.id}
 													direction={orderBy === hc.id ? order : "asc"}
 													onClick={() => handleRequestSort(hc.id)}
-													sx={{
-														"&.MuiTableSortLabel-active": {
-															color: "var(--sidebar-text) !important",
-														},
-														"& .MuiTableSortLabel-icon": {
-															color: "var(--sidebar-text) !important",
-														},
-														color: "var(--sidebar-text)",
-													}}
 												>
 													{hc.label}
 												</TableSortLabel>
 											</TableCell>
 										))}
-										<TableCell
-											sx={{
-												bgcolor: "var(--sidebar-bg)",
-												color: "var(--sidebar-text)",
-											}}
-										>
+										<TableCell sx={{ fontWeight: 600 }}>
 											Actions
 										</TableCell>
 									</TableRow>
@@ -314,11 +541,13 @@ const PurchaseOrders: React.FC = () => {
 											sx={{ cursor: "pointer" }}
 											onClick={() => handleOpenDetail(po)}
 										>
-											<TableCell>{po.id}</TableCell>
 											<TableCell sx={{ fontWeight: 600 }}>
 												{po.ref_num}
 											</TableCell>
-											<TableCell>{po.site_id}</TableCell>
+											<TableCell>{po.principal_id}</TableCell>
+											<TableCell>
+												{po.site_id && po.site_id.trim() ? po.site_id : "ALL SITES"}
+											</TableCell>
 											<TableCell>{po.demand_mode}</TableCell>
 											<TableCell>{po.frequency}</TableCell>
 											<TableCell>
@@ -400,7 +629,7 @@ const PurchaseOrders: React.FC = () => {
 						{selectedPo && (
 							<Typography variant="body2" color="text.secondary">
 								{selectedPo.frequency} · {selectedPo.demand_mode} demand ·
-								Site: {selectedPo.site_id} ·{" "}
+								Principal: {selectedPo.principal_id} ·{" "}
 								{formatDate(selectedPo.sales_from)} –{" "}
 								{formatDate(selectedPo.sales_to)}
 							</Typography>
@@ -433,20 +662,19 @@ const PurchaseOrders: React.FC = () => {
 								}))}
 								columns={detailColumns}
 								getRowHeight={() => 42}
+								getRowClassName={getRowClassName}
+								showToolbar
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+								slots={{ toolbar: DetailGridToolbar as React.ComponentType<any> }}
+								slotProps={{ toolbar: {}, pagination: { labelRowsPerPage: "Rows:" } }}
 								initialState={{
 									pagination: { paginationModel: { pageSize: 20 } },
+									sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
 								}}
 								pageSizeOptions={[10, 20, 50]}
 								checkboxSelection
 								disableRowSelectionOnClick
-								sx={{
-									"& .MuiDataGrid-cell:focus": {
-										outline: "none",
-									},
-									"& .MuiDataGrid-columnHeader:focus": {
-										outline: "none",
-									},
-								}}
+								sx={gridSx}
 							/>
 						</Paper>
 					) : detailData ? (

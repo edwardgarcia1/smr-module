@@ -5,6 +5,7 @@
 export interface PurchaseOrder {
 	id: number;
 	ref_num: string;
+	principal_id: string;
 	site_id: string;
 	demand_mode: string;
 	frequency: string;
@@ -16,6 +17,7 @@ export interface PurchaseOrder {
 
 export type NewPurchaseOrder = {
 	ref_num: string;
+	principal_id: string;
 	site_id: string;
 	demand_mode: string;
 	frequency: string;
@@ -31,6 +33,7 @@ BEGIN
   CREATE TABLE SMR_PurchaseOrders (
     id BIGINT IDENTITY(1,1) NOT NULL,
     ref_num NVARCHAR(100) NOT NULL,
+    principal_id NVARCHAR(100) NOT NULL,
     site_id NVARCHAR(100) NOT NULL,
     demand_mode NVARCHAR(20) NOT NULL,
     frequency NVARCHAR(20) NOT NULL,

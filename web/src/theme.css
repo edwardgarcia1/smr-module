@@ -83,15 +83,6 @@ html.dark-mode input[type="number"] {
 	color-scheme: dark;
 }
 
-/* Table header sort icons */
-.MuiTableSortLabel-icon {
-	color: var(--sidebar-text) !important;
-}
-
-.MuiTableSortLabel-active {
-	color: var(--sidebar-text) !important;
-}
-
-.MuiTableSortLabel-root {
-	color: var(--sidebar-text) !important;
-}
+/* Table header sort icons — removed global !important override.
+ * Pages that need custom sort-label colors (e.g. sidebar-themed headers)
+ * apply inline sx with !important on their specific instances. */

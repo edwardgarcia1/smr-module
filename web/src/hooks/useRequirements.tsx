@@ -829,11 +829,19 @@ export function useRequirements(): UseRequirementsReturn {
 				const pd = row.periodDemand as Record<string, number> | undefined;
 				if (pd && typeof pd === "object") {
 					for (const [key, val] of Object.entries(pd)) {
-						row[`pd_${key.replace(/[\s]/g, "_")}`] = val;
+						row[`pd_${key}`] = val;
 					}
 				}
+				// Add computed category for sorting and row highlighting on detail view
+				const cat = computeCategoryName(
+					r as RequirementRow,
+					categoriesRef.current,
+					displayFactorRef.current,
+				);
+				if (cat) row._category = cat;
 				delete row.periodDemand;
 				delete row.id;
+				delete row.classID;
 				return row;
 			});
 
@@ -848,6 +856,7 @@ export function useRequirements(): UseRequirementsReturn {
 				method: "POST",
 				body: {
 					refNum,
+					principalId: selectedPrincipal?.ClassID ?? "",
 					siteId,
 					demandMode,
 					frequency,

@@ -114,7 +114,7 @@ export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
 		pool
 			.request()
 			.query(
-				"SELECT id, ref_num, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders ORDER BY created_at DESC",
+				"SELECT id, ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders ORDER BY created_at DESC",
 			),
 	);
 	return trimStrings(result.recordset as PurchaseOrder[]);
@@ -128,7 +128,7 @@ export async function getPurchaseOrderById(
 			.request()
 			.input("id", id)
 			.query(
-				"SELECT id, ref_num, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders WHERE id = @id",
+				"SELECT id, ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders WHERE id = @id",
 			),
 	);
 
@@ -161,14 +161,15 @@ export async function createPurchaseOrder(
 		const insertResult = await pool
 			.request()
 			.input("ref_num", body.ref_num)
+			.input("principal_id", body.principal_id)
 			.input("site_id", body.site_id)
 			.input("demand_mode", body.demand_mode)
 			.input("frequency", body.frequency)
 			.input("sales_from", body.sales_from)
 			.input("sales_to", body.sales_to).query(`
-        INSERT INTO SMR_PurchaseOrders (ref_num, site_id, demand_mode, frequency, sales_from, sales_to)
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
-        VALUES (@ref_num, @site_id, @demand_mode, @frequency, @sales_from, @sales_to)
+        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to)
+        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
+        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to)
       `);
 
 		const created = trimStrings(insertResult.recordset[0] as PurchaseOrder);
@@ -188,7 +189,7 @@ export async function createPurchaseOrder(
 			.query(`
         UPDATE SMR_PurchaseOrders
         SET csv_filename = @csv_filename
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
+        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
         WHERE id = @id
       `);
 

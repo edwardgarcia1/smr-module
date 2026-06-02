@@ -43,6 +43,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 	 *
 	 * Body:
 	 *   refNum       — Reference number for this PO
+	 *   principalId  — Principal ClassID
 	 *   siteId       — Selected site ID(s), joined by ","
 	 *   demandMode   — "average" | "highest"
 	 *   frequency    — "monthly" | "weekly"
@@ -56,7 +57,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "PurchaseOrder");
 
-			const { refNum, siteId, demandMode, frequency, salesFrom, salesTo, rows } = body;
+			const { refNum, principalId, siteId, demandMode, frequency, salesFrom, salesTo, rows } = body;
 
 			if (!refNum || refNum.trim().length === 0) {
 				throw new BadRequestError("refNum is required");
@@ -68,6 +69,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 			return createPurchaseOrder(
 				{
 					ref_num: refNum,
+					principal_id: principalId ?? "",
 					site_id: siteId ?? "",
 					demand_mode: demandMode ?? "average",
 					frequency: frequency ?? "monthly",
@@ -80,6 +82,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 		{
 			body: t.Object({
 				refNum: t.String(),
+				principalId: t.Optional(t.String()),
 				siteId: t.String(),
 				demandMode: t.String(),
 				frequency: t.String(),
