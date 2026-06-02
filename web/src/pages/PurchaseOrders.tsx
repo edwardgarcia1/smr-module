@@ -34,7 +34,6 @@ import {
 	Autocomplete,
 	Checkbox,
 	FormControl,
-	FormLabel,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
@@ -286,6 +285,11 @@ const formatDateTime = (dateStr: string): string => {
 	}
 };
 
+const capitalize = (str: string): string => {
+	if (!str) return str;
+	return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
 // ─── Page Component ───────────────────────────────────────────────────
 
 const PurchaseOrders: React.FC = () => {
@@ -372,7 +376,9 @@ const PurchaseOrders: React.FC = () => {
 	// ─── List filters ────────────────────────────────────────────
 
 	const [filterPrincipals, setFilterPrincipals] = useState<Principal[]>([]);
-	const [filterSites, setFilterSites] = useState<{ id: string; name: string }[]>([]);
+	const [filterSites, setFilterSites] = useState<
+		{ id: string; name: string }[]
+	>([]);
 	const [searchRef, setSearchRef] = useState("");
 
 	const filteredOrders = useMemo(() => {
@@ -952,8 +958,6 @@ const PurchaseOrders: React.FC = () => {
 		{ id: "site_id", label: "Site(s)" },
 		{ id: "demand_mode", label: "Demand Mode" },
 		{ id: "frequency", label: "Frequency" },
-		{ id: "sales_from", label: "Sales From" },
-		{ id: "sales_to", label: "Sales To" },
 		{ id: "created_at", label: "Created" },
 	];
 
@@ -1073,12 +1077,13 @@ const PurchaseOrders: React.FC = () => {
 						pb: 0.5,
 					}}
 				>
-					<Typography variant="body2" color="text.secondary">
-						{selectedPo.frequency} · {selectedPo.demand_mode} demand ·
-						Principal: {selectedPo.principal_id} ·{" "}
-						{formatDate(selectedPo.sales_from)} –{" "}
-						{formatDate(selectedPo.sales_to)}
-					</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{capitalize(selectedPo.frequency)} ·{" "}
+							{capitalize(selectedPo.demand_mode)} demand · Principal:{" "}
+							{selectedPo.principal_id} ·{" "}
+							{formatDate(selectedPo.sales_from)} –{" "}
+							{formatDate(selectedPo.sales_to)}
+						</Typography>
 				</Box>
 			)}
 			<Box
@@ -1221,7 +1226,10 @@ const PurchaseOrders: React.FC = () => {
 										),
 									},
 								}}
-								sx={{ width: 220, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+								sx={{
+									width: 220,
+									"& .MuiOutlinedInput-root": { borderRadius: 2 },
+								}}
 							/>
 							<FormControl sx={{ minWidth: 220 }}>
 								<Autocomplete
@@ -1230,7 +1238,9 @@ const PurchaseOrders: React.FC = () => {
 									options={principals}
 									value={filterPrincipals}
 									onChange={(_, newVal) => setFilterPrincipals(newVal)}
-									getOptionLabel={(option) => `${option.ClassID} — ${option.Descr}`}
+									getOptionLabel={(option) =>
+										`${option.ClassID} — ${option.Descr}`
+									}
 									isOptionEqualToValue={(option, val) =>
 										option.ClassID === val.ClassID
 									}
@@ -1240,9 +1250,7 @@ const PurchaseOrders: React.FC = () => {
 										return (
 											<li key={key} {...rest}>
 												<Checkbox
-													icon={
-														<CheckBoxOutlineBlankIcon fontSize="small" />
-													}
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
 													checkedIcon={<CheckBoxIcon fontSize="small" />}
 													checked={selected}
 												/>
@@ -1277,9 +1285,7 @@ const PurchaseOrders: React.FC = () => {
 										return (
 											<li key={key} {...rest}>
 												<Checkbox
-													icon={
-														<CheckBoxOutlineBlankIcon fontSize="small" />
-													}
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
 													checkedIcon={<CheckBoxIcon fontSize="small" />}
 													checked={selected}
 												/>
@@ -1306,109 +1312,111 @@ const PurchaseOrders: React.FC = () => {
 									No purchase orders match the current filters.
 								</Typography>
 							</Box>
-				) : (
-					<>
-						<TableContainer sx={{ flex: 1, overflow: "auto" }}>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										{headCells.map((hc) => (
-											<TableCell
-												key={hc.id}
-												sortDirection={orderBy === hc.id ? order : false}
-												sx={{ fontWeight: 600 }}
-											>
-												<TableSortLabel
-													active={orderBy === hc.id}
-													direction={orderBy === hc.id ? order : "asc"}
-													onClick={() => handleRequestSort(hc.id)}
-												>
-													{hc.label}
-												</TableSortLabel>
-											</TableCell>
-										))}
-										<TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{paginatedOrders.map((po) => (
-										<TableRow
-											key={po.id}
-											hover
-											sx={{ cursor: "pointer" }}
-											onClick={() => handleOpenDetail(po)}
-										>
-											<TableCell sx={{ fontWeight: 600 }}>
-												{po.ref_num}
-											</TableCell>
-											<TableCell>{po.principal_id}</TableCell>
-											<TableCell>
-												{po.site_id && po.site_id.trim()
-													? po.site_id
-													: "ALL SITES"}
-											</TableCell>
-											<TableCell>{po.demand_mode}</TableCell>
-											<TableCell>{po.frequency}</TableCell>
-											<TableCell>{formatDate(po.sales_from)}</TableCell>
-											<TableCell>{formatDate(po.sales_to)}</TableCell>
-											<TableCell>{formatDateTime(po.created_at)}</TableCell>
-											<TableCell>
-												<Box
-													sx={{ display: "flex", gap: 0.5 }}
-													onClick={(e) => e.stopPropagation()}
-												>
-													<Tooltip title="View details">
-														<IconButton
-															size="small"
-															onClick={() => handleOpenDetail(po)}
+						) : (
+							<>
+								<TableContainer sx={{ flex: 1, overflow: "auto" }}>
+									<Table size="small">
+										<TableHead>
+											<TableRow>
+												{headCells.map((hc) => (
+													<TableCell
+														key={hc.id}
+														sortDirection={orderBy === hc.id ? order : false}
+														sx={{ fontWeight: 600 }}
+													>
+														<TableSortLabel
+															active={orderBy === hc.id}
+															direction={orderBy === hc.id ? order : "asc"}
+															onClick={() => handleRequestSort(hc.id)}
 														>
-															<VisibilityIcon fontSize="small" />
-														</IconButton>
-													</Tooltip>
-													<Tooltip title="Delete">
-														<IconButton
-															size="small"
-															color="error"
-															onClick={() => handleDelete(po.id)}
+															{hc.label}
+														</TableSortLabel>
+													</TableCell>
+												))}
+												<TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+											</TableRow>
+										</TableHead>
+										<TableBody>
+											{paginatedOrders.map((po) => (
+												<TableRow
+													key={po.id}
+													hover
+													sx={{ cursor: "pointer" }}
+													onClick={() => handleOpenDetail(po)}
+												>
+													<TableCell sx={{ fontWeight: 600 }}>
+														{po.ref_num}
+													</TableCell>
+													<TableCell>{po.principal_id}</TableCell>
+													<TableCell>
+														{po.site_id && po.site_id.trim()
+															? po.site_id
+															: "ALL SITES"}
+													</TableCell>
+													<TableCell>
+														{capitalize(po.demand_mode)}
+													</TableCell>
+													<TableCell>
+														{capitalize(po.frequency)}
+													</TableCell>
+													<TableCell>{formatDateTime(po.created_at)}</TableCell>
+													<TableCell>
+														<Box
+															sx={{ display: "flex", gap: 0.5 }}
+															onClick={(e) => e.stopPropagation()}
 														>
-															<DeleteIcon fontSize="small" />
-														</IconButton>
-													</Tooltip>
-												</Box>
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
-						<TablePagination
-							component="div"
-							count={filteredOrders.length}
-							rowsPerPage={rowsPerPage}
-							page={page}
-							onPageChange={handleChangePage}
-							onRowsPerPageChange={handleChangeRowsPerPage}
-							labelRowsPerPage="Rows:"
-							rowsPerPageOptions={PAGE_SIZE_OPTIONS}
-							sx={{
-								width: "100%",
-								display: "flex",
-								flexDirection: { xs: "column", sm: "row" },
-								alignItems: "center",
-								gap: 1,
-								"& .MuiTablePagination-toolbar": {
-									flexWrap: "wrap",
-									justifyContent: { xs: "center", sm: "flex-end" },
-								},
-								"& .MuiTablePagination-spacer": {
-									display: "none",
-								},
-							}}
-						/>
+															<Tooltip title="View details">
+																<IconButton
+																	size="small"
+																	onClick={() => handleOpenDetail(po)}
+																>
+																	<VisibilityIcon fontSize="small" />
+																</IconButton>
+															</Tooltip>
+															<Tooltip title="Delete">
+																<IconButton
+																	size="small"
+																	color="error"
+																	onClick={() => handleDelete(po.id)}
+																>
+																	<DeleteIcon fontSize="small" />
+																</IconButton>
+															</Tooltip>
+														</Box>
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</TableContainer>
+								<TablePagination
+									component="div"
+									count={filteredOrders.length}
+									rowsPerPage={rowsPerPage}
+									page={page}
+									onPageChange={handleChangePage}
+									onRowsPerPageChange={handleChangeRowsPerPage}
+									labelRowsPerPage="Rows:"
+									rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+									sx={{
+										width: "100%",
+										display: "flex",
+										flexDirection: { xs: "column", sm: "row" },
+										alignItems: "center",
+										gap: 1,
+										"& .MuiTablePagination-toolbar": {
+											flexWrap: "wrap",
+											justifyContent: { xs: "center", sm: "flex-end" },
+										},
+										"& .MuiTablePagination-spacer": {
+											display: "none",
+										},
+									}}
+								/>
+							</>
+						)}
 					</>
 				)}
-				</>
-			)}
 			</Paper>
 
 			{/* ── Detail Dialog ──────────────────────────────────────── */}
@@ -1419,10 +1427,23 @@ const PurchaseOrders: React.FC = () => {
 				fullWidth
 				slotProps={{ paper: { sx: { height: "90dvh" } } }}
 			>
-				<DialogContent sx={{ p: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+				<DialogContent
+					sx={{
+						p: 0,
+						display: "flex",
+						flexDirection: "column",
+						overflow: "hidden",
+					}}
+				>
 					{detailLoading ? (
 						<Box
-							sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1, flex: 1 }}
+							sx={{
+								p: 3,
+								display: "flex",
+								flexDirection: "column",
+								gap: 1,
+								flex: 1,
+							}}
 						>
 							<Skeleton
 								variant="rectangular"
@@ -1485,7 +1506,15 @@ const PurchaseOrders: React.FC = () => {
 							</Box>
 						</Box>
 					) : detailData && detailData.csvData.rows.length > 0 ? (
-						<Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+						<Box
+							sx={{
+								flex: 1,
+								display: "flex",
+								flexDirection: "column",
+								overflow: "hidden",
+								minHeight: 0,
+							}}
+						>
 							<DataGrid
 								apiRef={detailApiRef}
 								rows={filteredDetailRows}
