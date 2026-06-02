@@ -54,6 +54,7 @@ import {
 	CAT_EXCEL_COLORS,
 	type Mode,
 	type Frequency,
+	type DemandMode,
 	type Principal,
 	type StorageLocation,
 	type MinStockCategory,
@@ -78,6 +79,8 @@ export interface UseRequirementsReturn {
 	setSelectedStorage: (l: StorageLocation[]) => void;
 	frequency: Frequency;
 	setFrequency: (f: Frequency) => void;
+	demandMode: DemandMode;
+	setDemandMode: (m: DemandMode) => void;
 	dateRanges: DateRangeItem[];
 	handleAddDateRange: () => void;
 	handleRemoveDateRange: (index: number) => void;
@@ -161,6 +164,9 @@ export function useRequirements(): UseRequirementsReturn {
 
 	const [frequency, setFrequency] = useState<Frequency>(
 		persistedForm?.frequency ?? "monthly",
+	);
+	const [demandMode, setDemandMode] = useState<DemandMode>(
+		persistedForm?.demandMode ?? "average",
 	);
 	const [monthlyValidDays, setMonthlyValidDays] = useState<Record<string, number>>({});
 	const monthlyKeys = useMemo(
@@ -308,6 +314,13 @@ export function useRequirements(): UseRequirementsReturn {
 	// ─── Build Purchasing Columns ──────────────────────────────────────
 	const buildPurchasingColumns = useCallback(
 		(periodKeys: string[], df: number): GridColDef[] => {
+			const demandLabel = demandMode === "highest"
+				? "Highest Demand"
+				: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"}`;
+			const demandLabelCS = demandMode === "highest"
+				? "Highest Demand (CS)"
+				: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (CS)`;
+
 			const cols: GridColDef[] = [];
 			const staticHeader = { headerClassName: "group-static" };
 			const priceHeader = { headerClassName: "group-price" };
@@ -369,13 +382,13 @@ export function useRequirements(): UseRequirementsReturn {
 				valueFormatter: fmt2,
 			});
 			cols.push({
-				field: "avgDemand", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"}`,
+				field: "avgDemand", headerName: demandLabel,
 				width: 150, type: "number", ...compHeader, valueFormatter: fmt2,
 			});
 			cols.push({
-				field: "avgDemandCS", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} (CS)`,
+				field: "avgDemandCS", headerName: demandLabelCS,
 				width: 120, type: "number", ...compHeader,
-				description: "Average demand converted to cases (CS)", valueFormatter: fmt2,
+				description: `${demandMode === "highest" ? "Highest period" : "Average"} demand converted to cases (CS)`, valueFormatter: fmt2,
 			});
 			cols.push({
 				field: "stockCoverCount", headerName: `Stock Cover (${frequency === "monthly" ? "Months" : "Weeks"})`,
@@ -490,12 +503,16 @@ export function useRequirements(): UseRequirementsReturn {
 			});
 			return cols;
 		},
-		[frequency],
+		[frequency, demandMode],
 	);
 
 	// ─── Build Bundling Columns ────────────────────────────────────────
 	const buildBundlingColumns = useCallback(
 		(periodKeys: string[], df: number): GridColDef[] => {
+			const bundlingDemandLabel = demandMode === "highest"
+				? "Highest Demand"
+				: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`;
+
 			const cols: GridColDef[] = [];
 			const staticHeader = { headerClassName: "group-static" };
 
@@ -552,7 +569,7 @@ export function useRequirements(): UseRequirementsReturn {
 			// Computation columns
 			const compHeader = { headerClassName: "group-computation" };
 			cols.push({
-				field: "avgDemand", headerName: `Avg ${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				field: "avgDemand", headerName: bundlingDemandLabel,
 				width: 150, type: "number", ...compHeader, valueFormatter: fmt2,
 			});
 			cols.push({
@@ -572,7 +589,7 @@ export function useRequirements(): UseRequirementsReturn {
 			});
 			return cols;
 		},
-		[frequency],
+		[frequency, demandMode],
 	);
 
 	// ─── Apply Handler ────────────────────────────────────────────────
@@ -608,6 +625,9 @@ export function useRequirements(): UseRequirementsReturn {
 			params.set("classID", selectedPrincipal.ClassID);
 			params.set("frequency", frequency);
 			params.set("priceClass", selectedPriceClass);
+			if (demandMode === "highest") {
+				params.set("demandMode", "highest");
+			}
 			if (frequency === "weekly") {
 				const totalVD = Object.values(monthlyValidDays).reduce((s, v) => s + v, 0);
 				if (totalVD > 0) {
@@ -675,7 +695,7 @@ export function useRequirements(): UseRequirementsReturn {
 		}
 	}, [
 		selectedPrincipal, selectedStorage, dateRanges, frequency,
-		monthlyValidDays, mode, selectedPriceClass,
+		demandMode, monthlyValidDays, mode, selectedPriceClass,
 		buildPurchasingColumns, buildBundlingColumns,
 	]);
 
@@ -946,9 +966,10 @@ export function useRequirements(): UseRequirementsReturn {
 			selectedPrincipal,
 			selectedStorage,
 			frequency,
+			demandMode,
 			dateRanges: serializeDateRanges(dateRanges),
 		}),
-		[mode, selectedPrincipal, selectedStorage, frequency, dateRanges],
+		[mode, selectedPrincipal, selectedStorage, frequency, demandMode, dateRanges],
 	);
 
 	useEffect(() => {
@@ -1004,6 +1025,8 @@ export function useRequirements(): UseRequirementsReturn {
 		setSelectedStorage,
 		frequency,
 		setFrequency,
+		demandMode,
+		setDemandMode,
 		dateRanges,
 		handleAddDateRange,
 		handleRemoveDateRange,

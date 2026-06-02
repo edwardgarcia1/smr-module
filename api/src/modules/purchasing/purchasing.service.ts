@@ -72,7 +72,7 @@ function buildDateRangeClause(
 export async function getRequirements(
 	query: RequirementsQuery,
 ): Promise<RequirementItem[]> {
-	const { classID, siteID, dateRanges, frequency, validDays, priceClass } = query;
+	const { classID, siteID, dateRanges, frequency, validDays, priceClass, demandMode } = query;
 	const activePriceClass = priceClass ?? "CP1";
 
 	return withDb(async (pool) => {
@@ -355,11 +355,18 @@ export async function getRequirements(
 			qtyAlloc: 0,
 		};
 
-		const avgDemand = useWorkingWeekFormula
-			? Math.round((entry.totalNormalised / validDays!) * 6 * 100) / 100
-			: nPeriods > 0
-				? Math.round((entry.totalNormalised / nPeriods) * 100) / 100
-				: 0;
+		// Highest demand mode: use the largest single period's demand value
+		const maxPeriodDemand = demandMode === "highest" && entry.periodDemand.size > 0
+			? Math.max(...Array.from(entry.periodDemand.values()))
+			: null;
+
+		const avgDemand = maxPeriodDemand != null
+			? Math.round(maxPeriodDemand * 100) / 100
+			: useWorkingWeekFormula
+				? Math.round((entry.totalNormalised / validDays!) * 6 * 100) / 100
+				: nPeriods > 0
+					? Math.round((entry.totalNormalised / nPeriods) * 100) / 100
+					: 0;
 
 		const stockCoverCount =
 			avgDemand > 0

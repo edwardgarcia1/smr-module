@@ -30,7 +30,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
-import type { Mode, Frequency, Principal, StorageLocation } from "../../config/requirements";
+import type { Mode, Frequency, DemandMode, Principal, StorageLocation } from "../../config/requirements";
 import type { DateRangeItem } from "../../config/requirements";
 
 interface FilterPanelProps {
@@ -44,6 +44,8 @@ interface FilterPanelProps {
 	onStorageChange: (locations: StorageLocation[]) => void;
 	frequency: Frequency;
 	onFrequencyChange: (freq: Frequency) => void;
+	demandMode: DemandMode;
+	onDemandModeChange: (mode: DemandMode) => void;
 	dateRanges: DateRangeItem[];
 	onAddDateRange: () => void;
 	onRemoveDateRange: (index: number) => void;
@@ -68,6 +70,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 	onStorageChange,
 	frequency,
 	onFrequencyChange,
+	demandMode,
+	onDemandModeChange,
 	dateRanges,
 	onAddDateRange,
 	onRemoveDateRange,
@@ -205,6 +209,35 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 										label="Weekly"
 									/>
 								</RadioGroup>
+							</FormControl>
+						</Grid>
+						<Grid size={{ xs: 12, md: 6 }}>
+							<FormControl>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Demand Mode
+								</FormLabel>
+								<ToggleButtonGroup
+									value={demandMode}
+									exclusive
+									onChange={(_, newMode) => {
+										if (newMode !== null) onDemandModeChange(newMode);
+									}}
+									size="small"
+									color="primary"
+								>
+									<ToggleButton
+										value="average"
+										sx={{ textTransform: "none", fontWeight: 600, px: 1.5, fontSize: "0.75rem" }}
+									>
+										{frequency === "monthly" ? "Avg Monthly" : "Avg Weekly"}
+									</ToggleButton>
+									<ToggleButton
+										value="highest"
+										sx={{ textTransform: "none", fontWeight: 600, px: 1.5, fontSize: "0.75rem" }}
+									>
+										Highest Demand
+									</ToggleButton>
+								</ToggleButtonGroup>
 							</FormControl>
 						</Grid>
 					</Grid>

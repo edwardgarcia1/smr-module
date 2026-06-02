@@ -12,6 +12,12 @@ export interface RequirementsQuery {
 	monthlyValidDays?: string;
 	/** Price class to fetch prices for (e.g. "CP1", "COST"). Defaults to "CP1". */
 	priceClass?: string;
+	/**
+	 * Demand computation mode:
+	 *   "average"  — use mean period demand (default)
+	 *   "highest"  — use the highest single period's demand
+	 */
+	demandMode?: "average" | "highest";
 }
 
 export interface DateRange {

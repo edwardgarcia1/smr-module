@@ -84,8 +84,12 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				? String(query.monthlyValidDays)
 				: undefined;
 
+			const demandMode = query.demandMode !== undefined
+				? (query.demandMode as "average" | "highest")
+				: undefined;
+
 			try {
-				return 			await getRequirements({
+				return await getRequirements({
 					classID: query.classID,
 					siteID: siteIDs,
 					dateRanges,
@@ -93,6 +97,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 					validDays,
 					monthlyValidDays,
 					priceClass: query.priceClass,
+					demandMode,
 				});
 			} catch (err) {
 				const msg = (err as Error)?.message ?? "";
@@ -124,6 +129,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				validDays: t.Optional(t.String()),
 				monthlyValidDays: t.Optional(t.String()),
 				priceClass: t.Optional(t.String()),
+				demandMode: t.Optional(t.String()),
 			}),
 		},
 	);
