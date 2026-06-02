@@ -27,6 +27,7 @@ import {
 	IconButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { useAuthStore } from "../../store/useAuthStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,10 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 }) => {
 	const [poReference, setPoReference] = useState(initialValues?.poReference ?? "");
 	const [attn, setAttn] = useState(initialValues?.attn ?? "");
-	const [preparedBy, setPreparedBy] = useState(initialValues?.preparedBy ?? "");
+	const currentUserName = useAuthStore.getState().user?.name ?? "";
+	const [preparedBy, setPreparedBy] = useState(
+		initialValues?.preparedBy ?? currentUserName,
+	);
 	const [endorsedBy, setEndorsedBy] = useState(initialValues?.endorsedBy ?? "");
 	const [checkedBy, setCheckedBy] = useState(initialValues?.checkedBy ?? "");
 	const [approvedBy, setApprovedBy] = useState(initialValues?.approvedBy ?? "");
@@ -169,7 +173,7 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 							size="small"
 							label="Prepared By"
 							value={preparedBy}
-							onChange={(e) => setPreparedBy(e.target.value)}
+							disabled
 							fullWidth
 							sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
 						/>
