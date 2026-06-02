@@ -676,7 +676,12 @@ const PurchaseOrders: React.FC = () => {
 			if (!detailData || detailData.csvData.rows.length === 0) return;
 			setIsDetailPdfExporting(true);
 			try {
-				const poRows = detailData.csvData.rows
+				// Merge edited rows so PDF reflects inline edits
+				const mergedRows = detailData.csvData.rows.map((r, i) => {
+					const id = i + 1;
+					return { ...(editedRows[id] ?? r) };
+				});
+				const poRows = mergedRows
 					.map((r) => {
 						const rawFinalQty = r.customOrder != null && r.customOrder !== ""
 								? Number(r.customOrder)
@@ -728,7 +733,7 @@ const PurchaseOrders: React.FC = () => {
 				setIsDetailPdfExporting(false);
 			}
 		},
-		[detailData, selectedPo],
+		[detailData, selectedPo, editedRows],
 	);
 
 	// ─── Filtered detail rows (by selected categories) ───────────
