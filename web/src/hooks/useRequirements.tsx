@@ -832,13 +832,6 @@ export function useRequirements(): UseRequirementsReturn {
 						row[`pd_${key}`] = val;
 					}
 				}
-				// Add computed category for sorting and row highlighting on detail view
-				const cat = computeCategoryName(
-					r as RequirementRow,
-					categoriesRef.current,
-					displayFactorRef.current,
-				);
-				if (cat) row._category = cat;
 				delete row.periodDemand;
 				delete row.id;
 				delete row.classID;

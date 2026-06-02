@@ -3,7 +3,7 @@
  * Requirements purchasing grid. Click a row to view the saved CSV data
  * in a DataGrid.
  */
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
 	Box,
 	Table,
@@ -24,24 +24,37 @@ import {
 	IconButton,
 	Tooltip,
 	TableSortLabel,
+	CircularProgress,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CloseIcon from "@mui/icons-material/Close";
-import { DataGrid, type GridColDef, ColumnsPanelTrigger, FilterPanelTrigger } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, ColumnsPanelTrigger, FilterPanelTrigger, useGridApiRef } from "@mui/x-data-grid";
 import apiRequest from "../services/api";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import TableChartIcon from "@mui/icons-material/TableChart";
 import { useThemeMode } from "../providers/AppProvider";
 import {
 	buildGroupColors,
 	computeCategoryName,
 	periodSortValue,
+	getCategoryColors,
 	CATEGORY_CLASS_MAP,
 	CATEGORY_ORDER,
 } from "../config/requirements";
-import type { MinStockCategory } from "../config/requirements";
+import type { MinStockCategory, CategoryColorScheme, Principal } from "../config/requirements";
 import { buildBaseGridSx, purchasingGroupSelectors } from "../components/requirements/gridStyles";
+import CategoryFilter from "../components/requirements/CategoryFilter";
+import PoPdfExportDialog from "../components/requirements/PoPdfExportDialog";
+import type { LogoOption, PoPdfExportFormData } from "../components/requirements/PoPdfExportDialog";
+import { exportDataGridToExcel } from "../utils/exportToExcel";
+import { exportPurchaseOrderToPdf } from "../utils/exportToPdf";
+import { downloadBlob } from "../utils/download";
+import { LOGO_OPTIONS } from "../hooks/useRequirements";
+import dayjs from "dayjs";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -99,7 +112,6 @@ const DETAIL_COL_WIDTHS: Record<string, number> = {
 	incomingCover: 130,
 	totalCover: 140,
 	totalDemand: 110,
-	_category: 130,
 };
 
 const DETAIL_HEADER_LABELS: Record<string, string> = {
@@ -154,6 +166,36 @@ const DETAIL_NUMERIC_FIELDS = new Set([
 	"suggestedOrder", "suggestedOrderCS", "customOrder", "amount",
 	"finalOrderCS", "orderCover", "incomingCover", "totalCover",
 ]);
+
+// ─── Column group header classes (matching RequirementsPage) ──────────
+
+const DETAIL_HEADER_GROUPS: Record<string, string> = {
+	invtID: "group-static",
+	descr: "group-static",
+	stkUnit: "group-static",
+	qtyPerCS: "group-static",
+	price_ao: "group-price",
+	price_perCS: "group-price",
+	price_perStkUnit: "group-price",
+	qtyAlloc: "group-inventory",
+	qtyOnPO: "group-inventory",
+	qtyOnHand: "group-inventory",
+	qtyAvail: "group-inventory",
+	totalDemand: "group-computation",
+	totalDemandCS: "group-computation",
+	avgDemand: "group-computation",
+	avgDemandCS: "group-computation",
+	stockCoverCount: "group-computation",
+	coverageThreshold: "group-stock",
+	suggestedOrder: "group-stock",
+	suggestedOrderCS: "group-stock",
+	customOrder: "group-stock",
+	finalOrderCS: "group-final-order",
+	orderCover: "group-stock",
+	incomingCover: "group-stock",
+	totalCover: "group-stock",
+	amount: "group-stock",
+};
 
 const formatDate = (dateStr: string): string => {
 	if (!dateStr) return "—";
@@ -210,13 +252,18 @@ const PurchaseOrders: React.FC = () => {
 	);
 
 	const [categories, setCategories] = useState<MinStockCategory[]>([]);
+	const [principals, setPrincipals] = useState<Principal[]>([]);
 
 	useEffect(() => {
 		let cancelled = false;
-		apiRequest<{ minStockCategories: MinStockCategory[] }>("/lookups")
+		apiRequest<{
+			principals: Principal[];
+			minStockCategories: MinStockCategory[];
+		}>("/lookups")
 			.then((data) => {
 				if (!cancelled && data) {
 					setCategories(data.minStockCategories ?? []);
+					setPrincipals(data.principals ?? []);
 				}
 			})
 			.catch(() => {
@@ -226,6 +273,20 @@ const PurchaseOrders: React.FC = () => {
 			cancelled = true;
 		};
 	}, []);
+
+	// ─── Detail grid: api ref, toolbar state, handlers ───────────
+
+	const detailApiRef = useGridApiRef();
+	const detailColumnVisibilityRef = useRef<Record<string, boolean>>({});
+	const [detailCategories, setDetailCategories] = useState<string[]>([]);
+	const [showDetailDemand, setShowDetailDemand] = useState(true);
+
+	const categoryColors = useMemo(() => getCategoryColors(darkMode), [darkMode]);
+	const getCategoryColor = useCallback(
+		(cat: string): CategoryColorScheme =>
+			categoryColors[cat] ?? { bg: "transparent", chipBg: "action.selected", chipText: "text.primary" },
+		[categoryColors],
+	);
 
 	// ─── Fetch list ───────────────────────────────────────────────
 
@@ -318,17 +379,11 @@ const PurchaseOrders: React.FC = () => {
 	}, []);
 
 	// ─── Detail grid row class (category highlighting) ───────────
-	// Uses the saved _category field from CSV (added at save time).
-	// Falls back to computeCategoryName for legacy POs that lack _category.
+	// Computed from raw fields, matching RequirementsPage logic.
 
 	const getRowClassName = useCallback(
-		(params: { row: Record<string, string> }) => {
+		(params: { row: Record<string, unknown> }) => {
 			const r = params.row;
-			// Direct lookup from saved _category field
-			if (r._category && CATEGORY_CLASS_MAP[r._category]) {
-				return CATEGORY_CLASS_MAP[r._category];
-			}
-			// Fallback: compute from raw fields for legacy POs
 			const stockCoverCount = r.stockCoverCount ? Number(r.stockCoverCount) : null;
 			const coverageThreshold = r.coverageThreshold ? Number(r.coverageThreshold) : null;
 			const avgDemand = r.avgDemand ? Number(r.avgDemand) : null;
@@ -342,9 +397,9 @@ const PurchaseOrders: React.FC = () => {
 		[categories],
 	);
 
-	// ─── Build detail grid columns from CSV headers ──────────────
+	// ─── Build header columns from CSV headers ───────────────────
 
-	const detailColumns = React.useMemo<GridColDef[]>(() => {
+	const headerColumns = React.useMemo<GridColDef[]>(() => {
 		if (!detailData) return [];
 
 		const orderIdx: Record<string, number> = {};
@@ -374,12 +429,15 @@ const PurchaseOrders: React.FC = () => {
 		return sortedHeaders.map((header) => {
 			const isPeriodField = header.startsWith("pd_");
 			const isNumeric = DETAIL_NUMERIC_FIELDS.has(header) || isPeriodField;
+			const isEditable = header === "customOrder";
 			const col: GridColDef = {
 				field: header,
 				headerName: DETAIL_HEADER_LABELS[header]
 					?? (isPeriodField ? header.slice(3) : header),
 				width: DETAIL_COL_WIDTHS[header] ?? (isPeriodField ? 110 : 130),
 				flex: header === "descr" ? 1 : undefined,
+				headerClassName: DETAIL_HEADER_GROUPS[header]
+					?? (isPeriodField ? "group-demand" : undefined),
 			};
 			// Numeric columns: right-aligned with decimal formatting
 			if (isNumeric) {
@@ -406,17 +464,286 @@ const PurchaseOrders: React.FC = () => {
 					}
 				};
 			}
-			// Category sort: Immediate → Secondary → Monitoring → Ordered → Overstocked → No record
-			if (header === "_category") {
-				col.sortComparator = (v1: string | null, v2: string | null) => {
-					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
-					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
-					return o1 - o2;
+			// Inline editing support
+			if (isEditable) {
+				col.editable = true;
+			}
+			// Computed field: amount = qty × price per CS
+			if (header === "amount") {
+				col.valueGetter = (_v: unknown, row: Record<string, unknown>) => {
+					const rawC = row.customOrder;
+					const rawS = row.suggestedOrderCS;
+					const qty = rawC != null && rawC !== ""
+						? Number(rawC)
+						: rawS != null && rawS !== ""
+							? Number(rawS)
+							: 0;
+					const rawP = row.price_perCS;
+					const price = rawP != null && rawP !== "" ? Number(rawP) : null;
+					if (price == null) return null;
+					return Math.round(qty * price * 100) / 100;
 				};
 			}
 			return col;
 		});
 	}, [detailData]);
+
+	// ─── Computed columns (not in CSV, derived from raw data) ────
+
+	const computedColumns = useMemo<GridColDef[]>(() => {
+		if (!detailData) return [];
+		const numFmt = (value?: number) => {
+			if (value == null) return "";
+			return value.toLocaleString(undefined, {
+				minimumFractionDigits: 2, maximumFractionDigits: 2,
+			});
+		};
+		const fixedFmt = (value?: number) => {
+			if (value == null) return "";
+			return value.toLocaleString(undefined, {
+				minimumFractionDigits: 2, maximumFractionDigits: 2,
+			});
+		};
+		return [
+			{
+				field: "finalOrderCS",
+				headerName: "Final Order (CS)",
+				width: 130,
+				type: "number",
+				headerClassName: "group-final-order",
+				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
+					const rawC = row.customOrder;
+					const rawS = row.suggestedOrderCS;
+					const c = rawC != null && rawC !== "" ? Number(rawC) : null;
+					const s = rawS != null && rawS !== "" ? Number(rawS) : null;
+					return c != null ? c : s;
+				},
+				valueFormatter: numFmt,
+			},
+			{
+				field: "orderCover",
+				headerName: "Order Cover (Months)",
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
+				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
+					const rawC = row.customOrder;
+					const rawS = row.suggestedOrderCS;
+					const finalQty = rawC != null && rawC !== ""
+						? Number(rawC)
+						: rawS != null && rawS !== ""
+							? Number(rawS)
+							: null;
+					const rawAvgCS = row.avgDemandCS;
+					const avgCS = rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
+					if (avgCS == null || avgCS === 0 || finalQty == null) return null;
+					return finalQty / avgCS;
+				},
+				valueFormatter: fixedFmt,
+			},
+			{
+				field: "incomingCover",
+				headerName: "Incoming Cover (Months)",
+				width: 130,
+				type: "number",
+				headerClassName: "group-stock",
+				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
+					const po = row.qtyOnPO != null ? Number(row.qtyOnPO) : null;
+					const avg = row.avgDemand != null ? Number(row.avgDemand) : null;
+					if (avg == null || avg === 0 || po == null) return null;
+					return po / avg;
+				},
+				valueFormatter: fixedFmt,
+			},
+			{
+				field: "totalCover",
+				headerName: "Total Cover (Months)",
+				width: 140,
+				type: "number",
+				headerClassName: "group-stock",
+				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
+					const rawSc = row.stockCoverCount;
+					const sc = rawSc != null && rawSc !== "" ? Number(rawSc) : 0;
+					const rawC = row.customOrder;
+					const rawS = row.suggestedOrderCS;
+					const finalQty = rawC != null && rawC !== ""
+						? Number(rawC)
+						: rawS != null && rawS !== ""
+							? Number(rawS)
+							: null;
+					const rawAvgCS = row.avgDemandCS;
+					const avgCS = rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
+					const rawPo = row.qtyOnPO;
+					const po = rawPo != null && rawPo !== "" ? Number(rawPo) : 0;
+					const rawAvg = row.avgDemand;
+					const avg = rawAvg != null && rawAvg !== "" ? Number(rawAvg) : null;
+					let orderCover = 0;
+					if (avgCS != null && avgCS > 0 && finalQty != null) orderCover = finalQty / avgCS;
+					let incomingCover = 0;
+					if (avg != null && avg > 0 && po > 0) incomingCover = po / avg;
+					return sc + orderCover + incomingCover;
+				},
+				valueFormatter: fixedFmt,
+			},
+			{
+				field: "_category",
+				headerName: "Category",
+				width: 130,
+				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
+					const sc = row.stockCoverCount ? Number(row.stockCoverCount) : null;
+					const ct = row.coverageThreshold ? Number(row.coverageThreshold) : null;
+					const ad = row.avgDemand ? Number(row.avgDemand) : null;
+					const so = row.suggestedOrder ? Number(row.suggestedOrder) : null;
+					return computeCategoryName(
+						{ stockCoverCount: sc, coverageThreshold: ct, avgDemand: ad, suggestedOrder: so },
+						categories,
+					);
+				},
+				sortComparator: (v1: string | null, v2: string | null) => {
+					const o1 = v1 ? (CATEGORY_ORDER[v1] ?? 99) : 99;
+					const o2 = v2 ? (CATEGORY_ORDER[v2] ?? 99) : 99;
+					return o1 - o2;
+				},
+			},
+		];
+	}, [detailData, categories]);
+
+	const detailColumns = useMemo<GridColDef[]>(() => {
+		const existing = new Set(headerColumns.map((c) => c.field));
+		return [...headerColumns, ...computedColumns.filter((c) => !existing.has(c.field))];
+	}, [headerColumns, computedColumns]);
+
+	// ─── Detail grid toolbar handlers ────────────────────────────
+
+	const handleDetailExcelExport = useCallback(async () => {
+		if (!detailData || detailData.csvData.rows.length === 0) return;
+		await exportDataGridToExcel(
+			detailData.csvData.rows as Record<string, unknown>[],
+			detailColumns,
+			{
+				title: selectedPo?.ref_num ?? "Purchase Order",
+				subtitle: selectedPo
+					? `${selectedPo.frequency} · ${selectedPo.demand_mode} demand · ${selectedPo.principal_id}`
+					: undefined,
+			},
+			`PO-${selectedPo?.ref_num ?? "export"}.xlsx`,
+		);
+	}, [detailData, detailColumns, selectedPo]);
+
+	const handleToggleDetailDemand = useCallback(() => {
+		const newShow = !showDetailDemand;
+		setShowDetailDemand(newShow);
+		const model = { ...detailColumnVisibilityRef.current };
+		for (const col of detailColumns) {
+			if (col.field.startsWith("pd_")) {
+				if (!newShow) {
+					model[col.field] = false;
+				} else {
+					delete model[col.field];
+				}
+			}
+		}
+		detailApiRef.current?.setColumnVisibilityModel(model);
+	}, [showDetailDemand, detailColumns, detailApiRef]);
+
+	// ─── Detail inline editing ───────────────────────────────────
+
+	const [editedRows, setEditedRows] = useState<Record<number, Record<string, unknown>>>({});
+
+	const handleProcessRowUpdate = useCallback(
+		(newRow: Record<string, unknown>) => {
+			const rowId = newRow.id as number;
+			setEditedRows((prev) => ({ ...prev, [rowId]: newRow }));
+			return Promise.resolve(newRow);
+		},
+		[],
+	);
+
+	const handleProcessRowUpdateError = useCallback((err: unknown) => {
+		console.error("Row update error:", err);
+	}, []);
+
+	// ─── Detail PDF export ───────────────────────────────────────
+
+	const [pdfDetailOpen, setPdfDetailOpen] = useState(false);
+	const [isDetailPdfExporting, setIsDetailPdfExporting] = useState(false);
+	const openDetailPdfDialog = useCallback(() => setPdfDetailOpen(true), []);
+	const closeDetailPdfDialog = useCallback(() => setPdfDetailOpen(false), []);
+
+	const handleDetailPdfExport = useCallback(
+		async (formData: PoPdfExportFormData) => {
+			if (!detailData || detailData.csvData.rows.length === 0) return;
+			setIsDetailPdfExporting(true);
+			try {
+				const poRows = detailData.csvData.rows
+					.map((r) => {
+						const rawFinalQty = r.customOrder != null && r.customOrder !== ""
+								? Number(r.customOrder)
+								: r.suggestedOrderCS != null && r.suggestedOrderCS !== ""
+									? Number(r.suggestedOrderCS)
+									: 0;
+						const finalQty = Math.round(rawFinalQty);
+						const price = r.price_perCS ? Number(r.price_perCS) : null;
+						return {
+							invtID: r.invtID ?? "",
+							descr: r.descr ?? "",
+							qtyPerCS: Number(r.qtyPerCS) || 0,
+							price_perCS: price,
+							finalOrderCS: finalQty,
+							amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
+						};
+					})
+					.filter((r) => r.finalOrderCS !== 0);
+
+				const pdfBuffer = await exportPurchaseOrderToPdf(
+					poRows,
+					formData.selectedLogoSrc,
+					{
+						poReference: formData.poReference,
+						principalName: (() => {
+								const p = principals.find((pr) => pr.ClassID === selectedPo?.principal_id);
+								return p?.Descr?.trim() || selectedPo?.principal_id || "Principal";
+							})(),
+						principalAddress1: selectedPo?.site_id ?? "",
+						date: selectedPo?.sales_from ?? dayjs().format("YYYY-MM-DD"),
+						attn: formData.attn,
+						preparedBy: formData.preparedBy,
+						endorsedBy: formData.endorsedBy,
+						checkedBy: formData.checkedBy,
+						approvedBy: formData.approvedBy,
+						notedBy: formData.notedBy,
+					},
+				);
+
+				downloadBlob(
+					pdfBuffer,
+					`PO-${formData.poReference}.pdf`,
+					"application/pdf",
+				);
+				setPdfDetailOpen(false);
+			} catch (err: unknown) {
+				console.error("PDF export error:", err);
+			} finally {
+				setIsDetailPdfExporting(false);
+			}
+		},
+		[detailData, selectedPo],
+	);
+
+	// ─── Filtered detail rows (by selected categories) ───────────
+
+	const filteredDetailRows = useMemo(() => {
+		if (!detailData) return [] as Record<string, unknown>[];
+		const rows = detailData.csvData.rows.map((r, i) => {
+			const id = i + 1;
+			return { ...(editedRows[id] ?? r), id };
+		}) as Record<string, unknown>[];
+		if (detailCategories.length === 0) return rows;
+		return rows.filter((row) => {
+			const cat = row._category as string | undefined;
+			return cat ? detailCategories.includes(cat) : true;
+		});
+	}, [detailData, detailCategories, editedRows]);
 
 	// ─── Head cells for the list table ───────────────────────────
 
@@ -433,54 +760,130 @@ const PurchaseOrders: React.FC = () => {
 
 	// ─── Detail grid toolbar ────────────────────────────────────
 
+	const labelSx = { display: { xs: "none", md: "inline" } };
+
+	const toolbarBtnStyle: React.CSSProperties = {
+		minWidth: "auto",
+		textTransform: "none",
+		fontSize: "0.8125rem",
+		fontWeight: 500,
+		paddingLeft: 6,
+		paddingRight: 6,
+	};
+
 	const DetailGridToolbar: React.FC = () => (
 		<Box
 			sx={{
 				display: "flex",
-				justifyContent: "space-between",
-				alignItems: "center",
-				px: 2,
-				py: 1,
+				flexDirection: "column",
 				borderBottom: "1px solid",
 				borderColor: "divider",
 			}}
 		>
-			<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-				{selectedPo?.ref_num ?? "Purchase Order Data"}
-			</Typography>
-			<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-				<ColumnsPanelTrigger
+			<Box
+				sx={{
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					px: 2,
+					py: 1,
+				}}
+			>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					{selectedPo?.ref_num ?? "Purchase Order Data"}
+				</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+					<ColumnsPanelTrigger
+						size="small"
+						startIcon={<ViewColumnIcon />}
+						style={toolbarBtnStyle}
+					>
+						<Box component="span" sx={labelSx}>
+							Columns
+						</Box>
+					</ColumnsPanelTrigger>
+					<FilterPanelTrigger
+						size="small"
+						startIcon={<FilterListIcon />}
+						style={toolbarBtnStyle}
+					>
+						<Box component="span" sx={labelSx}>
+							Filters
+						</Box>
+					</FilterPanelTrigger>
+					<Tooltip title="Export to Excel">
+						<Button
+							size="small"
+							color="primary"
+							startIcon={<TableChartIcon />}
+							onClick={handleDetailExcelExport}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+							}}
+						>
+							<Box component="span" sx={labelSx}>
+								Excel
+							</Box>
+						</Button>
+					</Tooltip>
+					<Tooltip title="Export to PO PDF">
+						<Button
+							size="small"
+							color="primary"
+							startIcon={
+								isDetailPdfExporting ? (
+									<CircularProgress size={14} thickness={2.5} />
+								) : (
+									<PictureAsPdfIcon />
+								)
+							}
+							onClick={openDetailPdfDialog}
+							disabled={isDetailPdfExporting}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+							}}
+						>
+							<Box component="span" sx={labelSx}>
+								{isDetailPdfExporting ? "Exporting..." : "PO PDF"}
+							</Box>
+						</Button>
+					</Tooltip>
+				</Box>
+			</Box>
+			<Box
+				sx={{
+					display: "flex",
+					flexWrap: "wrap",
+					gap: 2,
+					px: 2,
+					pb: 1.5,
+					alignItems: "center",
+				}}
+			>
+				<CategoryFilter
+					selectedCategories={detailCategories}
+					onChange={setDetailCategories}
+					getCategoryColor={getCategoryColor}
+				/>
+				<Button
 					size="small"
-					color="primary"
-					startIcon={<ViewColumnIcon />}
-					sx={{
-						minWidth: "auto",
-						textTransform: "none",
-						fontSize: "0.8125rem",
-						fontWeight: 500,
-						px: 0.75,
-					}}
+					variant="outlined"
+					startIcon={
+						showDetailDemand ? <VisibilityOffIcon /> : <VisibilityIcon />
+					}
+					onClick={handleToggleDetailDemand}
+					sx={{ textTransform: "none", borderRadius: 2, ml: "auto" }}
 				>
-					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
-						Columns
-					</Box>
-				</ColumnsPanelTrigger>
-				<FilterPanelTrigger
-					size="small"
-					color="primary"
-					startIcon={<FilterListIcon />}
-					sx={{
-						minWidth: "auto",
-						textTransform: "none",
-						fontSize: "0.8125rem",
-						fontWeight: 500,
-						px: 0.75,
-					}}
-				>
-					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
-						Filters
-					</Box>
-				</FilterPanelTrigger>
+					{showDetailDemand ? "Hide" : "Show"} Monthly Demand
+				</Button>
 			</Box>
 		</Box>
 	);
@@ -656,17 +1059,18 @@ const PurchaseOrders: React.FC = () => {
 							}}
 						>
 							<DataGrid
-								rows={detailData.csvData.rows.map((r, i) => ({
-									...r,
-									id: i + 1,
-								}))}
+								apiRef={detailApiRef}
+								rows={filteredDetailRows}
 								columns={detailColumns}
 								getRowHeight={() => 42}
 								getRowClassName={getRowClassName}
+								editMode="row"
+								processRowUpdate={handleProcessRowUpdate}
+								onProcessRowUpdateError={handleProcessRowUpdateError}
 								showToolbar
 							// eslint-disable-next-line @typescript-eslint/no-explicit-any
 								slots={{ toolbar: DetailGridToolbar as React.ComponentType<any> }}
-								slotProps={{ toolbar: {}, pagination: { labelRowsPerPage: "Rows:" } }}
+								slotProps={{ toolbar: {} as any, pagination: { labelRowsPerPage: "Rows:" } }}
 								initialState={{
 									pagination: { paginationModel: { pageSize: 20 } },
 									sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
@@ -695,6 +1099,17 @@ const PurchaseOrders: React.FC = () => {
 					<Button onClick={handleCloseDetail}>Close</Button>
 				</DialogActions>
 			</Dialog>
+
+			{/* ── PDF Export Dialog ──────────────────────────────────── */}
+			<PoPdfExportDialog
+				key={`pdf-dialog-${pdfDetailOpen}`}
+				open={pdfDetailOpen}
+				onClose={closeDetailPdfDialog}
+				onExport={handleDetailPdfExport}
+				initialValues={{ poReference: selectedPo?.ref_num ?? "" }}
+				logoOptions={LOGO_OPTIONS}
+				isExporting={isDetailPdfExporting}
+			/>
 		</>
 	);
 };
