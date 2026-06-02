@@ -24,9 +24,7 @@ import {
 	Typography,
 	Button,
 	Dialog,
-	DialogTitle,
 	DialogContent,
-	DialogActions,
 	IconButton,
 	Tooltip,
 	TableSortLabel,
@@ -34,9 +32,9 @@ import {
 	Skeleton,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import CloseIcon from "@mui/icons-material/Close";
 import {
 	DataGrid,
 	type GridColDef,
@@ -1013,8 +1011,32 @@ const PurchaseOrders: React.FC = () => {
 							</Box>
 						</Button>
 					</Tooltip>
+					<Tooltip title="Close">
+						<IconButton
+							size="small"
+							onClick={handleCloseDetail}
+							sx={{ ml: 0.5 }}
+						>
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					</Tooltip>
 				</Box>
 			</Box>
+			{selectedPo && (
+				<Box
+					sx={{
+						px: 2,
+						pb: 0.5,
+					}}
+				>
+					<Typography variant="body2" color="text.secondary">
+						{selectedPo.frequency} · {selectedPo.demand_mode} demand ·
+						Principal: {selectedPo.principal_id} ·{" "}
+						{formatDate(selectedPo.sales_from)} –{" "}
+						{formatDate(selectedPo.sales_to)}
+					</Typography>
+				</Box>
+			)}
 			<Box
 				sx={{
 					display: "flex",
@@ -1202,27 +1224,12 @@ const PurchaseOrders: React.FC = () => {
 				onClose={handleCloseDetail}
 				maxWidth="xl"
 				fullWidth
+				PaperProps={{ sx: { height: "90dvh" } }}
 			>
-				<DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-					<Box sx={{ flex: 1 }}>
-						{selectedPo ? selectedPo.ref_num : "Purchase Order"}
-						{selectedPo && (
-							<Typography variant="body2" color="text.secondary">
-								{selectedPo.frequency} · {selectedPo.demand_mode} demand ·
-								Principal: {selectedPo.principal_id} ·{" "}
-								{formatDate(selectedPo.sales_from)} –{" "}
-								{formatDate(selectedPo.sales_to)}
-							</Typography>
-						)}
-					</Box>
-					<IconButton onClick={handleCloseDetail} size="small">
-						<CloseIcon />
-					</IconButton>
-				</DialogTitle>
-				<DialogContent dividers>
+				<DialogContent sx={{ p: 0, display: "flex", flexDirection: "column" }}>
 					{detailLoading ? (
 						<Box
-							sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1 }}
+							sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1, flex: 1 }}
 						>
 							<Skeleton
 								variant="rectangular"
@@ -1285,14 +1292,7 @@ const PurchaseOrders: React.FC = () => {
 							</Box>
 						</Box>
 					) : detailData && detailData.csvData.rows.length > 0 ? (
-						<Paper
-							sx={{
-								width: "100%",
-								borderRadius: 2,
-								overflow: "hidden",
-								height: "calc(80dvh - 130px)",
-							}}
-						>
+						<Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
 							<DataGrid
 								apiRef={detailApiRef}
 								rows={filteredDetailRows}
@@ -1320,7 +1320,7 @@ const PurchaseOrders: React.FC = () => {
 								disableRowSelectionOnClick
 								sx={gridSx}
 							/>
-						</Paper>
+						</Box>
 					) : detailData ? (
 						<Box sx={{ p: 4, textAlign: "center" }}>
 							<Typography color="text.secondary">
@@ -1335,9 +1335,6 @@ const PurchaseOrders: React.FC = () => {
 						</Box>
 					)}
 				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleCloseDetail}>Close</Button>
-				</DialogActions>
 			</Dialog>
 
 			{/* ── PDF Export Dialog ──────────────────────────────────── */}
