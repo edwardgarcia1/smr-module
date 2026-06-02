@@ -25,6 +25,7 @@ import {
 	Tooltip,
 	TableSortLabel,
 	CircularProgress,
+	Skeleton,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -900,8 +901,12 @@ const PurchaseOrders: React.FC = () => {
 
 			<Paper sx={{ width: "100%", mb: 2, borderRadius: 2, overflow: "hidden" }}>
 				{loading ? (
-					<Box sx={{ p: 4, textAlign: "center" }}>
-						<Typography color="text.secondary">Loading purchase orders…</Typography>
+					<Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1.5 }}>
+						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
+						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
+						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
+						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
+						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
 					</Box>
 				) : orders.length === 0 ? (
 					<Box sx={{ p: 4, textAlign: "center" }}>
@@ -1044,10 +1049,22 @@ const PurchaseOrders: React.FC = () => {
 				</DialogTitle>
 				<DialogContent dividers>
 					{detailLoading ? (
-						<Box sx={{ p: 4, textAlign: "center" }}>
-							<Typography color="text.secondary">
-								Loading grid data…
-							</Typography>
+						<Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1 }}>
+							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, mb: 0.5 }} />
+							<Box sx={{ display: "flex", gap: 1 }}>
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+							</Box>
+							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
+							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
+							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
+							<Box sx={{ display: "flex", gap: 1 }}>
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+							</Box>
 						</Box>
 					) : detailData && detailData.csvData.rows.length > 0 ? (
 						<Paper
