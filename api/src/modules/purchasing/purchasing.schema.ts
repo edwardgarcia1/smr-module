@@ -4,7 +4,7 @@
 export interface RequirementsQuery {
 	classID: string;
 	siteID?: string[];
-	dateRanges: DateRange[];
+	dateRange: DateRange;
 	frequency: "weekly" | "monthly";
 	/** Total valid working days across all months (for 6-day work week avgDemand formula) */
 	validDays?: number;

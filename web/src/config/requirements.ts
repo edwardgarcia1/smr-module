@@ -3,7 +3,6 @@
  * Extracted from the monolithic RequirementsPage.tsx to improve DRY, SoC, and modularity.
  */
 
-import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 
 // ─── Mode / Frequency ─────────────────────────────────────────────────────────
@@ -266,7 +265,7 @@ export interface PersistedFormState {
 	selectedStorage: StorageLocation[];
 	frequency: Frequency;
 	demandMode: DemandMode;
-	dateRanges: { from: string | null; to: string | null }[];
+	dateRange: { from: string | null; to: string | null };
 }
 
 export function persistFormState(state: PersistedFormState): void {
@@ -286,24 +285,15 @@ export function loadPersistedForm(): PersistedFormState | null {
 	}
 }
 
-export function serializeDateRanges(
-	ranges: { from: Dayjs | null; to: Dayjs | null }[],
-): { from: string | null; to: string | null }[] {
-	return ranges.map((r) => ({
-		from: r.from?.toISOString() ?? null,
-		to: r.to?.toISOString() ?? null,
-	}));
+export function serializeDateRange(
+	range: { from: Dayjs | null; to: Dayjs | null },
+): { from: string | null; to: string | null } {
+	return {
+		from: range.from?.toISOString() ?? null,
+		to: range.to?.toISOString() ?? null,
+	};
 }
 
-export function deserializeDateRanges(
-	serialized: { from: string | null; to: string | null }[],
-): { from: Dayjs | null; to: Dayjs | null }[] {
-	if (!serialized || serialized.length === 0) return [{ from: null, to: null }];
-	return serialized.map((r) => ({
-		from: r.from ? dayjs(r.from) : null,
-		to: r.to ? dayjs(r.to) : null,
-	}));
-}
 
 // ─── Date Range Helpers ───────────────────────────────────────────────────────
 

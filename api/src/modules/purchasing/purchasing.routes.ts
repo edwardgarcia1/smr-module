@@ -10,28 +10,20 @@ import {
 import type { DateRange } from "./purchasing.schema";
 
 /**
- * Parse repeated ?dateRange=start,end query params into DateRange[].
+ * Parse a single ?dateRange=start,end query param into a DateRange.
  */
-function parseDateRanges(raw: unknown): DateRange[] {
-	if (raw === undefined || raw === null) return [];
+function parseDateRange(raw: unknown): DateRange | null {
+	if (typeof raw !== "string") return null;
+	const parts = raw.split(",");
+	if (parts.length !== 2) return null;
+	const start = (parts[0] ?? "").trim();
+	const end = (parts[1] ?? "").trim();
+	if (!start || !end) return null;
 
-	const items = Array.isArray(raw) ? raw : [raw];
+	const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+	if (!dateRe.test(start) || !dateRe.test(end)) return null;
 
-	return items
-		.map((v: unknown) => {
-			if (typeof v !== "string") return null;
-			const parts = v.split(",");
-			if (parts.length !== 2) return null;
-			const start = (parts[0] ?? "").trim();
-			const end = (parts[1] ?? "").trim();
-			if (!start || !end) return null;
-
-			const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-			if (!dateRe.test(start) || !dateRe.test(end)) return null;
-
-			return { start, end } as DateRange;
-		})
-		.filter((d): d is DateRange => d !== null);
+	return { start, end } as DateRange;
 }
 
 export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
@@ -46,7 +38,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 	 * Query params:
 	 *   classID         (required) — Principal ClassID filter
 	 *   siteID          (repeatable) — Inventory SiteID filter
-	 *   dateRange       (repeatable) — "YYYY-MM-DD,YYYY-MM-DD"
+	 *   dateRange       (required) — "YYYY-MM-DD,YYYY-MM-DD"
 	 *   frequency       (required) — "monthly" | "weekly"
 	 *   validDays       (optional) — Total valid working days across all months (weekly mode only)
 	 *   monthlyValidDays (optional) — JSON string of per-month valid days (weekly mode only)
@@ -64,10 +56,10 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				throw new BadRequestError("frequency must be 'monthly' or 'weekly'");
 			}
 
-			const dateRanges = parseDateRanges(query.dateRange);
-			if (dateRanges.length === 0) {
+			const dateRange = parseDateRange(query.dateRange);
+			if (!dateRange) {
 				throw new BadRequestError(
-					"At least one dateRange is required (format: YYYY-MM-DD,YYYY-MM-DD)",
+					"dateRange is required (format: YYYY-MM-DD,YYYY-MM-DD)",
 				);
 			}
 
@@ -92,7 +84,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				return await getRequirements({
 					classID: query.classID,
 					siteID: siteIDs,
-					dateRanges,
+					dateRange,
 					frequency: query.frequency as "weekly" | "monthly",
 					validDays,
 					monthlyValidDays,
@@ -122,9 +114,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 				siteID: t.Optional(
 					t.Union([t.String(), t.Array(t.String())]),
 				),
-				dateRange: t.Optional(
-					t.Union([t.String(), t.Array(t.String())]),
-				),
+				dateRange: t.String(),
 				frequency: t.String(),
 				validDays: t.Optional(t.String()),
 				monthlyValidDays: t.Optional(t.String()),

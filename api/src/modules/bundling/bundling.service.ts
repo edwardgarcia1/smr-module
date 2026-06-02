@@ -48,20 +48,12 @@ function buildSiteClause(siteIDs: string[]): {
 }
 
 function buildDateRangeClause(
-	ranges: { start: string; end: string }[],
+	range: { start: string; end: string },
 ): { clause: string; params: Record<string, string> } {
-	if (!ranges || ranges.length === 0) return { clause: "", params: {} };
-
-	const conditions = ranges.map(
-		(_, i) =>
-			`(sh.InvcDate >= @dateStart${i} AND sh.InvcDate <= @dateEnd${i})`,
-	);
-	const params: Record<string, string> = {};
-	for (const [i, r] of ranges.entries()) {
-		params[`dateStart${i}`] = r.start;
-		params[`dateEnd${i}`] = r.end;
-	}
-	return { clause: `AND (${conditions.join(" OR ")})`, params };
+	return {
+		clause: "AND (sh.InvcDate >= @dateStart AND sh.InvcDate <= @dateEnd)",
+		params: { dateStart: range.start, dateEnd: range.end },
+	};
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────
@@ -69,7 +61,7 @@ function buildDateRangeClause(
 export async function getBundlingRequirements(
 	query: BundlingQuery,
 ): Promise<BundlingItem[]> {
-	const { classID, siteID, dateRanges, frequency, validDays } = query;
+	const { classID, siteID, dateRange, frequency, validDays } = query;
 
 	return withDb(async (pool) => {
 
@@ -78,7 +70,7 @@ export async function getBundlingRequirements(
 			siteID?.filter((s) => ALLOWED_SITE_IDS.includes(s)) ?? [],
 		);
 	const { clause: dateClause, params: dateParams } =
-		buildDateRangeClause(dateRanges);
+		buildDateRangeClause(dateRange);
 
 	// ── Step 1: Aggregated sales query (promo items only) ──────────
 	// Same SQL as purchasing but with EXISTS check for Component table
@@ -223,7 +215,7 @@ export async function getBundlingRequirements(
 	}
 
 	// ── Step 9: Assemble period demand per promo item ──────────────
-	const periodKeys = generatePeriodKeys(dateRanges, frequency);
+	const periodKeys = generatePeriodKeys([dateRange], frequency);
 
 	const demandMap = new Map<
 		string,

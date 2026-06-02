@@ -49,7 +49,7 @@ const RequirementsPage: React.FC = () => {
 		storageLocations, selectedStorage, setSelectedStorage,
 		frequency, setFrequency,
 		demandMode, setDemandMode,
-		dateRanges, handleAddDateRange, handleRemoveDateRange, handleUpdateDateRange,
+		dateRange, setDateRange,
 		monthlyValidDays, monthlyKeys, handleMonthlyValidDayChange,
 		// Grid data
 		applied, isApplying, gridError, setGridError,
@@ -97,10 +97,10 @@ const RequirementsPage: React.FC = () => {
 				onFrequencyChange={setFrequency}
 				demandMode={demandMode}
 				onDemandModeChange={setDemandMode}
-				dateRanges={dateRanges}
-				onAddDateRange={handleAddDateRange}
-				onRemoveDateRange={handleRemoveDateRange}
-				onUpdateDateRange={handleUpdateDateRange}
+				dateRange={dateRange}
+				onDateRangeChange={(field, value) =>
+					setDateRange((prev) => ({ ...prev, [field]: value }))
+				}
 				monthlyValidDays={monthlyValidDays}
 				monthlyKeys={monthlyKeys}
 				onMonthlyValidDayChange={handleMonthlyValidDayChange}

@@ -14,7 +14,7 @@ import type {
 	GridRowModel,
 	GridColumnGroupingModel,
 } from "@mui/x-data-grid";
-import dayjs, { type Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { useThemeMode } from "../providers/AppProvider";
 import {
 	formatDate,
@@ -46,8 +46,7 @@ import {
 	periodSortValue,
 	loadPersistedForm,
 	persistFormState,
-	serializeDateRanges,
-	deserializeDateRanges,
+	serializeDateRange,
 	ALLOWED_SITE_IDS,
 	CATEGORY_CLASS_MAP,
 	CATEGORY_ORDER,
@@ -81,10 +80,8 @@ export interface UseRequirementsReturn {
 	setFrequency: (f: Frequency) => void;
 	demandMode: DemandMode;
 	setDemandMode: (m: DemandMode) => void;
-	dateRanges: DateRangeItem[];
-	handleAddDateRange: () => void;
-	handleRemoveDateRange: (index: number) => void;
-	handleUpdateDateRange: (index: number, field: "from" | "to", value: Dayjs | null) => void;
+	dateRange: DateRangeItem;
+	setDateRange: React.Dispatch<React.SetStateAction<DateRangeItem>>;
 	monthlyValidDays: Record<string, number>;
 	monthlyKeys: string[];
 	handleMonthlyValidDayChange: (monthKey: string, value: number) => void;
@@ -154,12 +151,15 @@ export function useRequirements(): UseRequirementsReturn {
 		persistedForm?.selectedStorage ?? [],
 	);
 
-	const [dateRanges, setDateRanges] = useState<DateRangeItem[]>(() => {
-		const saved = persistedForm?.dateRanges;
-		if (saved && saved.length > 0) {
-			return deserializeDateRanges(saved) as DateRangeItem[];
+	const [dateRange, setDateRange] = useState<DateRangeItem>(() => {
+		const saved = persistedForm?.dateRange;
+		if (saved && saved.from && saved.to) {
+			return {
+				from: saved.from ? dayjs(saved.from) : null,
+				to: saved.to ? dayjs(saved.to) : null,
+			};
 		}
-		return [{ from: null, to: null }];
+		return { from: null, to: null };
 	});
 
 	const [frequency, setFrequency] = useState<Frequency>(
@@ -172,25 +172,6 @@ export function useRequirements(): UseRequirementsReturn {
 	const monthlyKeys = useMemo(
 		() => Object.keys(monthlyValidDays).sort(),
 		[monthlyValidDays],
-	);
-
-	const handleAddDateRange = useCallback(() => {
-		setDateRanges((prev) => [...prev, { from: null, to: null }]);
-	}, []);
-
-	const handleRemoveDateRange = useCallback((index: number) => {
-		setDateRanges((prev) => prev.filter((_, i) => i !== index));
-	}, []);
-
-	const handleUpdateDateRange = useCallback(
-		(index: number, field: "from" | "to", value: Dayjs | null) => {
-			setDateRanges((prev) =>
-				prev.map((item, i) =>
-					i === index ? { ...item, [field]: value } : item,
-				),
-			);
-		},
-		[],
 	);
 
 	const handleMonthlyValidDayChange = useCallback((monthKey: string, value: number) => {
@@ -255,21 +236,20 @@ export function useRequirements(): UseRequirementsReturn {
 		setBundlingColumns([]);
 	}, []);
 
-	// ─── Compute per-month valid days from date ranges (weekly only) ──
+	// ─── Compute per-month valid days from date range (weekly only) ──
 	useEffect(() => {
 		if (frequency !== "weekly") {
 			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setMonthlyValidDays({});
 			return;
 		}
+		const dr = dateRange;
+		if (!dr.from || !dr.to) return;
 		const monthSet = new Set<string>();
-		for (const dr of dateRanges) {
-			if (!dr.from || !dr.to) continue;
-			let current = dr.from.startOf("month");
-			while (current.isBefore(dr.to) || current.isSame(dr.to, "month")) {
-				monthSet.add(current.format("YYYY-MM"));
-				current = current.add(1, "month");
-			}
+		let current = dr.from.startOf("month");
+		while (current.isBefore(dr.to) || current.isSame(dr.to, "month")) {
+			monthSet.add(current.format("YYYY-MM"));
+			current = current.add(1, "month");
 		}
 		const sortedMonths = Array.from(monthSet).sort();
 		setMonthlyValidDays((prev) => {
@@ -289,7 +269,7 @@ export function useRequirements(): UseRequirementsReturn {
 			}
 			return next;
 		});
-	}, [frequency, dateRanges]);
+	}, [frequency, dateRange]);
 
 	// ─── Toolbar states ───────────────────────────────────────────────
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
@@ -607,17 +587,15 @@ export function useRequirements(): UseRequirementsReturn {
 			setIsApplying(false);
 			return;
 		}
-		if (dateRanges.length === 0 || dateRanges.some((dr) => !dr.from || !dr.to)) {
-			setGridError("Please fill in all date ranges.");
+		if (!dateRange.from || !dateRange.to) {
+			setGridError("Please select a date range.");
 			setIsApplying(false);
 			return;
 		}
-		for (const dr of dateRanges) {
-			if (dr.to!.isBefore(dr.from!)) {
-				setGridError("End date must be after start date in each date range.");
-				setIsApplying(false);
-				return;
-			}
+		if (dateRange.to.isBefore(dateRange.from)) {
+			setGridError("End date must be after start date.");
+			setIsApplying(false);
+			return;
 		}
 
 		try {
@@ -636,11 +614,7 @@ export function useRequirements(): UseRequirementsReturn {
 				}
 			}
 
-			for (const dr of dateRanges) {
-				if (dr.from && dr.to) {
-					params.append("dateRange", `${dr.from.startOf("month").format("YYYY-MM-DD")},${dr.to.endOf("month").format("YYYY-MM-DD")}`);
-				}
-			}
+			params.set("dateRange", `${dateRange.from.startOf("month").format("YYYY-MM-DD")},${dateRange.to.endOf("month").format("YYYY-MM-DD")}`);
 			for (const s of selectedStorage) {
 				params.append("siteID", s.id);
 			}
@@ -694,7 +668,7 @@ export function useRequirements(): UseRequirementsReturn {
 			setIsApplying(false);
 		}
 	}, [
-		selectedPrincipal, selectedStorage, dateRanges, frequency,
+		selectedPrincipal, selectedStorage, dateRange, frequency,
 		demandMode, monthlyValidDays, mode, selectedPriceClass,
 		buildPurchasingColumns, buildBundlingColumns,
 	]);
@@ -796,10 +770,9 @@ export function useRequirements(): UseRequirementsReturn {
 
 	const handleExcelExport = useCallback(async () => {
 		const dt = dayjs().format("YYYYMMDD_HHmmss");
-		const dateRangeStr = dateRanges
-			.filter((dr) => dr.from && dr.to)
-			.map((dr) => `${dr.from!.format("YYYYMM")}-${dr.to!.format("YYYYMM")}`)
-			.join("_");
+		const dateRangeStr = dateRange.from && dateRange.to
+			? `${dateRange.from.format("YYYYMM")}-${dateRange.to.format("YYYYMM")}`
+			: "";
 		const storageIDs = selectedStorage.map((s) => s.id).join("-");
 		const fileName = `SMR_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}_${frequency}_${dateRangeStr}.xlsx`;
 
@@ -827,7 +800,7 @@ export function useRequirements(): UseRequirementsReturn {
 		} else {
 			await exportDataGridToExcel(bundlingRows as unknown as Record<string, unknown>[], bundlingColumns, undefined, fileName);
 		}
-	}, [mode, filteredPurchasingRows, bundlingRows, purchasingColumns, bundlingColumns, selectedPrincipal, categories, displayFactor, apiRef, dateRanges, frequency, selectedStorage]);
+	}, [mode, filteredPurchasingRows, bundlingRows, purchasingColumns, bundlingColumns, selectedPrincipal, categories, displayFactor, apiRef, dateRange, frequency, selectedStorage]);
 
 	// ─── PDF Export (purchasing only) ─────────────────────────────────
 	const handlePdfExport = useCallback(async (formData: PoPdfExportFormData) => {
@@ -967,9 +940,9 @@ export function useRequirements(): UseRequirementsReturn {
 			selectedStorage,
 			frequency,
 			demandMode,
-			dateRanges: serializeDateRanges(dateRanges),
+			dateRange: serializeDateRange(dateRange),
 		}),
-		[mode, selectedPrincipal, selectedStorage, frequency, demandMode, dateRanges],
+		[mode, selectedPrincipal, selectedStorage, frequency, demandMode, dateRange],
 	);
 
 	useEffect(() => {
@@ -1027,10 +1000,8 @@ export function useRequirements(): UseRequirementsReturn {
 		setFrequency,
 		demandMode,
 		setDemandMode,
-		dateRanges,
-		handleAddDateRange,
-		handleRemoveDateRange,
-		handleUpdateDateRange,
+		dateRange,
+		setDateRange,
 		monthlyValidDays,
 		monthlyKeys,
 		handleMonthlyValidDayChange,

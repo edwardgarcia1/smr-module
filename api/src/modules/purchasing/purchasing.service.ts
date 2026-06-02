@@ -48,20 +48,12 @@ function buildSiteClause(siteIDs: string[]): {
 }
 
 function buildDateRangeClause(
-	ranges: { start: string; end: string }[],
+	range: { start: string; end: string },
 ): { clause: string; params: Record<string, string> } {
-	if (!ranges || ranges.length === 0) return { clause: "", params: {} };
-
-	const conditions = ranges.map(
-		(_, i) =>
-			`(sh.InvcDate >= @dateStart${i} AND sh.InvcDate <= @dateEnd${i})`,
-	);
-	const params: Record<string, string> = {};
-	for (const [i, r] of ranges.entries()) {
-		params[`dateStart${i}`] = r.start;
-		params[`dateEnd${i}`] = r.end;
-	}
-	return { clause: `AND (${conditions.join(" OR ")})`, params };
+	return {
+		clause: "AND (sh.InvcDate >= @dateStart AND sh.InvcDate <= @dateEnd)",
+		params: { dateStart: range.start, dateEnd: range.end },
+	};
 }
 
 // ─── INUnit conversion — imported from shared utils
@@ -72,7 +64,7 @@ function buildDateRangeClause(
 export async function getRequirements(
 	query: RequirementsQuery,
 ): Promise<RequirementItem[]> {
-	const { classID, siteID, dateRanges, frequency, validDays, priceClass, demandMode } = query;
+	const { classID, siteID, dateRange, frequency, validDays, priceClass, demandMode } = query;
 	const activePriceClass = priceClass ?? "CP1";
 
 	return withDb(async (pool) => {
@@ -82,7 +74,7 @@ export async function getRequirements(
 			siteID?.filter((s) => ALLOWED_SITE_IDS.includes(s)) ?? [],
 		);
 	const { clause: dateClause, params: dateParams } =
-		buildDateRangeClause(dateRanges);
+		buildDateRangeClause(dateRange);
 
 	// ── Step 1: Aggregated sales query ──────────────────────────────
 	// MSSQL 2008-compatible: GROUP BY with YEAR/MONTH instead of DATETRUNC.
@@ -255,7 +247,7 @@ export async function getRequirements(
 	}
 
 	// ── Step 7: Assemble period demand per item ───────────────────
-	const periodKeys = generatePeriodKeys(dateRanges, frequency);
+	const periodKeys = generatePeriodKeys([dateRange], frequency);
 
 	// itemId → { meta, periodDemand: Map<periodKey, total> }
 	const demandMap = new Map<

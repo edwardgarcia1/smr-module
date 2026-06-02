@@ -12,17 +12,13 @@ import {
 	FormControlLabel,
 	FormLabel,
 	Autocomplete,
-	IconButton,
 	Alert,
 	Checkbox,
 	CircularProgress,
-	Divider,
 	ToggleButtonGroup,
 	ToggleButton,
 } from "@mui/material";
-import DeleteIcon from "@mui/icons-material/Delete";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import AddIcon from "@mui/icons-material/Add";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
 import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -46,10 +42,8 @@ interface FilterPanelProps {
 	onFrequencyChange: (freq: Frequency) => void;
 	demandMode: DemandMode;
 	onDemandModeChange: (mode: DemandMode) => void;
-	dateRanges: DateRangeItem[];
-	onAddDateRange: () => void;
-	onRemoveDateRange: (index: number) => void;
-	onUpdateDateRange: (index: number, field: "from" | "to", value: dayjs.Dayjs | null) => void;
+	dateRange: DateRangeItem;
+	onDateRangeChange: (field: "from" | "to", value: dayjs.Dayjs | null) => void;
 	monthlyValidDays: Record<string, number>;
 	monthlyKeys: string[];
 	onMonthlyValidDayChange: (monthKey: string, value: number) => void;
@@ -72,10 +66,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 	onFrequencyChange,
 	demandMode,
 	onDemandModeChange,
-	dateRanges,
-	onAddDateRange,
-	onRemoveDateRange,
-	onUpdateDateRange,
+	dateRange,
+	onDateRangeChange,
 	monthlyValidDays,
 	monthlyKeys,
 	onMonthlyValidDayChange,
@@ -124,13 +116,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 			</Box>
 
 			<Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-				{/* Left column - filters (60%) */}
-				<Box sx={{ flex: "3 1 0%", minWidth: 300 }}>
+				<Box sx={{ flex: "1 1 100%" }}>
 					<Grid container spacing={3}>
+						{/* Row 1: Principal | Storage */}
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Select Principal
+									Principal
 								</FormLabel>
 								<Autocomplete
 									size="small"
@@ -188,27 +180,49 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 								/>
 							</FormControl>
 						</Grid>
+
+						{/* Row 2: Date Range | Demand Mode */}
 						<Grid size={{ xs: 12, md: 6 }}>
-							<FormControl>
+							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
-									Frequency
+									Date Range
 								</FormLabel>
-								<RadioGroup
-									row
-									value={frequency}
-									onChange={(e) => onFrequencyChange(e.target.value as Frequency)}
-								>
-									<FormControlLabel
-										value="monthly"
-										control={<Radio size="small" />}
-										label="Monthly"
-									/>
-									<FormControlLabel
-										value="weekly"
-										control={<Radio size="small" />}
-										label="Weekly"
-									/>
-								</RadioGroup>
+								<LocalizationProvider dateAdapter={AdapterDayjs}>
+									<Box sx={{ display: "flex", gap: 1 }}>
+										<DatePicker
+											label="From"
+											views={["month", "year"]}
+											value={dateRange.from}
+											onChange={(v) => onDateRangeChange("from", v)}
+											slotProps={{
+												textField: {
+													size: "small",
+													fullWidth: true,
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
+												},
+											}}
+											sx={{ flex: 1 }}
+										/>
+										<DatePicker
+											label="To"
+											views={["month", "year"]}
+											value={dateRange.to}
+											onChange={(v) => onDateRangeChange("to", v)}
+											slotProps={{
+												textField: {
+													size: "small",
+													fullWidth: true,
+													sx: {
+														"& .MuiOutlinedInput-root": { borderRadius: 2 },
+													},
+												},
+											}}
+											sx={{ flex: 1 }}
+										/>
+									</Box>
+								</LocalizationProvider>
 							</FormControl>
 						</Grid>
 						<Grid size={{ xs: 12, md: 6 }}>
@@ -240,8 +254,34 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 								</ToggleButtonGroup>
 							</FormControl>
 						</Grid>
+
+						{/* Row 3: Frequency */}
+						<Grid size={{ xs: 12 }}>
+							<FormControl>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Frequency
+								</FormLabel>
+								<RadioGroup
+									row
+									value={frequency}
+									onChange={(e) => onFrequencyChange(e.target.value as Frequency)}
+								>
+									<FormControlLabel
+										value="monthly"
+										control={<Radio size="small" />}
+										label="Monthly"
+									/>
+									<FormControlLabel
+										value="weekly"
+										control={<Radio size="small" />}
+										label="Weekly"
+									/>
+								</RadioGroup>
+							</FormControl>
+						</Grid>
 					</Grid>
 
+					{/* Weekly valid days */}
 					{frequency === "weekly" && monthlyKeys.length > 0 && (
 						<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center", mt: 2 }}>
 							{monthlyKeys.map((mk) => (
@@ -266,80 +306,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 							))}
 						</Box>
 					)}
-				</Box>
-
-				<Divider
-					orientation="vertical"
-					flexItem
-					sx={{ display: { xs: "none", md: "block" }, alignSelf: "stretch" }}
-				/>
-
-				{/* Right column - DateRange (40%) */}
-				<Box sx={{ flex: "2 1 0%", minWidth: 250 }}>
-					<Box sx={{ overflowY: "auto" }}>
-						<FormLabel sx={{ fontWeight: 500, mb: 1, display: "block" }}>
-							Date Range
-						</FormLabel>
-						<LocalizationProvider dateAdapter={AdapterDayjs}>
-							<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-								{dateRanges.map((dr, index) => (
-									<Box
-										key={index}
-										sx={{ display: "flex", gap: 1, alignItems: "center" }}
-									>
-										<DatePicker
-											label={`From ${dateRanges.length > 1 ? index + 1 : ""}`}
-											views={["month", "year"]}
-											value={dr.from}
-											onChange={(v) => onUpdateDateRange(index, "from", v)}
-											slotProps={{
-												textField: {
-													size: "small",
-													fullWidth: true,
-													sx: {
-														"& .MuiOutlinedInput-root": { borderRadius: 2 },
-													},
-												},
-											}}
-										/>
-										<DatePicker
-											label={`To ${dateRanges.length > 1 ? index + 1 : ""}`}
-											views={["month", "year"]}
-											value={dr.to}
-											onChange={(v) => onUpdateDateRange(index, "to", v)}
-											slotProps={{
-												textField: {
-													size: "small",
-													fullWidth: true,
-													sx: {
-														"& .MuiOutlinedInput-root": { borderRadius: 2 },
-													},
-												},
-											}}
-										/>
-										{dateRanges.length > 1 && (
-											<IconButton
-												size="small"
-												onClick={() => onRemoveDateRange(index)}
-												color="error"
-											>
-												<DeleteIcon fontSize="small" />
-											</IconButton>
-										)}
-									</Box>
-								))}
-								<Button
-									size="small"
-									startIcon={<AddIcon />}
-									onClick={onAddDateRange}
-									variant="outlined"
-									sx={{ alignSelf: "flex-start" }}
-								>
-									Add Date Range
-								</Button>
-							</Box>
-						</LocalizationProvider>
-					</Box>
 				</Box>
 
 				{/* Apply Button - full width */}
