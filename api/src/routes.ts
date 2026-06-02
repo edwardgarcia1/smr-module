@@ -11,6 +11,7 @@ import { purchasingRoutes } from "./modules/purchasing/purchasing.routes";
 import { bundlingRoutes } from "./modules/bundling/bundling.routes";
 import { minStockRoutes } from "./modules/min-stock/min-stock.routes";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
+import { purchaseOrderRoutes } from "./modules/purchase-order/purchase-order.routes";
 import { errorMiddleware } from "./middlewares/error";
 
 export const routes = new Elysia({ prefix: "/api" })
@@ -28,4 +29,5 @@ export const routes = new Elysia({ prefix: "/api" })
     .use(purchasingRoutes)
     .use(bundlingRoutes)
     .use(minStockRoutes)
-    .use(dashboardRoutes);
+    .use(dashboardRoutes)
+    .use(purchaseOrderRoutes);

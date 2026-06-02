@@ -13,6 +13,7 @@ import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { ColumnsPanelTrigger, FilterPanelTrigger } from "@mui/x-data-grid";
@@ -42,6 +43,7 @@ interface PurchasingToolbarProps {
 	setShowDemandColumns: (val: boolean) => void;
 	purchasingColumns: GridColDef[];
 	userColumnVisibilityModelRef: React.MutableRefObject<Record<string, boolean>>;
+	onOpenSaveDialog: () => void;
 }
 
 const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
@@ -63,6 +65,7 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 	setShowDemandColumns,
 	purchasingColumns,
 	userColumnVisibilityModelRef,
+	onOpenSaveDialog,
 }) => {
 	const theme = useTheme();
 	const labelSx = { display: { xs: "none", md: "inline" } };
@@ -166,6 +169,25 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 						>
 							<Box component="span" sx={labelSx}>
 								{isPdfExporting ? "Exporting..." : "PO PDF"}
+							</Box>
+						</Button>
+					</Tooltip>
+					<Tooltip title="Save Purchase Order">
+						<Button
+							size="small"
+							color="primary"
+							startIcon={<SaveAltIcon />}
+							onClick={onOpenSaveDialog}
+							sx={{
+								minWidth: "auto",
+								textTransform: "none",
+								fontSize: "0.8125rem",
+								fontWeight: 500,
+								px: 0.75,
+							}}
+						>
+							<Box component="span" sx={labelSx}>
+								Save
 							</Box>
 						</Button>
 					</Tooltip>

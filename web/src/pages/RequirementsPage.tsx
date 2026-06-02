@@ -18,6 +18,7 @@ import FilterPanel from "../components/requirements/FilterPanel";
 import PurchasingToolbar from "../components/requirements/PurchasingToolbar";
 import BundlingToolbar from "../components/requirements/BundlingToolbar";
 import PoPdfExportDialog from "../components/requirements/PoPdfExportDialog";
+import SavePoDialog from "../components/requirements/SavePoDialog";
 import {
 	purchasingGroupSelectors,
 	bundlingGroupSelectors,
@@ -67,6 +68,9 @@ const RequirementsPage: React.FC = () => {
 		showDemandColumns, setShowDemandColumns,
 		isPdfExporting,
 		priceClasses, selectedCategories, setSelectedCategories,
+		// Save PO
+		savePoDialogOpen, openSavePoDialog, closeSavePoDialog,
+		isSavingPo, handleSavePurchaseOrder,
 		// Refs
 		apiRef, resultsAnchorRef, userColumnVisibilityModelRef,
 		// Column models
@@ -133,7 +137,7 @@ const RequirementsPage: React.FC = () => {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						slots={{ toolbar: PurchasingToolbar as React.ComponentType<any> }}
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					slotProps={{ toolbar: { apiRef, handleExcelExport, onOpenPdfDialog: openPdfDialog, isPdfExporting, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef } as any, pagination: { labelRowsPerPage: "Rows:" } }}
+					slotProps={{ toolbar: { apiRef, handleExcelExport, onOpenPdfDialog: openPdfDialog, isPdfExporting, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef, onOpenSaveDialog: openSavePoDialog } as any, pagination: { labelRowsPerPage: "Rows:" } }}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
 							sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
@@ -172,6 +176,14 @@ const RequirementsPage: React.FC = () => {
 					/>
 				</GridPaper>
 			)}
+
+			{/* ── Save PO Dialog ─────────────────────────────────── */}
+			<SavePoDialog
+				open={savePoDialogOpen}
+				onClose={closeSavePoDialog}
+				onSave={handleSavePurchaseOrder}
+				isSaving={isSavingPo}
+			/>
 
 			{/* ── PO PDF Export Dialog ─────────────────────────────── */}
 			{applied && mode === "purchasing" && (

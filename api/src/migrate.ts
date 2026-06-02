@@ -12,6 +12,7 @@ import {
 	SEED_DEFAULT_MIN_STOCK_SQL,
 	SEED_MIN_STOCK_CATEGORIES_SQL,
 } from "./modules/min-stock/min-stock.schema";
+import { CREATE_PURCHASE_ORDERS_TABLE_SQL } from "./modules/purchase-order/purchase-order.schema";
 
 const config: sql.config = {
 	server: process.env.DB_HOST || "localhost",
@@ -66,6 +67,10 @@ async function migrate() {
 		// Seed min stock categories
 		await pool.request().query(SEED_MIN_STOCK_CATEGORIES_SQL);
 		console.log("Min stock categories seeded");
+
+		// Create SMR_PurchaseOrders table
+		await pool.request().query(CREATE_PURCHASE_ORDERS_TABLE_SQL);
+		console.log("SMR_PurchaseOrders table ready");
 
 		// Seed superadmin if not exists
 		const username = process.env.SUPERADMIN_USERNAME || "superadmin";

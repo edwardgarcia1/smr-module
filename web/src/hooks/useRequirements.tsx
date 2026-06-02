@@ -109,6 +109,11 @@ export interface UseRequirementsReturn {
 	setBulkMinStock: (v: string) => void;
 	selectedPriceClass: string;
 	setSelectedPriceClass: (v: string) => void;
+	savePoDialogOpen: boolean;
+	openSavePoDialog: () => void;
+	closeSavePoDialog: () => void;
+	isSavingPo: boolean;
+	handleSavePurchaseOrder: (refNum: string) => Promise<void>;
 	poReference: string;
 	showDemandColumns: boolean;
 	setShowDemandColumns: (v: boolean) => void;
@@ -224,6 +229,11 @@ export function useRequirements(): UseRequirementsReturn {
 	const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 	const openPdfDialog = useCallback(() => setPdfDialogOpen(true), []);
 	const closePdfDialog = useCallback(() => setPdfDialogOpen(false), []);
+
+	const [savePoDialogOpen, setSavePoDialogOpen] = useState(false);
+	const [isSavingPo, setIsSavingPo] = useState(false);
+	const openSavePoDialog = useCallback(() => setSavePoDialogOpen(true), []);
+	const closeSavePoDialog = useCallback(() => setSavePoDialogOpen(false), []);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
 	const setMode = useCallback((newMode: Mode) => {
@@ -802,6 +812,61 @@ export function useRequirements(): UseRequirementsReturn {
 		}
 	}, [mode, filteredPurchasingRows, bundlingRows, purchasingColumns, bundlingColumns, selectedPrincipal, categories, displayFactor, apiRef, dateRange, frequency, selectedStorage]);
 
+	// ─── Save Purchase Order ──────────────────────────────────────────
+	const handleSavePurchaseOrder = useCallback(async (refNum: string) => {
+		if (mode !== "purchasing" || purchasingRows.length === 0) return;
+		setIsSavingPo(true);
+		setGridError(null);
+		try {
+			const siteId = selectedStorage.map((s) => s.id).join(",");
+			const salesFrom = dateRange.from?.startOf("month").format("YYYY-MM-DD") ?? "";
+			const salesTo = dateRange.to?.endOf("month").format("YYYY-MM-DD") ?? "";
+
+			// Flatten rows: include all row fields including periodDemand
+			const rows = purchasingRows.map((r) => {
+				const row = { ...r } as Record<string, unknown>;
+				// Flatten periodDemand into pd_ columns for CSV
+				const pd = row.periodDemand as Record<string, number> | undefined;
+				if (pd && typeof pd === "object") {
+					for (const [key, val] of Object.entries(pd)) {
+						row[`pd_${key.replace(/[\s]/g, "_")}`] = val;
+					}
+				}
+				delete row.periodDemand;
+				delete row.id;
+				return row;
+			});
+
+			// Warn if payload exceeds ~5 MB (heuristic: rough JSON serialization estimate)
+			const estimatedBytes = JSON.stringify(rows).length;
+			if (estimatedBytes > 5_000_000) {
+				const mb = (estimatedBytes / 1_000_000).toFixed(1);
+				console.warn(`Save PO payload is ~${mb}MB — large payloads may fail.`);
+			}
+
+			await apiRequest("/purchase-order", {
+				method: "POST",
+				body: {
+					refNum,
+					siteId,
+					demandMode,
+					frequency,
+					salesFrom,
+					salesTo,
+					rows,
+				},
+			});
+
+			setSavePoDialogOpen(false);
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : "Failed to save purchase order.";
+			console.error("Save PO error:", msg);
+			setGridError(msg);
+		} finally {
+			setIsSavingPo(false);
+		}
+	}, [mode, purchasingRows, selectedStorage, dateRange, demandMode, frequency]);
+
 	// ─── PDF Export (purchasing only) ─────────────────────────────────
 	const handlePdfExport = useCallback(async (formData: PoPdfExportFormData) => {
 		if (mode !== "purchasing") return;
@@ -1033,6 +1098,11 @@ export function useRequirements(): UseRequirementsReturn {
 		showDemandColumns,
 		setShowDemandColumns,
 		isPdfExporting,
+		savePoDialogOpen,
+		openSavePoDialog,
+		closeSavePoDialog,
+		isSavingPo,
+		handleSavePurchaseOrder,
 		priceClasses,
 		categories,
 		selectedCategories,

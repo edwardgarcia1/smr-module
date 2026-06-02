@@ -1,4 +1,9 @@
-import React, { useMemo, useState } from "react";
+/**
+ * PurchaseOrders Page — Lists saved purchase order snapshots from the
+ * Requirements purchasing grid. Click a row to view the saved CSV data
+ * in a DataGrid.
+ */
+import React, { useEffect, useState, useCallback } from "react";
 import {
 	Box,
 	Table,
@@ -10,181 +15,121 @@ import {
 	Paper,
 	Alert,
 	TablePagination,
-	Checkbox,
+	Typography,
+	Button,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogActions,
+	IconButton,
+	Tooltip,
 	TableSortLabel,
-	Chip,
-	TextField,
-	InputAdornment,
 } from "@mui/material";
-import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
-import CancelIcon from "@mui/icons-material/Cancel";
-import SearchIcon from "@mui/icons-material/Search";
+import DeleteIcon from "@mui/icons-material/Delete";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import CloseIcon from "@mui/icons-material/Close";
+import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import apiRequest from "../services/api";
+
+// ─── Types ────────────────────────────────────────────────────────────
 
 interface PurchaseOrder {
 	id: number;
-	seriesNbr: string;
-	poRefNbr: string;
-	supplier: string;
-	status: string;
-	periodFrom: Date;
-	periodTo: Date;
-	created: Date;
+	ref_num: string;
+	site_id: string;
+	demand_mode: string;
+	frequency: string;
+	sales_from: string;
+	sales_to: string;
+	csv_filename: string | null;
+	created_at: string;
+}
+
+interface PurchaseOrderDetail {
+	meta: PurchaseOrder;
+	csvData: {
+		headers: string[];
+		rows: Record<string, string>[];
+	};
 }
 
 type Order = "asc" | "desc";
-type OrderBy = "id" | "seriesNbr" | "poRefNbr" | "supplier" | "status" | "periodFrom" | "periodTo" | "created";
+type OrderBy = keyof PurchaseOrder;
 
-const formatDate = (date: Date): string => {
-	return date.toLocaleDateString("en-US", {
-		year: "numeric",
-		month: "short",
-		day: "numeric",
-	});
-};
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-const getStatusChip = (status: string) => {
-	switch (status.toLowerCase()) {
-		case "pending":
-			return (
-				<Chip
-					icon={<HourglassEmptyIcon />}
-					label={status}
-					color="warning"
-					size="small"
-					sx={{ borderRadius: 2 }}
-				/>
-			);
-		case "approved":
-			return (
-				<Chip
-					icon={<CheckCircleIcon />}
-					label={status}
-					color="success"
-					size="small"
-					sx={{ borderRadius: 2 }}
-				/>
-			);
-		case "completed":
-			return (
-				<Chip
-					icon={<DoneAllIcon />}
-					label={status}
-					color="info"
-					size="small"
-					sx={{ borderRadius: 2 }}
-				/>
-			);
-		case "cancelled":
-			return (
-				<Chip
-					icon={<CancelIcon />}
-					label={status}
-					color="error"
-					size="small"
-					sx={{ borderRadius: 2 }}
-				/>
-			);
-		default:
-			return (
-				<Chip
-					label={status}
-					color="default"
-					size="small"
-					sx={{ borderRadius: 2 }}
-				/>
-			);
+const formatDate = (dateStr: string): string => {
+	if (!dateStr) return "—";
+	try {
+		return new Date(dateStr).toLocaleDateString("en-US", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+		});
+	} catch {
+		return dateStr;
 	}
 };
 
-const PurchaseOrders: React.FC = () => {
-	// Placeholder data
-	const placeholderData: PurchaseOrder[] = [
-		{
-			id: 1,
-			seriesNbr: "PO-2024-001",
-			poRefNbr: "REF-001",
-			supplier: "Acme Corp",
-			status: "Pending",
-			periodFrom: new Date("2024-01-01"),
-			periodTo: new Date("2024-01-31"),
-			created: new Date("2024-01-05"),
-		},
-		{
-			id: 2,
-			seriesNbr: "PO-2024-002",
-			poRefNbr: "REF-002",
-			supplier: "Globex Inc",
-			status: "Approved",
-			periodFrom: new Date("2024-02-01"),
-			periodTo: new Date("2024-02-28"),
-			created: new Date("2024-02-10"),
-		},
-		{
-			id: 3,
-			seriesNbr: "PO-2024-003",
-			poRefNbr: "REF-003",
-			supplier: "Soylent Corp",
-			status: "Completed",
-			periodFrom: new Date("2024-03-01"),
-			periodTo: new Date("2024-03-31"),
-			created: new Date("2024-03-05"),
-		},
-		{
-			id: 4,
-			seriesNbr: "PO-2024-004",
-			poRefNbr: "REF-004",
-			supplier: "Initech",
-			status: "Cancelled",
-			periodFrom: new Date("2024-04-01"),
-			periodTo: new Date("2024-04-30"),
-			created: new Date("2024-04-12"),
-		},
-	];
+const formatDateTime = (dateStr: string): string => {
+	if (!dateStr) return "—";
+	try {
+		return new Date(dateStr).toLocaleDateString("en-US", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	} catch {
+		return dateStr;
+	}
+};
 
-	const [orders, setOrders] = useState<PurchaseOrder[]>(placeholderData);
+// ─── Page Component ───────────────────────────────────────────────────
+
+const PurchaseOrders: React.FC = () => {
+	const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+
+	// Pagination & sort
 	const [page, setPage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState(10);
-	const [order, setOrder] = useState<Order>("asc");
-	const [orderBy, setOrderBy] = useState<OrderBy>("id");
-	const [selected, setSelected] = useState<readonly number[]>([]);
-	const [searchQuery, setSearchQuery] = useState("");
+	const [order, setOrder] = useState<Order>("desc");
+	const [orderBy, setOrderBy] = useState<OrderBy>("created_at");
+
+	// Detail dialog
+	const [detailOpen, setDetailOpen] = useState(false);
+	const [detailData, setDetailData] = useState<PurchaseOrderDetail | null>(null);
+	const [detailLoading, setDetailLoading] = useState(false);
+	const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
+
+	// ─── Fetch list ───────────────────────────────────────────────
+
+	const fetchOrders = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			const data = await apiRequest<PurchaseOrder[]>("/purchase-order");
+			setOrders(data ?? []);
+		} catch (err: unknown) {
+			setError(err instanceof Error ? err.message : "Failed to load purchase orders.");
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		fetchOrders();
+	}, [fetchOrders]);
+
+	// ─── Sort / Pagination handlers ──────────────────────────────
 
 	const handleRequestSort = (property: OrderBy) => {
 		const isAsc = orderBy === property && order === "asc";
 		setOrder(isAsc ? "desc" : "asc");
 		setOrderBy(property);
-	};
-
-	const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
-		if (event.target.checked) {
-			const newSelecteds = orders.map((n) => n.id);
-			setSelected(newSelecteds);
-			return;
-		}
-		setSelected([]);
-	};
-
-	const handleClick = (_event: React.MouseEvent<unknown>, id: number) => {
-		const selectedIndex = selected.indexOf(id);
-		let newSelected: readonly number[] = [];
-
-		if (selectedIndex === -1) {
-			newSelected = newSelected.concat(selected, id);
-		} else if (selectedIndex === 0) {
-			newSelected = newSelected.concat(selected.slice(1));
-		} else if (selectedIndex === selected.length - 1) {
-			newSelected = newSelected.concat(selected.slice(0, -1));
-		} else if (selectedIndex > 0) {
-			newSelected = newSelected.concat(
-				selected.slice(0, selectedIndex),
-				selected.slice(selectedIndex + 1),
-			);
-		}
-
-		setSelected(newSelected);
 	};
 
 	const handleChangePage = (_event: unknown, newPage: number) => {
@@ -196,226 +141,332 @@ const PurchaseOrders: React.FC = () => {
 		setPage(0);
 	};
 
-	const isSelected = (id: number) => selected.indexOf(id) !== -1;
+	// ─── Sort & paginate ─────────────────────────────────────────
 
-	const filteredOrders = useMemo(() => {
-		if (!searchQuery.trim()) return orders;
-
-		const query = searchQuery.toLowerCase().trim();
-
-		return orders.filter((order) => {
-			const formattedPeriodFrom = formatDate(order.periodFrom).toLowerCase();
-			const formattedPeriodTo = formatDate(order.periodTo).toLowerCase();
-			const formattedCreated = formatDate(order.created).toLowerCase();
-
-			return (
-				order.id.toString().includes(query) ||
-				order.seriesNbr.toLowerCase().includes(query) ||
-				order.poRefNbr.toLowerCase().includes(query) ||
-				order.supplier.toLowerCase().includes(query) ||
-				order.status.toLowerCase().includes(query) ||
-				formattedPeriodFrom.includes(query) ||
-				formattedPeriodTo.includes(query) ||
-				formattedCreated.includes(query)
-			);
-		});
-	}, [orders, searchQuery]);
-
-	const sortedOrders = useMemo(() => {
-		return [...filteredOrders].sort((a, b) => {
-			const aValue = a[orderBy];
-			const bValue = b[orderBy];
-
-			let comparison = 0;
-			if (aValue instanceof Date && bValue instanceof Date) {
-				comparison = aValue.getTime() - bValue.getTime();
-			} else if (typeof aValue === "string" && typeof bValue === "string") {
-				comparison = aValue.localeCompare(bValue);
-			} else {
-				comparison = aValue < bValue ? -1 : 1;
-			}
-
-			return order === "asc" ? comparison : -comparison;
-		});
-	}, [filteredOrders, order, orderBy]);
+	const sortedOrders = [...orders].sort((a, b) => {
+		const aVal = a[orderBy];
+		const bVal = b[orderBy];
+		let comparison = 0;
+		if (typeof aVal === "string" && typeof bVal === "string") {
+			comparison = aVal.localeCompare(bVal);
+		} else {
+			comparison = (aVal as number) < (bVal as number) ? -1 : 1;
+		}
+		return order === "asc" ? comparison : -comparison;
+	});
 
 	const paginatedOrders = sortedOrders.slice(
 		page * rowsPerPage,
 		page * rowsPerPage + rowsPerPage,
 	);
 
-	const emptyRows = page > 0 ? Math.max(0, (1 + page) * rowsPerPage - orders.length) : 0;
+	// ─── Detail dialog ───────────────────────────────────────────
 
-	const headCells = [
-		{ id: "select" as const, disablePadding: true, label: "" },
-		{ id: "seriesNbr" as const, disablePadding: false, label: "Series Nbr" },
-		{ id: "poRefNbr" as const, disablePadding: false, label: "PO Ref Nbr" },
-		{ id: "supplier" as const, disablePadding: false, label: "Supplier" },
-		{ id: "status" as const, disablePadding: false, label: "Status" },
-		{ id: "periodFrom" as const, disablePadding: false, label: "Period From" },
-		{ id: "periodTo" as const, disablePadding: false, label: "Period To" },
-		{ id: "created" as const, disablePadding: false, label: "Created" },
+	const handleOpenDetail = useCallback(async (po: PurchaseOrder) => {
+		setSelectedPo(po);
+		setDetailLoading(true);
+		setDetailOpen(true);
+		try {
+			const data = await apiRequest<PurchaseOrderDetail>(`/purchase-order/${po.id}`);
+			setDetailData(data);
+		} catch (err: unknown) {
+			setDetailData(null);
+			setError(err instanceof Error ? err.message : "Failed to load PO details.");
+		} finally {
+			setDetailLoading(false);
+		}
+	}, []);
+
+	const handleCloseDetail = () => {
+		setDetailOpen(false);
+		setDetailData(null);
+		setSelectedPo(null);
+	};
+
+	// ─── Delete ──────────────────────────────────────────────────
+
+	const handleDelete = useCallback(async (id: number) => {
+		if (!confirm("Delete this purchase order? This action cannot be undone.")) return;
+		try {
+			await apiRequest(`/purchase-order/${id}`, { method: "DELETE" });
+			setOrders((prev) => prev.filter((o) => o.id !== id));
+		} catch (err: unknown) {
+			setError(err instanceof Error ? err.message : "Failed to delete purchase order.");
+		}
+	}, []);
+
+	// ─── Build detail grid columns from CSV headers ──────────────
+
+	const detailColumns = React.useMemo<GridColDef[]>(() => {
+		if (!detailData) return [];
+		return detailData.csvData.headers.map((header) => ({
+			field: header,
+			headerName: header,
+			width: 130,
+			flex: header === "descr" ? 1 : undefined,
+		}));
+	}, [detailData]);
+
+	// ─── Head cells for the list table ───────────────────────────
+
+	const headCells: { id: OrderBy; label: string }[] = [
+		{ id: "id", label: "ID" },
+		{ id: "ref_num", label: "Ref Nbr" },
+		{ id: "site_id", label: "Site" },
+		{ id: "demand_mode", label: "Demand Mode" },
+		{ id: "frequency", label: "Frequency" },
+		{ id: "sales_from", label: "Sales From" },
+		{ id: "sales_to", label: "Sales To" },
+		{ id: "created_at", label: "Created" },
 	];
+
+	// ─── Render ─────────────────────────────────────────────────
 
 	return (
 		<>
-			{error ? (
-				<Alert severity="error" sx={{ mb: 2 }}>
+			{error && (
+				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
 					{error}
 				</Alert>
-			) : (
-				<Paper sx={{ width: "100%", mb: 2 }}>
-					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-						<TextField
-							fullWidth
-							variant="outlined"
-							placeholder="Search purchase orders..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<SearchIcon />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{
-								"& .MuiOutlinedInput-root": {
-									borderRadius: 2,
-									height: 44,
-								},
-								"& .MuiInputBase-input": {
-									paddingY: 0,
-								},
-							}}
-						/>
+			)}
+
+			<Paper sx={{ width: "100%", mb: 2 }}>
+				<Box
+					sx={{
+						px: 2,
+						py: 1.5,
+						borderBottom: 1,
+						borderColor: "divider",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+					}}
+				>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Saved Purchase Orders
+					</Typography>
+					{!loading && (
+						<Typography variant="body2" color="text.secondary">
+							{orders.length} record{orders.length !== 1 ? "s" : ""}
+						</Typography>
+					)}
+				</Box>
+
+				{loading ? (
+					<Box sx={{ p: 4, textAlign: "center" }}>
+						<Typography color="text.secondary">Loading purchase orders…</Typography>
 					</Box>
-					<TableContainer sx={{ maxHeight: 440 }}>
-						<Table stickyHeader aria-labelledby="tableTitle">
-							<TableHead>
-								<TableRow>
-									{headCells.map((headCell) => (
-										<TableCell
-											key={headCell.id}
-											padding={headCell.disablePadding ? "none" : "normal"}
-											sortDirection={orderBy === headCell.id ? order : false}
-											sx={{ bgcolor: "var(--sidebar-bg)", color: "var(--sidebar-text)" }}
-										>
-											{headCell.id === "select" ? (
-												<Checkbox
-													indeterminate={
-														selected.length > 0 && selected.length < orders.length
-													}
-													checked={
-														orders.length > 0 && selected.length === orders.length
-													}
-													onChange={handleSelectAllClick}
-													aria-label="select all orders"
-													sx={{
-														color: "var(--sidebar-text)",
-														"&.Mui-checked": { color: "var(--sidebar-text)" },
-														"&.MuiCheckbox-indeterminate": { color: "var(--sidebar-text)" },
-														"&.MuiCheckbox-root": { color: "var(--sidebar-text)" },
-													}}
-												/>
-											) : (
+				) : orders.length === 0 ? (
+					<Box sx={{ p: 4, textAlign: "center" }}>
+						<Typography color="text.secondary">
+							No saved purchase orders yet. Generate requirements and use the "Save" button
+							on the Requirements page to create one.
+						</Typography>
+					</Box>
+				) : (
+					<>
+						<TableContainer sx={{ maxHeight: 520 }}>
+							<Table stickyHeader aria-label="purchase orders list">
+								<TableHead>
+									<TableRow>
+										{headCells.map((hc) => (
+											<TableCell
+												key={hc.id}
+												sortDirection={orderBy === hc.id ? order : false}
+												sx={{
+													bgcolor: "var(--sidebar-bg)",
+													color: "var(--sidebar-text)",
+												}}
+											>
 												<TableSortLabel
-													active={orderBy === headCell.id}
-													direction={orderBy === headCell.id ? order : "asc"}
-													onClick={() => handleRequestSort(headCell.id)}
+													active={orderBy === hc.id}
+													direction={orderBy === hc.id ? order : "asc"}
+													onClick={() => handleRequestSort(hc.id)}
 													sx={{
-														"&.MuiTableSortLabel-active": { color: "var(--sidebar-text) !important" },
-														"& .MuiTableSortLabel-icon": { color: "var(--sidebar-text) !important" },
+														"&.MuiTableSortLabel-active": {
+															color: "var(--sidebar-text) !important",
+														},
+														"& .MuiTableSortLabel-icon": {
+															color: "var(--sidebar-text) !important",
+														},
 														color: "var(--sidebar-text)",
 													}}
 												>
-													{headCell.label}
+													{hc.label}
 												</TableSortLabel>
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{paginatedOrders.map((order, index) => {
-									const isItemSelected = isSelected(order.id);
-									const labelId = `enhanced-table-checkbox-${index}`;
-									return (
-										<TableRow
-											hover
-											onClick={(event) => handleClick(event, order.id)}
-											role="checkbox"
-											aria-checked={isItemSelected}
-											tabIndex={-1}
-											key={order.id}
-											selected={isItemSelected}
-											sx={{ cursor: "pointer" }}
+											</TableCell>
+										))}
+										<TableCell
+											sx={{
+												bgcolor: "var(--sidebar-bg)",
+												color: "var(--sidebar-text)",
+											}}
 										>
-											<TableCell padding="none">
-												<Checkbox
-													color="primary"
-													checked={isItemSelected}
-													aria-labelledby={labelId}
-												/>
+											Actions
+										</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{paginatedOrders.map((po) => (
+										<TableRow
+											key={po.id}
+											hover
+											sx={{ cursor: "pointer" }}
+											onClick={() => handleOpenDetail(po)}
+										>
+											<TableCell>{po.id}</TableCell>
+											<TableCell sx={{ fontWeight: 600 }}>
+												{po.ref_num}
 											</TableCell>
-											<TableCell
-												component="th"
-												id={labelId}
-												scope="row"
-												padding="none"
-											>
-												{order.seriesNbr}
-											</TableCell>
-											<TableCell>{order.poRefNbr}</TableCell>
-											<TableCell>{order.supplier}</TableCell>
-											<TableCell>{getStatusChip(order.status)}</TableCell>
+											<TableCell>{po.site_id}</TableCell>
+											<TableCell>{po.demand_mode}</TableCell>
+											<TableCell>{po.frequency}</TableCell>
 											<TableCell>
-												{formatDate(order.periodFrom)}
-											</TableCell>
-											<TableCell>
-												{formatDate(order.periodTo)}
+												{formatDate(po.sales_from)}
 											</TableCell>
 											<TableCell>
-												{formatDate(order.created)}
+												{formatDate(po.sales_to)}
+											</TableCell>
+											<TableCell>
+												{formatDateTime(po.created_at)}
+											</TableCell>
+											<TableCell>
+												<Box
+													sx={{ display: "flex", gap: 0.5 }}
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Tooltip title="View details">
+														<IconButton
+															size="small"
+															onClick={() => handleOpenDetail(po)}
+														>
+															<VisibilityIcon fontSize="small" />
+														</IconButton>
+													</Tooltip>
+													<Tooltip title="Delete">
+														<IconButton
+															size="small"
+															color="error"
+															onClick={() => handleDelete(po.id)}
+														>
+															<DeleteIcon fontSize="small" />
+														</IconButton>
+													</Tooltip>
+												</Box>
 											</TableCell>
 										</TableRow>
-									);
-								})}
-								{emptyRows > 0 && (
-									<TableRow style={{ height: 53 * emptyRows }}>
-										<TableCell colSpan={8} />
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
-					<TablePagination
-						component="div"
-						count={orders.length}
-						rowsPerPage={rowsPerPage}
-						page={page}
-						onPageChange={handleChangePage}
-						onRowsPerPageChange={handleChangeRowsPerPage}
-						labelRowsPerPage="Rows:"
-						sx={{
-							width: "100%",
-							display: "flex",
-							flexDirection: { xs: "column", sm: "row" },
-							alignItems: "center",
-							gap: 1,
-							"& .MuiTablePagination-toolbar": {
-								flexWrap: "wrap",
-								justifyContent: { xs: "center", sm: "flex-end" },
-							},
-							"& .MuiTablePagination-spacer": {
-								display: "none",
-							},
-						}}
-					/>
-				</Paper>
-			)}
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+						<TablePagination
+							component="div"
+							count={orders.length}
+							rowsPerPage={rowsPerPage}
+							page={page}
+							onPageChange={handleChangePage}
+							onRowsPerPageChange={handleChangeRowsPerPage}
+							labelRowsPerPage="Rows:"
+							rowsPerPageOptions={PAGE_SIZE_OPTIONS}
+							sx={{
+								width: "100%",
+								display: "flex",
+								flexDirection: { xs: "column", sm: "row" },
+								alignItems: "center",
+								gap: 1,
+								"& .MuiTablePagination-toolbar": {
+									flexWrap: "wrap",
+									justifyContent: { xs: "center", sm: "flex-end" },
+								},
+								"& .MuiTablePagination-spacer": {
+									display: "none",
+								},
+							}}
+						/>
+					</>
+				)}
+			</Paper>
+
+			{/* ── Detail Dialog ──────────────────────────────────────── */}
+			<Dialog
+				open={detailOpen}
+				onClose={handleCloseDetail}
+				maxWidth="xl"
+				fullWidth
+			>
+				<DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+					<Box sx={{ flex: 1 }}>
+						{selectedPo ? selectedPo.ref_num : "Purchase Order"}
+						{selectedPo && (
+							<Typography variant="body2" color="text.secondary">
+								{selectedPo.frequency} · {selectedPo.demand_mode} demand ·
+								Site: {selectedPo.site_id} ·{" "}
+								{formatDate(selectedPo.sales_from)} –{" "}
+								{formatDate(selectedPo.sales_to)}
+							</Typography>
+						)}
+					</Box>
+					<IconButton onClick={handleCloseDetail} size="small">
+						<CloseIcon />
+					</IconButton>
+				</DialogTitle>
+				<DialogContent dividers>
+					{detailLoading ? (
+						<Box sx={{ p: 4, textAlign: "center" }}>
+							<Typography color="text.secondary">
+								Loading grid data…
+							</Typography>
+						</Box>
+					) : detailData && detailData.csvData.rows.length > 0 ? (
+						<Paper
+							sx={{
+								width: "100%",
+								borderRadius: 2,
+								overflow: "hidden",
+								height: "calc(80dvh - 130px)",
+							}}
+						>
+							<DataGrid
+								rows={detailData.csvData.rows.map((r, i) => ({
+									...r,
+									id: i + 1,
+								}))}
+								columns={detailColumns}
+								getRowHeight={() => 42}
+								initialState={{
+									pagination: { paginationModel: { pageSize: 20 } },
+								}}
+								pageSizeOptions={[10, 20, 50]}
+								checkboxSelection
+								disableRowSelectionOnClick
+								sx={{
+									"& .MuiDataGrid-cell:focus": {
+										outline: "none",
+									},
+									"& .MuiDataGrid-columnHeader:focus": {
+										outline: "none",
+									},
+								}}
+							/>
+						</Paper>
+					) : detailData ? (
+						<Box sx={{ p: 4, textAlign: "center" }}>
+							<Typography color="text.secondary">
+								No grid data found in this purchase order.
+							</Typography>
+						</Box>
+					) : (
+						<Box sx={{ p: 4, textAlign: "center" }}>
+							<Typography color="text.secondary">
+								Failed to load purchase order data.
+							</Typography>
+						</Box>
+					)}
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={handleCloseDetail}>Close</Button>
+				</DialogActions>
+			</Dialog>
 		</>
 	);
 };
