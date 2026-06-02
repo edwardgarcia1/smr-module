@@ -45,6 +45,7 @@ import {
 	getCategoryColors,
 	CATEGORY_CLASS_MAP,
 	CATEGORY_ORDER,
+	CAT_EXCEL_COLORS,
 } from "../config/requirements";
 import type { MinStockCategory, CategoryColorScheme, Principal } from "../config/requirements";
 import { buildBaseGridSx, purchasingGroupSelectors } from "../components/requirements/gridStyles";
@@ -614,39 +615,6 @@ const PurchaseOrders: React.FC = () => {
 		return [...headerColumns, ...computedColumns.filter((c) => !existing.has(c.field))];
 	}, [headerColumns, computedColumns]);
 
-	// ─── Detail grid toolbar handlers ────────────────────────────
-
-	const handleDetailExcelExport = useCallback(async () => {
-		if (!detailData || detailData.csvData.rows.length === 0) return;
-		await exportDataGridToExcel(
-			detailData.csvData.rows as Record<string, unknown>[],
-			detailColumns,
-			{
-				title: selectedPo?.ref_num ?? "Purchase Order",
-				subtitle: selectedPo
-					? `${selectedPo.frequency} · ${selectedPo.demand_mode} demand · ${selectedPo.principal_id}`
-					: undefined,
-			},
-			`PO-${selectedPo?.ref_num ?? "export"}.xlsx`,
-		);
-	}, [detailData, detailColumns, selectedPo]);
-
-	const handleToggleDetailDemand = useCallback(() => {
-		const newShow = !showDetailDemand;
-		setShowDetailDemand(newShow);
-		const model = { ...detailColumnVisibilityRef.current };
-		for (const col of detailColumns) {
-			if (col.field.startsWith("pd_")) {
-				if (!newShow) {
-					model[col.field] = false;
-				} else {
-					delete model[col.field];
-				}
-			}
-		}
-		detailApiRef.current?.setColumnVisibilityModel(model);
-	}, [showDetailDemand, detailColumns, detailApiRef]);
-
 	// ─── Detail inline editing ───────────────────────────────────
 
 	const [editedRows, setEditedRows] = useState<Record<number, Record<string, unknown>>>({});
@@ -663,6 +631,65 @@ const PurchaseOrders: React.FC = () => {
 	const handleProcessRowUpdateError = useCallback((err: unknown) => {
 		console.error("Row update error:", err);
 	}, []);
+
+	// ─── Detail grid toolbar handlers ────────────────────────────
+
+	const handleDetailExcelExport = useCallback(async () => {
+		if (!detailData || detailData.csvData.rows.length === 0) return;
+		// Merge base CSV rows with inline edits
+		const mergedRows = detailData.csvData.rows.map((r, i) => {
+			const id = i + 1;
+			return { ...(editedRows[id] ?? r), id };
+		});
+		// Sort rows by the DataGrid's current sort order (category hierarchy, etc.)
+		const sortedRowIds = detailApiRef.current?.getSortedRowIds() ?? [];
+		const rowById = new Map(mergedRows.map((r) => [r.id, r]));
+		const sortedRows: Record<string, unknown>[] = [];
+		for (const id of sortedRowIds) {
+			const row = rowById.get(id);
+			if (row) sortedRows.push(row);
+		}
+		// Fallback: if no sort model active, use merged order
+		const exportRows = sortedRows.length > 0 ? sortedRows : mergedRows;
+		await exportDataGridToExcel(
+			exportRows,
+			detailColumns,
+			{
+				title: selectedPo?.ref_num ?? "Purchase Order",
+				subtitle: selectedPo
+					? `${selectedPo.frequency} · ${selectedPo.demand_mode} demand · ${selectedPo.principal_id}`
+					: undefined,
+				getRowFill: (row) => {
+					const sc = row.stockCoverCount ? Number(row.stockCoverCount) : null;
+					const ct = row.coverageThreshold ? Number(row.coverageThreshold) : null;
+					const ad = row.avgDemand ? Number(row.avgDemand) : null;
+					const so = row.suggestedOrder ? Number(row.suggestedOrder) : null;
+					const cat = computeCategoryName(
+						{ stockCoverCount: sc, coverageThreshold: ct, avgDemand: ad, suggestedOrder: so },
+						categories,
+					);
+					return cat ? (CAT_EXCEL_COLORS[cat] ?? null) : null;
+				},
+			},
+			`PO-${selectedPo?.ref_num ?? "export"}.xlsx`,
+		);
+	}, [detailData, detailColumns, selectedPo, editedRows, categories, detailApiRef]);
+
+	const handleToggleDetailDemand = useCallback(() => {
+		const newShow = !showDetailDemand;
+		setShowDetailDemand(newShow);
+		const model = { ...detailColumnVisibilityRef.current };
+		for (const col of detailColumns) {
+			if (col.field.startsWith("pd_")) {
+				if (!newShow) {
+					model[col.field] = false;
+				} else {
+					delete model[col.field];
+				}
+			}
+		}
+		detailApiRef.current?.setColumnVisibilityModel(model);
+	}, [showDetailDemand, detailColumns, detailApiRef]);
 
 	// ─── Detail PDF export ───────────────────────────────────────
 
@@ -691,8 +718,8 @@ const PurchaseOrders: React.FC = () => {
 						const finalQty = Math.round(rawFinalQty);
 						const price = r.price_perCS ? Number(r.price_perCS) : null;
 						return {
-							invtID: r.invtID ?? "",
-							descr: r.descr ?? "",
+							invtID: String(r.invtID ?? ""),
+							descr: String(r.descr ?? ""),
 							qtyPerCS: Number(r.qtyPerCS) || 0,
 							price_perCS: price,
 							finalOrderCS: finalQty,
