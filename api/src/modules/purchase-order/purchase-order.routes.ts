@@ -4,6 +4,7 @@ import {
 	getPurchaseOrderById,
 	createPurchaseOrder,
 	updatePurchaseOrderCsv,
+	updatePoStatus,
 	deletePurchaseOrder,
 } from "./purchase-order.service";
 import { authGuard } from "../../middlewares/auth";
@@ -116,6 +117,33 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 			params: t.Object({ id: t.Numeric() }),
 			body: t.Object({
 				rows: t.Array(t.Record(t.String(), t.Any())),
+			}),
+		},
+	)
+
+	/**
+	 * PATCH /purchase-order/:id/status — update PO status (Pending / Printed / Approved / Encoded / Cancelled).
+	 * Does NOT touch last_update_at / last_update_by — only status, status_from, status_by.
+	 */
+	.patch(
+		"/:id/status",
+		async ({ params: { id }, body, ability, user }) => {
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "update", "PurchaseOrder");
+
+			const VALID_STATUSES = ["Pending", "Printed", "Approved", "Encoded", "Cancelled"];
+			if (!VALID_STATUSES.includes(body.status)) {
+				throw new BadRequestError(
+					`Invalid status "${body.status}". Must be one of: ${VALID_STATUSES.join(", ")}`,
+				);
+			}
+
+			return updatePoStatus(id, body.status, user.name);
+		},
+		{
+			params: t.Object({ id: t.Numeric() }),
+			body: t.Object({
+				status: t.String(),
 			}),
 		},
 	)

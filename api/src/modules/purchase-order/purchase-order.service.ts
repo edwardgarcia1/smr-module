@@ -11,7 +11,18 @@ import type { PurchaseOrder, NewPurchaseOrder } from "./purchase-order.schema";
 const PO_COLUMNS = `
   id, ref_num, principal_id, site_id, demand_mode, frequency,
   sales_from, sales_to, csv_filename, prepared_by,
-  last_update_at, last_update_by, created_at
+  last_update_at, last_update_by, status,
+  status_from, status_by, created_at
+`;
+
+/** Same columns with INSERTED. prefix for INSERT/UPDATE OUTPUT clauses. */
+const PO_COLUMNS_INSERTED = `
+  INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id,
+  INSERTED.demand_mode, INSERTED.frequency,
+  INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename,
+  INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by,
+  INSERTED.status, INSERTED.status_from, INSERTED.status_by,
+  INSERTED.created_at
 `;
 
 // ─── Constants ────────────────────────────────────────────────────────
@@ -177,7 +188,7 @@ export async function createPurchaseOrder(
 			.input("sales_to", body.sales_to)
 			.input("prepared_by", body.prepared_by).query(`
         INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, prepared_by)
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by, INSERTED.created_at
+        OUTPUT ${PO_COLUMNS_INSERTED}
         VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @prepared_by)
       `);
 
@@ -198,7 +209,7 @@ export async function createPurchaseOrder(
 			.query(`
         UPDATE SMR_PurchaseOrders
         SET csv_filename = @csv_filename
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by, INSERTED.created_at
+        OUTPUT ${PO_COLUMNS_INSERTED}
         WHERE id = @id
       `);
 
@@ -236,7 +247,37 @@ export async function updatePurchaseOrderCsv(
         SET csv_filename = @csv_filename,
             last_update_at = GETDATE(),
             last_update_by = @last_update_by
-        OUTPUT ${PO_COLUMNS}
+        OUTPUT ${PO_COLUMNS_INSERTED}
+        WHERE id = @id
+      `);
+
+		const updated = trimStrings(result.recordset[0] as PurchaseOrder | undefined);
+		if (!updated) throw new NotFoundError(`PurchaseOrder ${id} not found`);
+		return updated;
+	});
+}
+
+/**
+ * Update a purchase order's status (Pending / Printed / Approved / Encoded / Cancelled).
+ * Status changes do NOT affect last_update_at / last_update_by — they only
+ * update the status, status_from, and status_by columns.
+ */
+export async function updatePoStatus(
+	id: number,
+	status: string,
+	updatedBy: string,
+): Promise<PurchaseOrder> {
+	return withDb(async (pool) => {
+		const result = await pool
+			.request()
+			.input("id", id)
+			.input("status", status)
+			.input("status_by", updatedBy).query(`
+        UPDATE SMR_PurchaseOrders
+        SET status = @status,
+            status_from = GETDATE(),
+            status_by = @status_by
+        OUTPUT ${PO_COLUMNS_INSERTED}
         WHERE id = @id
       `);
 

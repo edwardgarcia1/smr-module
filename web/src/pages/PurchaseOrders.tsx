@@ -34,6 +34,9 @@ import {
 	Autocomplete,
 	Checkbox,
 	FormControl,
+	Select,
+	MenuItem,
+	Chip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
@@ -86,6 +89,8 @@ import dayjs from "dayjs";
 
 // ─── Types ────────────────────────────────────────────────────────────
 
+type PoStatus = "Pending" | "Printed" | "Approved" | "Encoded" | "Cancelled";
+
 interface PurchaseOrder {
 	id: number;
 	ref_num: string;
@@ -100,6 +105,9 @@ interface PurchaseOrder {
 	prepared_by: string;
 	last_update_at: string | null;
 	last_update_by: string | null;
+	status: PoStatus;
+	status_from: string | null;
+	status_by: string | null;
 }
 
 interface PurchaseOrderDetail {
@@ -809,6 +817,80 @@ const PurchaseOrders: React.FC = () => {
 		console.error("Row update error:", err);
 	}, []);
 
+	// ─── Status change handler ───────────────────────────────────
+	const handleStatusChange = useCallback(
+		async (newStatus: PoStatus) => {
+			if (!selectedPo) return;
+			const user = useAuthStore.getState().user;
+			try {
+				const updated = await apiRequest<PurchaseOrder>(
+					`/purchase-order/${selectedPo.id}/status`,
+					{
+						method: "PATCH",
+						body: { status: newStatus },
+					},
+				);
+				// Update the local orders list with new status/metadata
+				setOrders((prev) =>
+					prev.map((o) =>
+						o.id === selectedPo.id
+							? {
+									...o,
+									status: updated.status,
+									status_from: updated.status_from,
+									status_by: updated.status_by,
+								}
+							: o,
+					),
+				);
+				setSelectedPo((prev) =>
+					prev
+						? {
+								...prev,
+								status: updated.status,
+								status_from: updated.status_from,
+								status_by: updated.status_by,
+							}
+						: prev,
+				);
+			} catch (err) {
+				console.error("Failed to update status:", err);
+			}
+		},
+		[selectedPo],
+	);
+
+	// ─── List inline status change (no selectedPo dependency) ────
+	const handleStatusChangeFromList = useCallback(
+		async (poId: number, newStatus: PoStatus) => {
+			const user = useAuthStore.getState().user;
+			try {
+				const updated = await apiRequest<PurchaseOrder>(
+					`/purchase-order/${poId}/status`,
+					{
+						method: "PATCH",
+						body: { status: newStatus },
+					},
+				);
+				setOrders((prev) =>
+					prev.map((o) =>
+						o.id === poId
+							? {
+									...o,
+									status: updated.status,
+									status_from: updated.status_from,
+									status_by: updated.status_by,
+								}
+							: o,
+					),
+				);
+			} catch (err) {
+				console.error("Failed to update status:", err);
+			}
+		},
+		[],
+	);
+
 	// ─── Detail grid toolbar handlers ────────────────────────────
 
 	const handleDetailExcelExport = useCallback(async () => {
@@ -951,6 +1033,40 @@ const PurchaseOrders: React.FC = () => {
 					"application/pdf",
 				);
 				setPdfDetailOpen(false);
+
+				// After successful PDF export, update PO status to "Printed"
+				if (selectedPo && selectedPo.status !== "Printed") {
+					try {
+						const updated = await apiRequest<PurchaseOrder>(
+							`/purchase-order/${selectedPo.id}/status`,
+							{ method: "PATCH", body: { status: "Printed" } },
+						);
+						setOrders((prev) =>
+							prev.map((o) =>
+								o.id === selectedPo.id
+									? {
+											...o,
+											status: updated.status,
+											status_from: updated.status_from,
+											status_by: updated.status_by,
+										}
+									: o,
+							),
+						);
+						setSelectedPo((prev) =>
+							prev
+								? {
+										...prev,
+										status: updated.status,
+										status_from: updated.status_from,
+										status_by: updated.status_by,
+									}
+								: prev,
+						);
+					} catch (err) {
+						console.error("Failed to update PO status after PDF export:", err);
+					}
+				}
 			} catch (err: unknown) {
 				console.error("PDF export error:", err);
 			} finally {
@@ -983,6 +1099,7 @@ const PurchaseOrders: React.FC = () => {
 		{ id: "site_id", label: "Site(s)" },
 		{ id: "demand_mode", label: "Demand Mode" },
 		{ id: "frequency", label: "Frequency" },
+		{ id: "status", label: "Status" },
 		{ id: "prepared_by", label: "Prepared By" },
 		{ id: "last_update_at", label: "Last Updated" },
 		{ id: "last_update_by", label: "Updated By" },
@@ -1020,9 +1137,52 @@ const PurchaseOrders: React.FC = () => {
 					py: 1,
 				}}
 			>
-				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-					{selectedPo?.ref_num ?? "Purchase Order Data"}
-				</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						{selectedPo?.ref_num ?? "Purchase Order Data"}
+					</Typography>
+					{selectedPo && (
+						<Select
+							size="small"
+							value={selectedPo.status}
+							onChange={(e) => handleStatusChange(e.target.value as PoStatus)}
+							sx={{
+								minWidth: 110,
+								fontWeight: 600,
+								fontSize: "0.8125rem",
+								borderRadius: 2,
+								"& .MuiOutlinedInput-notchedOutline": { borderColor: "divider" },
+							}}
+							renderValue={(val) => {
+								const chipColors: Record<string, Record<string, string>> = {
+									Pending: { bg: "warning.soft", color: "warning.dark" },
+									Printed: { bg: "info.soft", color: "info.dark" },
+									Approved: { bg: "success.soft", color: "success.dark" },
+									Encoded: { bg: "secondary.soft", color: "secondary.dark" },
+									Cancelled: { bg: "error.soft", color: "error.dark" },
+								};
+								const cc = chipColors[val] ?? {};
+								return (
+									<Chip
+										size="small"
+										label={val}
+										sx={{
+											fontWeight: 600,
+											fontSize: "0.75rem",
+											bgcolor: cc.bg,
+											color: cc.color,
+											height: 24,
+										}}
+									/>
+								);
+							}}
+						>
+							<MenuItem value="Approved">Approved</MenuItem>
+							<MenuItem value="Encoded">Encoded</MenuItem>
+							<MenuItem value="Cancelled">Cancelled</MenuItem>
+						</Select>
+					)}
+				</Box>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
 					<ColumnsPanelTrigger
 						size="small"
@@ -1386,6 +1546,56 @@ const PurchaseOrders: React.FC = () => {
 													</TableCell>
 												<TableCell>
 													{capitalize(po.frequency)}
+												</TableCell>
+												<TableCell
+													sx={{ p: 0.5, minWidth: 130 }}
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Select
+														size="small"
+														value={po.status}
+														onChange={(e) => {
+															const newStatus = e.target.value as PoStatus;
+															handleStatusChangeFromList(po.id, newStatus);
+														}}
+														sx={{
+															minWidth: 110,
+															fontWeight: 600,
+															fontSize: "0.8125rem",
+															borderRadius: 2,
+															"& .MuiOutlinedInput-notchedOutline": { border: "none" },
+															"& .MuiSelect-select": { py: 0.75 },
+														}}
+														renderValue={(val) => {
+															const chipColors: Record<string, Record<string, string>> = {
+																Pending: { bg: "warning.soft", color: "warning.dark" },
+																Printed: { bg: "info.soft", color: "info.dark" },
+																Approved: { bg: "success.soft", color: "success.dark" },
+																Encoded: { bg: "secondary.soft", color: "secondary.dark" },
+																Cancelled: { bg: "error.soft", color: "error.dark" },
+															};
+															const cc = chipColors[val] ?? {};
+															return (
+																<Chip
+																	size="small"
+																	label={val}
+																	sx={{
+																		fontWeight: 600,
+																		fontSize: "0.75rem",
+																		bgcolor: cc.bg,
+																		color: cc.color,
+																		height: 24,
+																	}}
+																/>
+															);
+														}}
+													>
+														<MenuItem value="Pending">Pending</MenuItem>
+														<MenuItem value="Printed">Printed</MenuItem>
+														<MenuItem value="Approved">Approved</MenuItem>
+														<MenuItem value="Encoded">Encoded</MenuItem>
+														<MenuItem value="Cancelled">Cancelled</MenuItem>
+													</Select>
 												</TableCell>
 												<TableCell>{po.prepared_by || "—"}</TableCell>
 												<TableCell>
