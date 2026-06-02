@@ -80,6 +80,7 @@ import type { PoPdfExportFormData } from "../components/requirements/PoPdfExport
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 import { exportPurchaseOrderToPdf } from "../utils/exportToPdf";
 import { downloadBlob } from "../utils/download";
+import { useAuthStore } from "../store/useAuthStore";
 import { LOGO_OPTIONS } from "../hooks/useRequirements";
 import dayjs from "dayjs";
 
@@ -96,6 +97,9 @@ interface PurchaseOrder {
 	sales_to: string;
 	csv_filename: string | null;
 	created_at: string;
+	prepared_by: string;
+	last_update_at: string | null;
+	last_update_by: string | null;
 }
 
 interface PurchaseOrderDetail {
@@ -770,14 +774,35 @@ const PurchaseOrders: React.FC = () => {
 	const [editedRows, setEditedRows] = useState<
 		Record<number, Record<string, unknown>>
 	>({});
+	const editedRowsRef = useRef(editedRows);
+	useEffect(() => {
+		editedRowsRef.current = editedRows;
+	}, [editedRows]);
 
 	const handleProcessRowUpdate = useCallback(
 		(newRow: Record<string, unknown>) => {
 			const rowId = newRow.id as number;
 			setEditedRows((prev) => ({ ...prev, [rowId]: newRow }));
+
+			// Persist inline edits to server: rebuild full merged rows and PATCH
+			if (selectedPo && detailData) {
+				const currentEdits = { ...editedRowsRef.current, [rowId]: newRow };
+				const mergedRows = detailData.csvData.rows.map((r, i) => {
+					const id = i + 1;
+					return { ...r, ...(currentEdits[id] ?? {}) };
+				});
+				const user = useAuthStore.getState().user;
+				apiRequest(`/purchase-order/${selectedPo.id}`, {
+					method: "PATCH",
+					body: { rows: mergedRows },
+				}).catch((err) =>
+					console.error("Failed to persist inline edit:", err),
+				);
+			}
+
 			return Promise.resolve(newRow);
 		},
-		[],
+		[selectedPo, detailData],
 	);
 
 	const handleProcessRowUpdateError = useCallback((err: unknown) => {
@@ -958,6 +983,9 @@ const PurchaseOrders: React.FC = () => {
 		{ id: "site_id", label: "Site(s)" },
 		{ id: "demand_mode", label: "Demand Mode" },
 		{ id: "frequency", label: "Frequency" },
+		{ id: "prepared_by", label: "Prepared By" },
+		{ id: "last_update_at", label: "Last Updated" },
+		{ id: "last_update_by", label: "Updated By" },
 		{ id: "created_at", label: "Created" },
 	];
 
@@ -1356,10 +1384,15 @@ const PurchaseOrders: React.FC = () => {
 													<TableCell>
 														{capitalize(po.demand_mode)}
 													</TableCell>
-													<TableCell>
-														{capitalize(po.frequency)}
-													</TableCell>
-													<TableCell>{formatDateTime(po.created_at)}</TableCell>
+												<TableCell>
+													{capitalize(po.frequency)}
+												</TableCell>
+												<TableCell>{po.prepared_by || "—"}</TableCell>
+												<TableCell>
+													{po.last_update_at ? formatDate(po.last_update_at) : "—"}
+												</TableCell>
+												<TableCell>{po.last_update_by || "—"}</TableCell>
+												<TableCell>{formatDateTime(po.created_at)}</TableCell>
 													<TableCell>
 														<Box
 															sx={{ display: "flex", gap: 0.5 }}

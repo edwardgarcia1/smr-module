@@ -3,6 +3,7 @@ import {
 	getAllPurchaseOrders,
 	getPurchaseOrderById,
 	createPurchaseOrder,
+	updatePurchaseOrderCsv,
 	deletePurchaseOrder,
 } from "./purchase-order.service";
 import { authGuard } from "../../middlewares/auth";
@@ -57,7 +58,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "PurchaseOrder");
 
-			const { refNum, principalId, siteId, demandMode, frequency, salesFrom, salesTo, rows } = body;
+			const { refNum, principalId, siteId, demandMode, frequency, salesFrom, salesTo, rows, preparedBy } = body;
 
 			if (!refNum || refNum.trim().length === 0) {
 				throw new BadRequestError("refNum is required");
@@ -75,6 +76,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 					frequency: frequency ?? "monthly",
 					sales_from: salesFrom,
 					sales_to: salesTo,
+					prepared_by: preparedBy ?? "",
 				},
 				rows,
 			);
@@ -88,6 +90,31 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 				frequency: t.String(),
 				salesFrom: t.String(),
 				salesTo: t.String(),
+				preparedBy: t.Optional(t.String()),
+				rows: t.Array(t.Record(t.String(), t.Any())),
+			}),
+		},
+	)
+
+	/**
+	 * PATCH /purchase-order/:id — update PO CSV data (inline edits).
+	 * Rewrites the CSV file on disk and records who made the change.
+	 */
+	.patch(
+		"/:id",
+		async ({ params: { id }, body, ability, user }) => {
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "update", "PurchaseOrder");
+
+			if (!body.rows || !Array.isArray(body.rows) || body.rows.length === 0) {
+				throw new BadRequestError("rows must be a non-empty array");
+			}
+
+			return updatePurchaseOrderCsv(id, body.rows, user.name);
+		},
+		{
+			params: t.Object({ id: t.Numeric() }),
+			body: t.Object({
 				rows: t.Array(t.Record(t.String(), t.Any())),
 			}),
 		},

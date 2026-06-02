@@ -39,6 +39,7 @@ export const LOGO_OPTIONS: LogoOption[] = Object.entries(logoModules)
 	}))
 	.sort((a, b) => a.name.localeCompare(b.name));
 import apiRequest from "../services/api";
+import { useAuthStore } from "../store/useAuthStore";
 import ComponentsListCell from "../components/requirements/ComponentsListCell";
 import {
 	computeCategoryName,
@@ -818,6 +819,8 @@ export function useRequirements(): UseRequirementsReturn {
 		setIsSavingPo(true);
 		setGridError(null);
 		try {
+			const user = useAuthStore.getState().user;
+			const preparedBy = user?.name ?? "";
 			const siteId = selectedStorage.map((s) => s.id).join(",");
 			const salesFrom = dateRange.from?.startOf("month").format("YYYY-MM-DD") ?? "";
 			const salesTo = dateRange.to?.endOf("month").format("YYYY-MM-DD") ?? "";
@@ -855,6 +858,7 @@ export function useRequirements(): UseRequirementsReturn {
 					frequency,
 					salesFrom,
 					salesTo,
+					preparedBy,
 					rows,
 				},
 			});

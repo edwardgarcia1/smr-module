@@ -6,6 +6,14 @@ import { writeFile, readFile, unlink } from "fs/promises";
 import { join } from "path";
 import type { PurchaseOrder, NewPurchaseOrder } from "./purchase-order.schema";
 
+// ─── Column list (shared to keep SELECT statements DRY) ────────────────
+
+const PO_COLUMNS = `
+  id, ref_num, principal_id, site_id, demand_mode, frequency,
+  sales_from, sales_to, csv_filename, prepared_by,
+  last_update_at, last_update_by, created_at
+`;
+
 // ─── Constants ────────────────────────────────────────────────────────
 
 const PO_FILES_DIR =
@@ -114,7 +122,7 @@ export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
 		pool
 			.request()
 			.query(
-				"SELECT id, ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders ORDER BY created_at DESC",
+				`SELECT ${PO_COLUMNS} FROM SMR_PurchaseOrders ORDER BY created_at DESC`,
 			),
 	);
 	return trimStrings(result.recordset as PurchaseOrder[]);
@@ -128,7 +136,7 @@ export async function getPurchaseOrderById(
 			.request()
 			.input("id", id)
 			.query(
-				"SELECT id, ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, csv_filename, created_at FROM SMR_PurchaseOrders WHERE id = @id",
+				`SELECT ${PO_COLUMNS} FROM SMR_PurchaseOrders WHERE id = @id`,
 			),
 	);
 
@@ -166,10 +174,11 @@ export async function createPurchaseOrder(
 			.input("demand_mode", body.demand_mode)
 			.input("frequency", body.frequency)
 			.input("sales_from", body.sales_from)
-			.input("sales_to", body.sales_to).query(`
-        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to)
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
-        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to)
+			.input("sales_to", body.sales_to)
+			.input("prepared_by", body.prepared_by).query(`
+        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, prepared_by)
+        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by, INSERTED.created_at
+        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @prepared_by)
       `);
 
 		const created = trimStrings(insertResult.recordset[0] as PurchaseOrder);
@@ -189,11 +198,51 @@ export async function createPurchaseOrder(
 			.query(`
         UPDATE SMR_PurchaseOrders
         SET csv_filename = @csv_filename
-        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.created_at
+        OUTPUT INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id, INSERTED.demand_mode, INSERTED.frequency, INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename, INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by, INSERTED.created_at
         WHERE id = @id
       `);
 
 		return trimStrings(updateResult.recordset[0] as PurchaseOrder);
+	});
+}
+
+/**
+ * Update a purchase order's CSV data and record who updated it.
+ * Rewrites the CSV file on disk and sets last_update_at / last_update_by.
+ * Validates that the PO exists before writing.
+ */
+export async function updatePurchaseOrderCsv(
+	id: number,
+	rows: Record<string, unknown>[],
+	updatedBy: string,
+): Promise<PurchaseOrder> {
+	// Verify PO exists and get current filename
+	const existing = await getPurchaseOrderById(id);
+	const csvFilename = existing.meta.csv_filename ?? `po_${id}.csv`;
+
+	// Rewrite CSV file
+	const csvContent = rowsToCsv(rows);
+	ensurePoDir();
+	await writeFile(join(PO_FILES_DIR, csvFilename), csvContent, "utf-8");
+
+	// Update last_update_at / last_update_by
+	return withDb(async (pool) => {
+		const result = await pool
+			.request()
+			.input("id", id)
+			.input("csv_filename", csvFilename)
+			.input("last_update_by", updatedBy).query(`
+        UPDATE SMR_PurchaseOrders
+        SET csv_filename = @csv_filename,
+            last_update_at = GETDATE(),
+            last_update_by = @last_update_by
+        OUTPUT ${PO_COLUMNS}
+        WHERE id = @id
+      `);
+
+		const updated = trimStrings(result.recordset[0] as PurchaseOrder | undefined);
+		if (!updated) throw new NotFoundError(`PurchaseOrder ${id} not found`);
+		return updated;
 	});
 }
 
