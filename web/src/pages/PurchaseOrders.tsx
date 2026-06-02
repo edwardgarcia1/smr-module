@@ -1224,9 +1224,9 @@ const PurchaseOrders: React.FC = () => {
 				onClose={handleCloseDetail}
 				maxWidth="xl"
 				fullWidth
-				PaperProps={{ sx: { height: "90dvh" } }}
+				slotProps={{ paper: { sx: { height: "90dvh" } } }}
 			>
-				<DialogContent sx={{ p: 0, display: "flex", flexDirection: "column" }}>
+				<DialogContent sx={{ p: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 					{detailLoading ? (
 						<Box
 							sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1, flex: 1 }}
@@ -1292,7 +1292,7 @@ const PurchaseOrders: React.FC = () => {
 							</Box>
 						</Box>
 					) : detailData && detailData.csvData.rows.length > 0 ? (
-						<Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+						<Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
 							<DataGrid
 								apiRef={detailApiRef}
 								rows={filteredDetailRows}
