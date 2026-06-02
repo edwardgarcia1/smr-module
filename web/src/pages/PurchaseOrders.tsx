@@ -904,7 +904,7 @@ const PurchaseOrders: React.FC = () => {
 							);
 						})(),
 						principalAddress1: selectedPo?.site_id ?? "",
-						date: selectedPo?.sales_from ?? dayjs().format("YYYY-MM-DD"),
+						date: dayjs().format("YYYY-MM-DD"),
 						attn: formData.attn,
 						preparedBy: formData.preparedBy,
 						endorsedBy: formData.endorsedBy,
