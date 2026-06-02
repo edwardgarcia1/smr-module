@@ -30,7 +30,15 @@ import {
 	TableSortLabel,
 	CircularProgress,
 	Skeleton,
+	TextField,
+	Autocomplete,
+	Checkbox,
+	FormControl,
+	FormLabel,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import CheckBoxOutlineBlankIcon from "@mui/icons-material/CheckBoxOutlineBlank";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CloseIcon from "@mui/icons-material/Close";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -56,6 +64,7 @@ import {
 	CATEGORY_CLASS_MAP,
 	CATEGORY_ORDER,
 	CAT_EXCEL_COLORS,
+	ALLOWED_SITE_IDS,
 } from "../config/requirements";
 import type {
 	MinStockCategory,
@@ -312,10 +321,14 @@ const PurchaseOrders: React.FC = () => {
 
 	const [categories, setCategories] = useState<MinStockCategory[]>([]);
 	const [principals, setPrincipals] = useState<Principal[]>([]);
+	const [storageLocations, setStorageLocations] = useState<
+		{ id: string; name: string }[]
+	>([]);
 
 	useEffect(() => {
 		let cancelled = false;
 		apiRequest<{
+			sites: { SiteId: string; Name: string }[];
 			principals: Principal[];
 			minStockCategories: MinStockCategory[];
 		}>("/lookups")
@@ -323,6 +336,11 @@ const PurchaseOrders: React.FC = () => {
 				if (!cancelled && data) {
 					setCategories(data.minStockCategories ?? []);
 					setPrincipals(data.principals ?? []);
+					setStorageLocations(
+						(data.sites ?? [])
+							.filter((s) => ALLOWED_SITE_IDS.has(s.SiteId))
+							.map((s) => ({ id: s.SiteId, name: s.Name })),
+					);
 				}
 			})
 			.catch(() => {
@@ -350,6 +368,32 @@ const PurchaseOrders: React.FC = () => {
 			},
 		[categoryColors],
 	);
+
+	// ─── List filters ────────────────────────────────────────────
+
+	const [filterPrincipals, setFilterPrincipals] = useState<Principal[]>([]);
+	const [filterSites, setFilterSites] = useState<{ id: string; name: string }[]>([]);
+	const [searchRef, setSearchRef] = useState("");
+
+	const filteredOrders = useMemo(() => {
+		return orders.filter((po) => {
+			if (
+				filterPrincipals.length > 0 &&
+				!filterPrincipals.some((p) => p.ClassID === po.principal_id)
+			)
+				return false;
+			if (
+				filterSites.length > 0 &&
+				!filterSites.some((s) => (po.site_id ?? "").split(",").includes(s.id))
+			)
+				return false;
+			if (searchRef.trim()) {
+				const q = searchRef.trim().toLowerCase();
+				if (!po.ref_num.toLowerCase().includes(q)) return false;
+			}
+			return true;
+		});
+	}, [orders, filterPrincipals, filterSites, searchRef]);
 
 	// ─── Fetch list ───────────────────────────────────────────────
 
@@ -393,7 +437,7 @@ const PurchaseOrders: React.FC = () => {
 
 	// ─── Sort & paginate ─────────────────────────────────────────
 
-	const sortedOrders = [...orders].sort((a, b) => {
+	const sortedOrders = [...filteredOrders].sort((a, b) => {
 		const aVal = a[orderBy];
 		const bVal = b[orderBy];
 		let comparison = 0;
@@ -1070,14 +1114,30 @@ const PurchaseOrders: React.FC = () => {
 	// ─── Render ─────────────────────────────────────────────────
 
 	return (
-		<>
+		<Box
+			sx={{
+				height: "calc(100dvh - 130px)",
+				display: "flex",
+				flexDirection: "column",
+				overflow: "hidden",
+				width: "100%",
+			}}
+		>
 			{error && (
 				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
 					{error}
 				</Alert>
 			)}
 
-			<Paper sx={{ width: "100%", mb: 2, borderRadius: 2, overflow: "hidden" }}>
+			<Paper
+				sx={{
+					flex: 1,
+					overflow: "hidden",
+					display: "flex",
+					flexDirection: "column",
+					borderRadius: 2,
+				}}
+			>
 				{loading ? (
 					<Box
 						sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1.5 }}
@@ -1117,7 +1177,138 @@ const PurchaseOrders: React.FC = () => {
 					</Box>
 				) : (
 					<>
-						<TableContainer sx={{ maxHeight: 520 }}>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								px: 2,
+								pt: 1.5,
+								pb: 1,
+								borderBottom: "1px solid",
+								borderColor: "divider",
+							}}
+						>
+							<Typography
+								variant="h6"
+								sx={{ fontWeight: 600, fontSize: "1rem" }}
+							>
+								Purchase Orders
+							</Typography>
+						</Box>
+						<Box
+							sx={{
+								display: "flex",
+								flexWrap: "wrap",
+								gap: 2,
+								px: 2,
+								pt: 2,
+								pb: 1,
+								alignItems: "center",
+							}}
+						>
+							<TextField
+								size="small"
+								placeholder="Search ref nbr…"
+								value={searchRef}
+								onChange={(e) => setSearchRef(e.target.value)}
+								slotProps={{
+									input: {
+										startAdornment: (
+											<SearchIcon
+												sx={{ mr: 0.5, color: "text.secondary", fontSize: 20 }}
+											/>
+										),
+									},
+								}}
+								sx={{ width: 220, "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+							/>
+							<FormControl sx={{ minWidth: 220 }}>
+								<Autocomplete
+									multiple
+									size="small"
+									options={principals}
+									value={filterPrincipals}
+									onChange={(_, newVal) => setFilterPrincipals(newVal)}
+									getOptionLabel={(option) => `${option.ClassID} — ${option.Descr}`}
+									isOptionEqualToValue={(option, val) =>
+										option.ClassID === val.ClassID
+									}
+									disableCloseOnSelect
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={
+														<CheckBoxOutlineBlankIcon fontSize="small" />
+													}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option.ClassID} — {option.Descr}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Principal"
+											placeholder="Select principals"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+							<FormControl sx={{ minWidth: 220 }}>
+								<Autocomplete
+									multiple
+									size="small"
+									options={storageLocations}
+									value={filterSites}
+									onChange={(_, newVal) => setFilterSites(newVal)}
+									getOptionLabel={(option) => option.name}
+									isOptionEqualToValue={(option, val) => option.id === val.id}
+									disableCloseOnSelect
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={
+														<CheckBoxOutlineBlankIcon fontSize="small" />
+													}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option.name}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Site"
+											placeholder="Select sites"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+						</Box>
+						{filteredOrders.length === 0 ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography color="text.secondary">
+									No purchase orders match the current filters.
+								</Typography>
+							</Box>
+				) : (
+					<>
+						<TableContainer sx={{ flex: 1, overflow: "auto" }}>
 							<Table size="small">
 								<TableHead>
 									<TableRow>
@@ -1192,7 +1383,7 @@ const PurchaseOrders: React.FC = () => {
 						</TableContainer>
 						<TablePagination
 							component="div"
-							count={orders.length}
+							count={filteredOrders.length}
 							rowsPerPage={rowsPerPage}
 							page={page}
 							onPageChange={handleChangePage}
@@ -1216,6 +1407,8 @@ const PurchaseOrders: React.FC = () => {
 						/>
 					</>
 				)}
+				</>
+			)}
 			</Paper>
 
 			{/* ── Detail Dialog ──────────────────────────────────────── */}
@@ -1347,7 +1540,7 @@ const PurchaseOrders: React.FC = () => {
 				logoOptions={LOGO_OPTIONS}
 				isExporting={isDetailPdfExporting}
 			/>
-		</>
+		</Box>
 	);
 };
 
