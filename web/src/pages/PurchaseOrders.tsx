@@ -3,7 +3,13 @@
  * Requirements purchasing grid. Click a row to view the saved CSV data
  * in a DataGrid.
  */
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, {
+	useEffect,
+	useState,
+	useCallback,
+	useMemo,
+	useRef,
+} from "react";
 import {
 	Box,
 	Table,
@@ -31,7 +37,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import CloseIcon from "@mui/icons-material/Close";
-import { DataGrid, type GridColDef, ColumnsPanelTrigger, FilterPanelTrigger, useGridApiRef } from "@mui/x-data-grid";
+import {
+	DataGrid,
+	type GridColDef,
+	ColumnsPanelTrigger,
+	FilterPanelTrigger,
+	useGridApiRef,
+} from "@mui/x-data-grid";
 import apiRequest from "../services/api";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
@@ -47,11 +59,18 @@ import {
 	CATEGORY_ORDER,
 	CAT_EXCEL_COLORS,
 } from "../config/requirements";
-import type { MinStockCategory, CategoryColorScheme, Principal } from "../config/requirements";
-import { buildBaseGridSx, purchasingGroupSelectors } from "../components/requirements/gridStyles";
+import type {
+	MinStockCategory,
+	CategoryColorScheme,
+	Principal,
+} from "../config/requirements";
+import {
+	buildBaseGridSx,
+	purchasingGroupSelectors,
+} from "../components/requirements/gridStyles";
 import CategoryFilter from "../components/requirements/CategoryFilter";
 import PoPdfExportDialog from "../components/requirements/PoPdfExportDialog";
-import type { LogoOption, PoPdfExportFormData } from "../components/requirements/PoPdfExportDialog";
+import type { PoPdfExportFormData } from "../components/requirements/PoPdfExportDialog";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
 import { exportPurchaseOrderToPdf } from "../utils/exportToPdf";
 import { downloadBlob } from "../utils/download";
@@ -149,24 +168,57 @@ const DETAIL_HEADER_LABELS: Record<string, string> = {
 // pd_* (period demand) fields are interleaved after qtyAvail, sorted by name.
 
 const DETAIL_COL_ORDER: string[] = [
-	"invtID", "descr", "stkUnit", "qtyPerCS",
-	"price_ao", "price_perCS", "price_perStkUnit",
-	"qtyAlloc", "qtyOnPO", "qtyOnHand", "qtyAvail",
-	"totalDemand", "totalDemandCS", "avgDemand", "avgDemandCS", "stockCoverCount",
-	"coverageThreshold", "suggestedOrder", "suggestedOrderCS", "customOrder",
+	"invtID",
+	"descr",
+	"stkUnit",
+	"qtyPerCS",
+	"price_ao",
+	"price_perCS",
+	"price_perStkUnit",
+	"qtyAlloc",
+	"qtyOnPO",
+	"qtyOnHand",
+	"qtyAvail",
+	"totalDemand",
+	"totalDemandCS",
+	"avgDemand",
+	"avgDemandCS",
+	"stockCoverCount",
+	"coverageThreshold",
+	"suggestedOrder",
+	"suggestedOrderCS",
+	"customOrder",
 	"finalOrderCS",
-	"orderCover", "incomingCover", "totalCover", "amount",
+	"orderCover",
+	"incomingCover",
+	"totalCover",
+	"amount",
 	"_category",
 ];
 
 // Fields that are numeric — right-aligned with decimal formatting
 const DETAIL_NUMERIC_FIELDS = new Set([
-	"qtyPerCS", "price_perCS", "price_perStkUnit",
-	"qtyOnHand", "qtyAvail", "qtyOnPO", "qtyAlloc",
-	"totalDemand", "totalDemandCS", "avgDemand", "avgDemandCS",
-	"stockCoverCount", "coverageThreshold",
-	"suggestedOrder", "suggestedOrderCS", "customOrder", "amount",
-	"finalOrderCS", "orderCover", "incomingCover", "totalCover",
+	"qtyPerCS",
+	"price_perCS",
+	"price_perStkUnit",
+	"qtyOnHand",
+	"qtyAvail",
+	"qtyOnPO",
+	"qtyAlloc",
+	"totalDemand",
+	"totalDemandCS",
+	"avgDemand",
+	"avgDemandCS",
+	"stockCoverCount",
+	"coverageThreshold",
+	"suggestedOrder",
+	"suggestedOrderCS",
+	"customOrder",
+	"amount",
+	"finalOrderCS",
+	"orderCover",
+	"incomingCover",
+	"totalCover",
 ]);
 
 // ─── Column group header classes (matching RequirementsPage) ──────────
@@ -242,14 +294,21 @@ const PurchaseOrders: React.FC = () => {
 
 	// Detail dialog
 	const [detailOpen, setDetailOpen] = useState(false);
-	const [detailData, setDetailData] = useState<PurchaseOrderDetail | null>(null);
+	const [detailData, setDetailData] = useState<PurchaseOrderDetail | null>(
+		null,
+	);
 	const [detailLoading, setDetailLoading] = useState(false);
 	const [selectedPo, setSelectedPo] = useState<PurchaseOrder | null>(null);
 
 	const { darkMode } = useThemeMode();
 	const groupColors = useMemo(() => buildGroupColors(darkMode), [darkMode]);
 	const gridSx = useMemo(
-		() => buildBaseGridSx(darkMode, groupColors, purchasingGroupSelectors(groupColors)),
+		() =>
+			buildBaseGridSx(
+				darkMode,
+				groupColors,
+				purchasingGroupSelectors(groupColors),
+			),
 		[darkMode, groupColors],
 	);
 
@@ -286,7 +345,11 @@ const PurchaseOrders: React.FC = () => {
 	const categoryColors = useMemo(() => getCategoryColors(darkMode), [darkMode]);
 	const getCategoryColor = useCallback(
 		(cat: string): CategoryColorScheme =>
-			categoryColors[cat] ?? { bg: "transparent", chipBg: "action.selected", chipText: "text.primary" },
+			categoryColors[cat] ?? {
+				bg: "transparent",
+				chipBg: "action.selected",
+				chipText: "text.primary",
+			},
 		[categoryColors],
 	);
 
@@ -299,7 +362,9 @@ const PurchaseOrders: React.FC = () => {
 			const data = await apiRequest<PurchaseOrder[]>("/purchase-order");
 			setOrders(data ?? []);
 		} catch (err: unknown) {
-			setError(err instanceof Error ? err.message : "Failed to load purchase orders.");
+			setError(
+				err instanceof Error ? err.message : "Failed to load purchase orders.",
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -321,7 +386,9 @@ const PurchaseOrders: React.FC = () => {
 		setPage(newPage);
 	};
 
-	const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+	const handleChangeRowsPerPage = (
+		event: React.ChangeEvent<HTMLInputElement>,
+	) => {
 		setRowsPerPage(parseInt(event.target.value, 10));
 		setPage(0);
 	};
@@ -352,11 +419,15 @@ const PurchaseOrders: React.FC = () => {
 		setDetailLoading(true);
 		setDetailOpen(true);
 		try {
-			const data = await apiRequest<PurchaseOrderDetail>(`/purchase-order/${po.id}`);
+			const data = await apiRequest<PurchaseOrderDetail>(
+				`/purchase-order/${po.id}`,
+			);
 			setDetailData(data);
 		} catch (err: unknown) {
 			setDetailData(null);
-			setError(err instanceof Error ? err.message : "Failed to load PO details.");
+			setError(
+				err instanceof Error ? err.message : "Failed to load PO details.",
+			);
 		} finally {
 			setDetailLoading(false);
 		}
@@ -371,12 +442,15 @@ const PurchaseOrders: React.FC = () => {
 	// ─── Delete ──────────────────────────────────────────────────
 
 	const handleDelete = useCallback(async (id: number) => {
-		if (!confirm("Delete this purchase order? This action cannot be undone.")) return;
+		if (!confirm("Delete this purchase order? This action cannot be undone."))
+			return;
 		try {
 			await apiRequest(`/purchase-order/${id}`, { method: "DELETE" });
 			setOrders((prev) => prev.filter((o) => o.id !== id));
 		} catch (err: unknown) {
-			setError(err instanceof Error ? err.message : "Failed to delete purchase order.");
+			setError(
+				err instanceof Error ? err.message : "Failed to delete purchase order.",
+			);
 		}
 	}, []);
 
@@ -386,8 +460,12 @@ const PurchaseOrders: React.FC = () => {
 	const getRowClassName = useCallback(
 		(params: { row: Record<string, unknown> }) => {
 			const r = params.row;
-			const stockCoverCount = r.stockCoverCount ? Number(r.stockCoverCount) : null;
-			const coverageThreshold = r.coverageThreshold ? Number(r.coverageThreshold) : null;
+			const stockCoverCount = r.stockCoverCount
+				? Number(r.stockCoverCount)
+				: null;
+			const coverageThreshold = r.coverageThreshold
+				? Number(r.coverageThreshold)
+				: null;
 			const avgDemand = r.avgDemand ? Number(r.avgDemand) : null;
 			const suggestedOrder = r.suggestedOrder ? Number(r.suggestedOrder) : null;
 			const cat = computeCategoryName(
@@ -434,12 +512,14 @@ const PurchaseOrders: React.FC = () => {
 			const isEditable = header === "customOrder";
 			const col: GridColDef = {
 				field: header,
-				headerName: DETAIL_HEADER_LABELS[header]
-					?? (isPeriodField ? header.slice(3) : header),
+				headerName:
+					DETAIL_HEADER_LABELS[header] ??
+					(isPeriodField ? header.slice(3) : header),
 				width: DETAIL_COL_WIDTHS[header] ?? (isPeriodField ? 110 : 130),
 				flex: header === "descr" ? 1 : undefined,
-				headerClassName: DETAIL_HEADER_GROUPS[header]
-					?? (isPeriodField ? "group-demand" : undefined),
+				headerClassName:
+					DETAIL_HEADER_GROUPS[header] ??
+					(isPeriodField ? "group-demand" : undefined),
 			};
 			// Numeric columns: right-aligned with decimal formatting
 			if (isNumeric) {
@@ -447,10 +527,12 @@ const PurchaseOrders: React.FC = () => {
 				col.valueFormatter = (value?: string) => {
 					if (value == null || value === "") return "";
 					const n = Number(value);
-					return Number.isNaN(n) ? value : n.toLocaleString(undefined, {
-						minimumFractionDigits: 2,
-						maximumFractionDigits: 2,
-					});
+					return Number.isNaN(n)
+						? value
+						: n.toLocaleString(undefined, {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2,
+							});
 				};
 			}
 			// Format date fields like price_ao
@@ -459,7 +541,9 @@ const PurchaseOrders: React.FC = () => {
 					if (!value) return "—";
 					try {
 						return new Date(value).toLocaleDateString("en-US", {
-							year: "numeric", month: "short", day: "numeric",
+							year: "numeric",
+							month: "short",
+							day: "numeric",
 						});
 					} catch {
 						return value;
@@ -475,11 +559,12 @@ const PurchaseOrders: React.FC = () => {
 				col.valueGetter = (_v: unknown, row: Record<string, unknown>) => {
 					const rawC = row.customOrder;
 					const rawS = row.suggestedOrderCS;
-					const qty = rawC != null && rawC !== ""
-						? Number(rawC)
-						: rawS != null && rawS !== ""
-							? Number(rawS)
-							: 0;
+					const qty =
+						rawC != null && rawC !== ""
+							? Number(rawC)
+							: rawS != null && rawS !== ""
+								? Number(rawS)
+								: 0;
 					const rawP = row.price_perCS;
 					const price = rawP != null && rawP !== "" ? Number(rawP) : null;
 					if (price == null) return null;
@@ -497,13 +582,15 @@ const PurchaseOrders: React.FC = () => {
 		const numFmt = (value?: number) => {
 			if (value == null) return "";
 			return value.toLocaleString(undefined, {
-				minimumFractionDigits: 2, maximumFractionDigits: 2,
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 2,
 			});
 		};
 		const fixedFmt = (value?: number) => {
 			if (value == null) return "";
 			return value.toLocaleString(undefined, {
-				minimumFractionDigits: 2, maximumFractionDigits: 2,
+				minimumFractionDigits: 2,
+				maximumFractionDigits: 2,
 			});
 		};
 		return [
@@ -531,13 +618,15 @@ const PurchaseOrders: React.FC = () => {
 				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
 					const rawC = row.customOrder;
 					const rawS = row.suggestedOrderCS;
-					const finalQty = rawC != null && rawC !== ""
-						? Number(rawC)
-						: rawS != null && rawS !== ""
-							? Number(rawS)
-							: null;
+					const finalQty =
+						rawC != null && rawC !== ""
+							? Number(rawC)
+							: rawS != null && rawS !== ""
+								? Number(rawS)
+								: null;
 					const rawAvgCS = row.avgDemandCS;
-					const avgCS = rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
+					const avgCS =
+						rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
 					if (avgCS == null || avgCS === 0 || finalQty == null) return null;
 					return finalQty / avgCS;
 				},
@@ -568,19 +657,22 @@ const PurchaseOrders: React.FC = () => {
 					const sc = rawSc != null && rawSc !== "" ? Number(rawSc) : 0;
 					const rawC = row.customOrder;
 					const rawS = row.suggestedOrderCS;
-					const finalQty = rawC != null && rawC !== ""
-						? Number(rawC)
-						: rawS != null && rawS !== ""
-							? Number(rawS)
-							: null;
+					const finalQty =
+						rawC != null && rawC !== ""
+							? Number(rawC)
+							: rawS != null && rawS !== ""
+								? Number(rawS)
+								: null;
 					const rawAvgCS = row.avgDemandCS;
-					const avgCS = rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
+					const avgCS =
+						rawAvgCS != null && rawAvgCS !== "" ? Number(rawAvgCS) : null;
 					const rawPo = row.qtyOnPO;
 					const po = rawPo != null && rawPo !== "" ? Number(rawPo) : 0;
 					const rawAvg = row.avgDemand;
 					const avg = rawAvg != null && rawAvg !== "" ? Number(rawAvg) : null;
 					let orderCover = 0;
-					if (avgCS != null && avgCS > 0 && finalQty != null) orderCover = finalQty / avgCS;
+					if (avgCS != null && avgCS > 0 && finalQty != null)
+						orderCover = finalQty / avgCS;
 					let incomingCover = 0;
 					if (avg != null && avg > 0 && po > 0) incomingCover = po / avg;
 					return sc + orderCover + incomingCover;
@@ -593,11 +685,18 @@ const PurchaseOrders: React.FC = () => {
 				width: 130,
 				valueGetter: (_v: unknown, row: Record<string, unknown>) => {
 					const sc = row.stockCoverCount ? Number(row.stockCoverCount) : null;
-					const ct = row.coverageThreshold ? Number(row.coverageThreshold) : null;
+					const ct = row.coverageThreshold
+						? Number(row.coverageThreshold)
+						: null;
 					const ad = row.avgDemand ? Number(row.avgDemand) : null;
 					const so = row.suggestedOrder ? Number(row.suggestedOrder) : null;
 					return computeCategoryName(
-						{ stockCoverCount: sc, coverageThreshold: ct, avgDemand: ad, suggestedOrder: so },
+						{
+							stockCoverCount: sc,
+							coverageThreshold: ct,
+							avgDemand: ad,
+							suggestedOrder: so,
+						},
 						categories,
 					);
 				},
@@ -612,12 +711,17 @@ const PurchaseOrders: React.FC = () => {
 
 	const detailColumns = useMemo<GridColDef[]>(() => {
 		const existing = new Set(headerColumns.map((c) => c.field));
-		return [...headerColumns, ...computedColumns.filter((c) => !existing.has(c.field))];
+		return [
+			...headerColumns,
+			...computedColumns.filter((c) => !existing.has(c.field)),
+		];
 	}, [headerColumns, computedColumns]);
 
 	// ─── Detail inline editing ───────────────────────────────────
 
-	const [editedRows, setEditedRows] = useState<Record<number, Record<string, unknown>>>({});
+	const [editedRows, setEditedRows] = useState<
+		Record<number, Record<string, unknown>>
+	>({});
 
 	const handleProcessRowUpdate = useCallback(
 		(newRow: Record<string, unknown>) => {
@@ -646,7 +750,7 @@ const PurchaseOrders: React.FC = () => {
 		const rowById = new Map(mergedRows.map((r) => [r.id, r]));
 		const sortedRows: Record<string, unknown>[] = [];
 		for (const id of sortedRowIds) {
-			const row = rowById.get(id);
+			const row = rowById.get(id as number);
 			if (row) sortedRows.push(row);
 		}
 		// Fallback: if no sort model active, use merged order
@@ -661,11 +765,18 @@ const PurchaseOrders: React.FC = () => {
 					: undefined,
 				getRowFill: (row) => {
 					const sc = row.stockCoverCount ? Number(row.stockCoverCount) : null;
-					const ct = row.coverageThreshold ? Number(row.coverageThreshold) : null;
+					const ct = row.coverageThreshold
+						? Number(row.coverageThreshold)
+						: null;
 					const ad = row.avgDemand ? Number(row.avgDemand) : null;
 					const so = row.suggestedOrder ? Number(row.suggestedOrder) : null;
 					const cat = computeCategoryName(
-						{ stockCoverCount: sc, coverageThreshold: ct, avgDemand: ad, suggestedOrder: so },
+						{
+							stockCoverCount: sc,
+							coverageThreshold: ct,
+							avgDemand: ad,
+							suggestedOrder: so,
+						},
 						categories,
 					);
 					return cat ? (CAT_EXCEL_COLORS[cat] ?? null) : null;
@@ -673,7 +784,14 @@ const PurchaseOrders: React.FC = () => {
 			},
 			`PO-${selectedPo?.ref_num ?? "export"}.xlsx`,
 		);
-	}, [detailData, detailColumns, selectedPo, editedRows, categories, detailApiRef]);
+	}, [
+		detailData,
+		detailColumns,
+		selectedPo,
+		editedRows,
+		categories,
+		detailApiRef,
+	]);
 
 	const handleToggleDetailDemand = useCallback(() => {
 		const newShow = !showDetailDemand;
@@ -710,7 +828,8 @@ const PurchaseOrders: React.FC = () => {
 				});
 				const poRows = mergedRows
 					.map((r) => {
-						const rawFinalQty = r.customOrder != null && r.customOrder !== ""
+						const rawFinalQty =
+							r.customOrder != null && r.customOrder !== ""
 								? Number(r.customOrder)
 								: r.suggestedOrderCS != null && r.suggestedOrderCS !== ""
 									? Number(r.suggestedOrderCS)
@@ -723,7 +842,8 @@ const PurchaseOrders: React.FC = () => {
 							qtyPerCS: Number(r.qtyPerCS) || 0,
 							price_perCS: price,
 							finalOrderCS: finalQty,
-							amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
+							amount:
+								price != null ? Math.round(finalQty * price * 100) / 100 : null,
 						};
 					})
 					.filter((r) => r.finalOrderCS !== 0);
@@ -734,9 +854,13 @@ const PurchaseOrders: React.FC = () => {
 					{
 						poReference: formData.poReference,
 						principalName: (() => {
-								const p = principals.find((pr) => pr.ClassID === selectedPo?.principal_id);
-								return p?.Descr?.trim() || selectedPo?.principal_id || "Principal";
-							})(),
+							const p = principals.find(
+								(pr) => pr.ClassID === selectedPo?.principal_id,
+							);
+							return (
+								p?.Descr?.trim() || selectedPo?.principal_id || "Principal"
+							);
+						})(),
 						principalAddress1: selectedPo?.site_id ?? "",
 						date: selectedPo?.sales_from ?? dayjs().format("YYYY-MM-DD"),
 						attn: formData.attn,
@@ -933,25 +1057,47 @@ const PurchaseOrders: React.FC = () => {
 
 			<Paper sx={{ width: "100%", mb: 2, borderRadius: 2, overflow: "hidden" }}>
 				{loading ? (
-					<Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1.5 }}>
-						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
-						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
-						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
-						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
-						<Skeleton variant="rectangular" height={36} sx={{ borderRadius: 1 }} />
+					<Box
+						sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1.5 }}
+					>
+						<Skeleton
+							variant="rectangular"
+							height={36}
+							sx={{ borderRadius: 1 }}
+						/>
+						<Skeleton
+							variant="rectangular"
+							height={36}
+							sx={{ borderRadius: 1 }}
+						/>
+						<Skeleton
+							variant="rectangular"
+							height={36}
+							sx={{ borderRadius: 1 }}
+						/>
+						<Skeleton
+							variant="rectangular"
+							height={36}
+							sx={{ borderRadius: 1 }}
+						/>
+						<Skeleton
+							variant="rectangular"
+							height={36}
+							sx={{ borderRadius: 1 }}
+						/>
 					</Box>
 				) : orders.length === 0 ? (
 					<Box sx={{ p: 4, textAlign: "center" }}>
 						<Typography color="text.secondary">
-							No saved purchase orders yet. Generate requirements and use the "Save" button
-							on the Requirements page to create one.
+							No saved purchase orders yet. Generate requirements and use the
+							"Save" button on the Requirements page to create one.
 						</Typography>
 					</Box>
 				) : (
 					<>
 						<TableContainer sx={{ maxHeight: 520 }}>
 							<Table size="small">
-									<TableHead>
+								<TableHead>
 									<TableRow>
 										{headCells.map((hc) => (
 											<TableCell
@@ -968,9 +1114,7 @@ const PurchaseOrders: React.FC = () => {
 												</TableSortLabel>
 											</TableCell>
 										))}
-										<TableCell sx={{ fontWeight: 600 }}>
-											Actions
-										</TableCell>
+										<TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -986,19 +1130,15 @@ const PurchaseOrders: React.FC = () => {
 											</TableCell>
 											<TableCell>{po.principal_id}</TableCell>
 											<TableCell>
-												{po.site_id && po.site_id.trim() ? po.site_id : "ALL SITES"}
+												{po.site_id && po.site_id.trim()
+													? po.site_id
+													: "ALL SITES"}
 											</TableCell>
 											<TableCell>{po.demand_mode}</TableCell>
 											<TableCell>{po.frequency}</TableCell>
-											<TableCell>
-												{formatDate(po.sales_from)}
-											</TableCell>
-											<TableCell>
-												{formatDate(po.sales_to)}
-											</TableCell>
-											<TableCell>
-												{formatDateTime(po.created_at)}
-											</TableCell>
+											<TableCell>{formatDate(po.sales_from)}</TableCell>
+											<TableCell>{formatDate(po.sales_to)}</TableCell>
+											<TableCell>{formatDateTime(po.created_at)}</TableCell>
 											<TableCell>
 												<Box
 													sx={{ display: "flex", gap: 0.5 }}
@@ -1081,21 +1221,67 @@ const PurchaseOrders: React.FC = () => {
 				</DialogTitle>
 				<DialogContent dividers>
 					{detailLoading ? (
-						<Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1 }}>
-							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, mb: 0.5 }} />
+						<Box
+							sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1 }}
+						>
+							<Skeleton
+								variant="rectangular"
+								height={32}
+								sx={{ borderRadius: 1, mb: 0.5 }}
+							/>
 							<Box sx={{ display: "flex", gap: 1 }}>
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
 							</Box>
-							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
-							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
-							<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1 }} />
+							<Skeleton
+								variant="rectangular"
+								height={32}
+								sx={{ borderRadius: 1 }}
+							/>
+							<Skeleton
+								variant="rectangular"
+								height={32}
+								sx={{ borderRadius: 1 }}
+							/>
+							<Skeleton
+								variant="rectangular"
+								height={32}
+								sx={{ borderRadius: 1 }}
+							/>
 							<Box sx={{ display: "flex", gap: 1 }}>
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
-								<Skeleton variant="rectangular" height={32} sx={{ borderRadius: 1, flex: 1 }} />
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
+								<Skeleton
+									variant="rectangular"
+									height={32}
+									sx={{ borderRadius: 1, flex: 1 }}
+								/>
 							</Box>
 						</Box>
 					) : detailData && detailData.csvData.rows.length > 0 ? (
@@ -1117,9 +1303,14 @@ const PurchaseOrders: React.FC = () => {
 								processRowUpdate={handleProcessRowUpdate}
 								onProcessRowUpdateError={handleProcessRowUpdateError}
 								showToolbar
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any
-								slots={{ toolbar: DetailGridToolbar as React.ComponentType<any> }}
-								slotProps={{ toolbar: {} as any, pagination: { labelRowsPerPage: "Rows:" } }}
+								// eslint-disable-next-line @typescript-eslint/no-explicit-any
+								slots={{
+									toolbar: DetailGridToolbar as React.ComponentType<any>,
+								}}
+								slotProps={{
+									toolbar: {} as any,
+									pagination: { labelRowsPerPage: "Rows:" },
+								}}
 								initialState={{
 									pagination: { paginationModel: { pageSize: 20 } },
 									sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
