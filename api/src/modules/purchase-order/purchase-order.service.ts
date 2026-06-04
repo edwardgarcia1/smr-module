@@ -219,10 +219,11 @@ export async function createPurchaseOrder(
 			.input("frequency", body.frequency)
 			.input("sales_from", body.sales_from)
 			.input("sales_to", body.sales_to)
-			.input("created_by", body.created_by).query(`
-        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, created_by)
+			.input("created_by", body.created_by)
+			.input("status_by", body.created_by).query(`
+        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, created_by, status, status_from, status_by)
         OUTPUT ${PO_COLUMNS_INSERTED}
-        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @created_by)
+        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @created_by, 'Pending', GETDATE(), @status_by)
       `);
 
 		const created = trimStrings(insertResult.recordset[0] as PurchaseOrder);
