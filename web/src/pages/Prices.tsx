@@ -17,7 +17,6 @@ import {
 	Chip,
 	InputAdornment,
 	Alert,
-	Skeleton,
 	Button,
 	Select,
 	MenuItem,
@@ -37,6 +36,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import HistoryIcon from "@mui/icons-material/History";
 import apiRequest from "../services/api";
+import TableSkeleton from "../components/TableSkeleton";
 import * as XLSX from "xlsx";
 import Big from "big.js";
 
@@ -1327,66 +1327,6 @@ const PriceClassesDialog: React.FC<PriceClassesDialogProps> = ({
 		</Dialog>
 	);
 };
-
-// ── Table Skeleton ─────────────────────────────────────────────────
-
-interface SkeletonCol {
-	align?: "left" | "right" | "center";
-	icon?: boolean;
-	spacer?: boolean;
-}
-
-function skelWidthPct(row: number, col: number): number {
-	return 40 + ((row * 7 + col * 13 + col * 3) % 51);
-}
-
-const TableSkeleton: React.FC<{ cols: SkeletonCol[]; rows?: number }> = ({
-	cols,
-	rows = 5,
-}) => (
-	<TableContainer>
-		<Table size="small">
-			<TableBody>
-				{Array.from({ length: rows }, (_, i) => (
-					<TableRow key={i}>
-						{cols.map((col, j) =>
-							col.spacer ? (
-								<TableCell
-									key={j}
-									sx={{ p: 0, width: 0, borderBottom: "unset" }}
-								/>
-							) : col.icon ? (
-								<TableCell
-									key={j}
-									sx={{ width: 48, px: 1, textAlign: col.align ?? "left" }}
-								>
-									<Skeleton
-										animation="wave"
-										variant="circular"
-										width={20}
-										height={20}
-									/>
-								</TableCell>
-							) : (
-								<TableCell key={j} sx={{ textAlign: col.align ?? "left" }}>
-									<Skeleton
-										animation="wave"
-										variant="text"
-										sx={{
-											width: `${skelWidthPct(i, j)}%`,
-											maxWidth: 120,
-											display: "inline-block",
-										}}
-									/>
-								</TableCell>
-							),
-						)}
-					</TableRow>
-				))}
-			</TableBody>
-		</Table>
-	</TableContainer>
-);
 
 // ── Main Component ───────────────────────────────────────────────────
 

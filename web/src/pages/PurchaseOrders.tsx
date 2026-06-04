@@ -53,6 +53,7 @@ import {
 	useGridApiRef,
 } from "@mui/x-data-grid";
 import apiRequest from "../services/api";
+import TableSkeleton from "../components/TableSkeleton";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -1378,75 +1379,38 @@ const PurchaseOrders: React.FC = () => {
 					borderRadius: 2,
 				}}
 			>
-				{loading ? (
-					<Box
-						sx={{ p: 3, display: "flex", flexDirection: "column", gap: 1.5 }}
+				{/* Title bar - always visible */}
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						px: 2,
+						pt: 1.5,
+						pb: 1,
+						borderBottom: "1px solid",
+						borderColor: "divider",
+					}}
+				>
+					<Typography
+						variant="h6"
+						sx={{ fontWeight: 600, fontSize: "1rem" }}
 					>
-						<Skeleton
-							variant="rectangular"
-							height={36}
-							sx={{ borderRadius: 1 }}
-						/>
-						<Skeleton
-							variant="rectangular"
-							height={36}
-							sx={{ borderRadius: 1 }}
-						/>
-						<Skeleton
-							variant="rectangular"
-							height={36}
-							sx={{ borderRadius: 1 }}
-						/>
-						<Skeleton
-							variant="rectangular"
-							height={36}
-							sx={{ borderRadius: 1 }}
-						/>
-						<Skeleton
-							variant="rectangular"
-							height={36}
-							sx={{ borderRadius: 1 }}
-						/>
-					</Box>
-				) : orders.length === 0 ? (
-					<Box sx={{ p: 4, textAlign: "center" }}>
-						<Typography color="text.secondary">
-							No saved purchase orders yet. Generate requirements and use the
-							"Save" button on the Requirements page to create one.
-						</Typography>
-					</Box>
-				) : (
-					<>
-						<Box
-							sx={{
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-								px: 2,
-								pt: 1.5,
-								pb: 1,
-								borderBottom: "1px solid",
-								borderColor: "divider",
-							}}
-						>
-							<Typography
-								variant="h6"
-								sx={{ fontWeight: 600, fontSize: "1rem" }}
-							>
-								Purchase Orders
-							</Typography>
-						</Box>
-						<Box
-							sx={{
-								display: "flex",
-								flexWrap: "wrap",
-								gap: 2,
-								px: 2,
-								pt: 2,
-								pb: 1,
-								alignItems: "center",
-							}}
-						>
+						Purchase Orders
+					</Typography>
+				</Box>
+				{/* Filter bar - always visible */}
+				<Box
+					sx={{
+						display: "flex",
+						flexWrap: "wrap",
+						gap: 2,
+						px: 2,
+						pt: 2,
+						pb: 1,
+						alignItems: "center",
+					}}
+				>
 							<TextField
 								size="small"
 								placeholder="Search ref nbr…"
@@ -1643,7 +1607,35 @@ const PurchaseOrders: React.FC = () => {
 								/>
 							</FormControl>
 						</Box>
-						{filteredOrders.length === 0 ? (
+						{loading ? (
+							<Box sx={{ flex: 1, overflow: "auto" }}>
+								<TableSkeleton
+									cols={[
+										{},                   // Ref Nbr
+										{},                   // Principal
+										{},                   // Site(s)
+										{},                   // Demand Mode
+										{},                   // Frequency
+										{},                   // Status
+										{},                   // Created By
+										{},                   // Last Updated
+										{},                   // Updated By
+										{},                   // Created
+										{ icon: true },       // Actions
+									]}
+									rows={8}
+								/>
+							</Box>
+						) : orders.length === 0 ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography color="text.secondary">
+									No saved purchase orders yet. Generate requirements and use the
+									"Save" button on the Requirements page to create one.
+								</Typography>
+							</Box>
+						) : (
+							<>
+								{filteredOrders.length === 0 ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography color="text.secondary">
 									No purchase orders match the current filters.
@@ -1828,70 +1820,132 @@ const PurchaseOrders: React.FC = () => {
 					{detailLoading ? (
 						<Box
 							sx={{
-								p: 3,
 								display: "flex",
 								flexDirection: "column",
-								gap: 1,
 								flex: 1,
 							}}
 						>
-							<Skeleton
-								variant="rectangular"
-								height={32}
-								sx={{ borderRadius: 1, mb: 0.5 }}
-							/>
-							<Box sx={{ display: "flex", gap: 1 }}>
+							{/* Toolbar area */}
+							<Box
+								sx={{
+									borderBottom: "1px solid",
+									borderColor: "divider",
+								}}
+							>
+								{/* Title + status row */}
+								<Box
+									sx={{
+										display: "flex",
+										justifyContent: "space-between",
+										alignItems: "center",
+										px: 2,
+										py: 1,
+									}}
+								>
+									<Box
+										sx={{
+											display: "flex",
+											alignItems: "center",
+											gap: 1.5,
+										}}
+									>
+										<Skeleton
+											variant="text"
+											width={200}
+											height={32}
+										/>
+										<Skeleton
+											variant="rounded"
+											width={110}
+											height={32}
+											sx={{ borderRadius: 2 }}
+										/>
+									</Box>
+									<Box
+										sx={{
+											display: "flex",
+											alignItems: "center",
+											gap: 0.5,
+										}}
+									>
+										<Skeleton
+											variant="rounded"
+											width={70}
+											height={28}
+										/>
+										<Skeleton
+											variant="rounded"
+											width={70}
+											height={28}
+										/>
+										<Skeleton
+											variant="rounded"
+											width={60}
+											height={28}
+										/>
+										<Skeleton
+											variant="rounded"
+											width={60}
+											height={28}
+										/>
+										<Skeleton
+											variant="circular"
+											width={28}
+											height={28}
+										/>
+									</Box>
+								</Box>
+								{/* Subtitle */}
+								<Box sx={{ px: 2, pb: 0.5 }}>
+									<Skeleton
+										variant="text"
+										width={350}
+										height={20}
+									/>
+								</Box>
+							</Box>
+							{/* Filter bar */}
+							<Box
+								sx={{
+									display: "flex",
+									flexWrap: "wrap",
+									gap: 2,
+									px: 2,
+									py: 1,
+									alignItems: "center",
+									borderBottom: "1px solid",
+									borderColor: "divider",
+								}}
+							>
 								<Skeleton
-									variant="rectangular"
+									variant="rounded"
+									width={200}
 									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
+									sx={{ borderRadius: 2 }}
 								/>
 								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
-								/>
-								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
+									variant="rounded"
+									width={160}
+									height={28}
+									sx={{ borderRadius: 2, ml: "auto" }}
 								/>
 							</Box>
-							<Skeleton
-								variant="rectangular"
-								height={32}
-								sx={{ borderRadius: 1 }}
-							/>
-							<Skeleton
-								variant="rectangular"
-								height={32}
-								sx={{ borderRadius: 1 }}
-							/>
-							<Skeleton
-								variant="rectangular"
-								height={32}
-								sx={{ borderRadius: 1 }}
-							/>
-							<Box sx={{ display: "flex", gap: 1 }}>
-								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
-								/>
-								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
-								/>
-								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
-								/>
-								<Skeleton
-									variant="rectangular"
-									height={32}
-									sx={{ borderRadius: 1, flex: 1 }}
+							{/* Grid area — mirrors DataGrid rows at 42px */}
+							<Box sx={{ flex: 1, overflow: "auto" }}>
+								<TableSkeleton
+									animation="pulse"
+									rowHeight={42}
+									cols={[
+										{ width: 110 },   // invtID
+										{ width: 260 },   // descr
+										{ width: 90 },    // stkUnit
+										{ width: 110 },   // price_perCS
+										{ width: 110 },   // qtyOnHand
+										{ width: 150 },   // avgDemand
+										{ width: 180 },   // suggestedOrderCS
+										{ width: 130 },   // _category
+									]}
+									rows={8}
 								/>
 							</Box>
 						</Box>
