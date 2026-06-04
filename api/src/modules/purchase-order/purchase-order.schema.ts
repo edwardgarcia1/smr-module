@@ -56,7 +56,8 @@ BEGIN
     status_from DATETIME2 NULL,
     status_by NVARCHAR(100) NULL,
     created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT PK_SMR_PurchaseOrders PRIMARY KEY (id)
+    CONSTRAINT PK_SMR_PurchaseOrders PRIMARY KEY (id),
+    CONSTRAINT UQ_SMR_PurchaseOrders_ref_num UNIQUE (ref_num)
   );
 END
 `;

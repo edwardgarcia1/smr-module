@@ -1,6 +1,6 @@
 import { withDb } from "../../config/db";
 import { trimStrings } from "../../utils/trimStrings";
-import { NotFoundError } from "../../middlewares/error";
+import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { existsSync, mkdirSync } from "fs";
 import { writeFile, readFile, unlink } from "fs/promises";
 import { join } from "path";
@@ -175,6 +175,20 @@ export async function createPurchaseOrder(
 	body: NewPurchaseOrder,
 	rows: Record<string, unknown>[],
 ): Promise<PurchaseOrder> {
+	// Check for duplicate ref_num before attempting insert
+	const existing = await withDb((pool) =>
+		pool
+			.request()
+			.input("ref_num", body.ref_num)
+			.query("SELECT COUNT(*) AS cnt FROM SMR_PurchaseOrders WHERE ref_num = @ref_num"),
+	);
+	const count: number = existing.recordset[0]?.cnt ?? 0;
+	if (count > 0) {
+		throw new BadRequestError(
+			`Reference number "${body.ref_num}" already exists. Please use a unique reference number.`,
+		);
+	}
+
 	return withDb(async (pool) => {
 		// 1. Insert the record (csv_filename will be set after we know the ID)
 		const insertResult = await pool
