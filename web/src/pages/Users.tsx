@@ -20,8 +20,10 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { api } from "../services/api";
 import UserPermissionsDialog from "../components/users/UserPermissionsDialog";
+import CreateUserDialog from "../components/users/CreateUserDialog";
 
 interface User {
 	id: number;
@@ -42,25 +44,26 @@ const Users: React.FC = () => {
 	const [orderBy, setOrderBy] = useState<OrderBy>("id");
 	const [selected, setSelected] = useState<readonly number[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [permDialogUser, setPermDialogUser] = useState<{
 		id: number;
 		name: string;
 	} | null>(null);
 
-	useEffect(() => {
-		const fetchUsers = async () => {
-			try {
-				setLoading(true);
-				const data = await api.apiRequest<User[]>("/users", { method: "GET" });
-				setUsers(data);
-				setError(null);
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "Failed to fetch users");
-			} finally {
-				setLoading(false);
-			}
-		};
+	const fetchUsers = async () => {
+		try {
+			setLoading(true);
+			const data = await api.apiRequest<User[]>("/users", { method: "GET" });
+			setUsers(data);
+			setError(null);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to fetch users");
+		} finally {
+			setLoading(false);
+		}
+	};
 
+	useEffect(() => {
 		fetchUsers();
 	}, []);
 
@@ -183,48 +186,62 @@ const Users: React.FC = () => {
 					borderRadius: 2,
 				}}
 			>
-				<Box
+			<Box
+				sx={{
+					display: "flex",
+					alignItems: "center",
+					px: 2,
+					pt: 1.5,
+					pb: 1.5,
+					borderBottom: "1px solid",
+					borderColor: "divider",
+					gap: 2,
+				}}
+			>
+				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+					Users
+				</Typography>
+				<TextField
+					variant="outlined"
+					placeholder="Search users..."
+					value={searchQuery}
+					onChange={(e) => setSearchQuery(e.target.value)}
+					size="small"
+					slotProps={{
+						input: {
+							startAdornment: (
+								<InputAdornment position="start">
+									<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+								</InputAdornment>
+							),
+						},
+					}}
 					sx={{
-						display: "flex",
-						alignItems: "center",
-						px: 2,
-						pt: 1.5,
-						pb: 1.5,
-						borderBottom: "1px solid",
-						borderColor: "divider",
-						gap: 2,
+						width: 280,
+						"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+						"& .MuiInputBase-input": { paddingY: 0 },
+					}}
+				/>
+				<Button
+					variant="contained"
+					size="small"
+					startIcon={<PersonAddIcon />}
+					onClick={() => setCreateDialogOpen(true)}
+					sx={{
+						textTransform: "none",
+						borderRadius: 2,
+						whiteSpace: "nowrap",
+						ml: "auto",
 					}}
 				>
-					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-						Users
+					Create User
+				</Button>
+				{!loading && (
+					<Typography variant="caption" sx={{ color: "text.secondary" }}>
+						{users.length} records
 					</Typography>
-					<TextField
-						variant="outlined"
-						placeholder="Search users..."
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						size="small"
-						slotProps={{
-							input: {
-								startAdornment: (
-									<InputAdornment position="start">
-										<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-									</InputAdornment>
-								),
-							},
-						}}
-						sx={{
-							width: 280,
-							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
-							"& .MuiInputBase-input": { paddingY: 0 },
-						}}
-					/>
-					{!loading && (
-						<Typography variant="caption" sx={{ color: "text.secondary" }}>
-							{users.length} records
-						</Typography>
-					)}
-				</Box>
+				)}
+			</Box>
 
 				{loading ? (
 					<Box sx={{ flex: 1, overflow: "auto" }}>
@@ -390,6 +407,12 @@ const Users: React.FC = () => {
 					</>
 				)}
 			</Paper>
+
+			<CreateUserDialog
+				open={createDialogOpen}
+				onClose={() => setCreateDialogOpen(false)}
+				onCreated={fetchUsers}
+			/>
 
 			{permDialogUser && (
 				<UserPermissionsDialog

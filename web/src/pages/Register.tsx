@@ -58,6 +58,11 @@ const Register: React.FC = () => {
 		setError(null);
 		setSuccess(null);
 
+		if (!name.trim() || !username.trim() || !password.trim()) {
+			setError("All fields are required");
+			return;
+		}
+
 		if (password !== confirmPassword) {
 			setConfirmPasswordError("Passwords do not match");
 			return;
