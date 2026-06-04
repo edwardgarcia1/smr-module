@@ -24,7 +24,9 @@ import { api } from "../../services/api";
 import { useAbility } from "../../config/AbilityProvider";
 
 /** Module subjects grouped by sidebar tabs, matching the backend Subject type.
- *  "Users" is excluded — only superadmin can have it (seeded).
+ *  All subjects from the backend are listed here so setUserPermissions (which
+ *  replaces ALL permissions atomically) does not silently drop subjects that
+ *  are omitted from the payload.
  *  "Dashboard" is excluded — accessible to all authenticated users. */
 const ALL_SUBJECTS = [
 	"Requirements",
@@ -33,6 +35,7 @@ const ALL_SUBJECTS = [
 	"PurchaseOrders",
 	"InventoryItems",
 	"Principals",
+	"Users",
 	"Settings",
 ] as const;
 

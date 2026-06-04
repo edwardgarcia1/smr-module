@@ -71,13 +71,30 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		return rest;
 	})
 
-	// ── Permission Management (admin only) ──────────────────────────
+	// ── Permission Management ──────────────────────────────────────
 
 	// GET /users/:id/permissions — list user's permissions
+	// Users can read their own permissions without manage:Users (needed for
+	// frontend ability refresh).  Reading another user's permissions requires
+	// manage:Users.
 	.get(
 		"/:id/permissions",
 		async ({ params: { id }, ability, user }) => {
-			const targetId = await resolveTargetUser(user, ability, id);
+			if (!user) throw new UnauthorizedError("Authentication required");
+
+			const targetId = Number(id);
+			if (isNaN(targetId)) throw new BadRequestError("Invalid user ID");
+
+			// Self-service: any authenticated user may read their own permissions
+			if (targetId !== user.id) {
+				checkPermission(ability, "manage", "Users");
+			}
+
+			const targetUser = await findUserById(targetId);
+			if (!targetUser) {
+				throw new NotFoundError(`User ${id} not found`);
+			}
+
 			return getPermissionsByUserId(targetId);
 		},
 		{
