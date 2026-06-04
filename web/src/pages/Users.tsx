@@ -17,9 +17,12 @@ import {
 	TextField,
 	InputAdornment,
 	Typography,
+	Button,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import { api } from "../services/api";
+import UserPermissionsDialog from "../components/users/UserPermissionsDialog";
 
 interface User {
 	id: number;
@@ -41,6 +44,10 @@ const Users: React.FC = () => {
 	const [orderBy, setOrderBy] = useState<OrderBy>("id");
 	const [selected, setSelected] = useState<readonly number[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
+	const [permDialogUser, setPermDialogUser] = useState<{
+		id: number;
+		name: string;
+	} | null>(null);
 
 	useEffect(() => {
 		const fetchUsers = async () => {
@@ -163,6 +170,7 @@ const Users: React.FC = () => {
 		{ id: "username" as const, disablePadding: false, label: "Username" },
 		{ id: "name" as const, disablePadding: false, label: "Name" },
 		{ id: "role" as const, disablePadding: false, label: "Role" },
+		{ id: "actions" as const, disablePadding: false, label: "Actions", sortable: false },
 	];
 
 	return (
@@ -303,6 +311,8 @@ const Users: React.FC = () => {
 														onChange={handleSelectAllClick}
 														aria-label="select all users"
 													/>
+												) : headCell.id === "actions" ? (
+													headCell.label
 												) : (
 													<TableSortLabel
 														active={orderBy === headCell.id}
@@ -320,7 +330,7 @@ const Users: React.FC = () => {
 									{paginatedUsers.length === 0 ? (
 										<TableRow>
 											<TableCell
-												colSpan={5}
+												colSpan={6}
 												align="center"
 												sx={{ py: 4, color: "text.secondary" }}
 											>
@@ -366,6 +376,25 @@ const Users: React.FC = () => {
 															size="small"
 														/>
 													</TableCell>
+													<TableCell>
+														<Button
+															variant="outlined"
+															size="small"
+															startIcon={<ManageAccountsIcon />}
+															onClick={(e) => {
+																e.stopPropagation();
+																setPermDialogUser({ id: user.id, name: user.name });
+															}}
+															sx={{
+																textTransform: "none",
+																fontSize: "0.75rem",
+																minWidth: 0,
+																whiteSpace: "nowrap",
+															}}
+														>
+															Permissions
+														</Button>
+													</TableCell>
 												</TableRow>
 											);
 										})
@@ -386,6 +415,15 @@ const Users: React.FC = () => {
 					</>
 				)}
 			</Paper>
+
+			{permDialogUser && (
+				<UserPermissionsDialog
+					open={!!permDialogUser}
+					userId={permDialogUser.id}
+					userName={permDialogUser.name}
+					onClose={() => setPermDialogUser(null)}
+				/>
+			)}
 		</Box>
 	);
 };

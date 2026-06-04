@@ -42,7 +42,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/settings — list all setting overrides
 	.get("/settings", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllSettings();
 	})
 
@@ -51,7 +51,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/settings/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 
 			const setting = await getSettingByInvtId(invtId);
 			if (!setting)
@@ -71,7 +71,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "MinStock");
 
 			return upsertSetting({
 				inventory_id: invtId,
@@ -102,7 +102,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "MinStock");
 
 			return updateSetting(invtId, {
 				min_stock_setting: body.min_stock_setting,
@@ -125,7 +125,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/settings/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "MinStock");
 
 			await deleteSetting(invtId);
 			return { message: `MinStockSetting for ${invtId} deleted` };
@@ -138,7 +138,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/items — list all item-level values
 	.get("/items", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllMinStockItems();
 	})
 
@@ -147,7 +147,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/items/:id",
 		async ({ params: { id }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 
 			const item = await getMinStockItemById(id);
 			if (!item) throw new NotFoundError(`MinStockItem ${id} not found`);
@@ -161,7 +161,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/items/invt/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 
 			const item = await getMinStockItemByInvtId(invtId);
 			if (!item)
@@ -176,7 +176,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/items",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
+			checkPermission(ability, "create", "MinStock");
 			return createMinStockItem(body);
 		},
 		{
@@ -197,7 +197,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "MinStock");
 			return updateMinStockItem(id, body);
 		},
 		{
@@ -211,7 +211,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/items/:id",
 		async ({ params: { id }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "MinStock");
 			await deleteMinStockItem(id);
 			return { message: `MinStockItem ${id} deleted` };
 		},
@@ -223,7 +223,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/principals — list all principal-level values
 	.get("/principals", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllMinStockPrincipals();
 	})
 
@@ -232,7 +232,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/principals/:id",
 		async ({ params: { id }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 
 			const p = await getMinStockPrincipalById(id);
 			if (!p) throw new NotFoundError(`MinStockPrincipal ${id} not found`);
@@ -250,7 +250,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 
 			const p = await getMinStockPrincipalByClassId(classId);
 			if (!p)
@@ -265,7 +265,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/principals",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
+			checkPermission(ability, "create", "MinStock");
 
 			const created = await createMinStockPrincipal(body);
 			// Propagate Principal setting to items in this class
@@ -290,7 +290,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "MinStock");
 
 			const updated = await updateMinStockPrincipal(id, body);
 			// Propagate Principal setting to items in this class
@@ -308,7 +308,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/principals/:id",
 		async ({ params: { id }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "MinStock");
 			await deleteMinStockPrincipal(id);
 			return { message: `MinStockPrincipal ${id} deleted` };
 		},
@@ -320,14 +320,14 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/principals-details — all principals with min stock
 	.get("/principals-details", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllPrincipalsWithMinStock();
 	})
 
 	// GET /min-stock/items-details — all items with setting + min stock
 	.get("/items-details", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllItemsWithMinStock();
 	})
 
@@ -342,7 +342,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 			return resolveMinStock(invtId, classId);
 		},
 		{
@@ -358,7 +358,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 		"/resolve",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "MinStock");
 			return resolveManyMinStock(body);
 		},
 		{
@@ -376,7 +376,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 	// GET /min-stock/categories — list all categorisation thresholds
 	.get("/categories", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "MinStock");
 		return getAllCategories();
 	})
 
@@ -390,7 +390,7 @@ export const minStockRoutes = new Elysia({ prefix: "/min-stock" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "MinStock");
 			return updateCategory(id, body);
 		},
 		{

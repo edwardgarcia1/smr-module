@@ -49,7 +49,7 @@ export const bundlingRoutes = new Elysia({ prefix: "/bundling" })
 		"/requirements",
 		async ({ query, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Sales");
+			checkPermission(ability, "read", "Requirements");
 
 			if (!query.classID) {
 				throw new BadRequestError("classID is required");

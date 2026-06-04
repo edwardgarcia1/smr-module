@@ -35,7 +35,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// GET /principal/ids — list all principal identifiers (cached 5 min)
 			.get("/ids", async ({ ability, user }) => {
 								if (!user) throw new UnauthorizedError("Authentication required");
-				checkPermission(ability, "read", "Site");
+				checkPermission(ability, "read", "Principals");
 
 				return withCache(`${CACHE_PREFIX}ids`, REF_CACHE_TTL, getAllProductClasses);
 			})
@@ -43,7 +43,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// GET /principal/address — list all principal address (cached 5 min)
 			.get("/address", async ({ ability, user }) => {
 								if (!user) throw new UnauthorizedError("Authentication required");
-				checkPermission(ability, "read", "Site");
+				checkPermission(ability, "read", "Principals");
 
 				return withCache(`${CACHE_PREFIX}address`, REF_CACHE_TTL, getAllVendors);
 			})
@@ -51,7 +51,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 			// GET /principal — Principal IDs + Address on User5 = VendId (cached 5 min)
 			.get("/", async ({ ability, user }) => {
 								if (!user) throw new UnauthorizedError("Authentication required");
-				checkPermission(ability, "read", "Site");
+				checkPermission(ability, "read", "Principals");
 
 				return withCache(`${CACHE_PREFIX}joined`, REF_CACHE_TTL, getProductClassesWithVendors);
 			}),
@@ -67,7 +67,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/ids/:classId",
 				async ({ params: { classId }, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "Principals");
 
 					const pc = await getProductClassById(classId);
 					if (!pc) throw new NotFoundError(`ProductClass ${classId} not found`);
@@ -83,7 +83,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/ids",
 				async ({ body, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "Site");
+					checkPermission(ability, "create", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return createProductClass(body);
@@ -107,7 +107,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					user,
 				}) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "Site");
+					checkPermission(ability, "update", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return updateProductClass(classId, body);
@@ -126,7 +126,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/ids/:classId",
 				async ({ params: { classId }, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "Site");
+					checkPermission(ability, "delete", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deleteProductClass(classId);
@@ -142,7 +142,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/address/:venId",
 				async ({ params: { venId }, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "Principals");
 
 					const vendor = await getVendorById(venId);
 					if (!vendor) throw new NotFoundError(`Vendor ${venId} not found`);
@@ -158,7 +158,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/address",
 				async ({ body, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "Site");
+					checkPermission(ability, "create", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return createVendor(body);
@@ -179,7 +179,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/address/:venId",
 				async ({ params: { venId }, body, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "Site");
+					checkPermission(ability, "update", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return updateVendor(venId, body);
@@ -200,7 +200,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 				"/address/:venId",
 				async ({ params: { venId }, ability, user }) => {
 										if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "Site");
+					checkPermission(ability, "delete", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deleteVendor(venId);

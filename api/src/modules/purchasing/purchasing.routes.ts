@@ -47,7 +47,7 @@ export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 		"/requirements",
 		async ({ query, ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Sales");
+			checkPermission(ability, "read", "Requirements");
 
 			if (!query.classID) {
 				throw new BadRequestError("classID is required");

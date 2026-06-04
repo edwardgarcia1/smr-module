@@ -1,12 +1,47 @@
-import { Elysia } from "elysia";
+import { Elysia, t } from "elysia";
 import { findUserById, getAllUsers } from "./user.service";
+import {
+	getPermissionsByUserId,
+	setUserPermissions,
+	deleteUserPermissions,
+} from "./permission.service";
 import { authGuard } from "../../middlewares/auth";
-import { caslMiddleware, checkPermission } from "../../middlewares/casl";
+import {
+	caslMiddleware,
+	checkPermission,
+	type AppAbility,
+} from "../../middlewares/casl";
 import {
 	BadRequestError,
 	NotFoundError,
 	UnauthorizedError,
 } from "../../middlewares/error";
+import type { AuthUser } from "../../middlewares/auth";
+
+/**
+ * Resolve a user ID from a route param, verifying auth + manage:User permission.
+ * Shared by all three /:id/permissions handlers.
+ */
+async function resolveTargetUser(
+	user: AuthUser | null,
+	ability: AppAbility,
+	id: string,
+): Promise<number> {
+	if (!user) throw new UnauthorizedError("Authentication required");
+	checkPermission(ability, "manage", "Users");
+
+	const targetId = Number(id);
+	if (isNaN(targetId)) {
+		throw new BadRequestError("Invalid user ID");
+	}
+
+	const targetUser = await findUserById(targetId);
+	if (!targetUser) {
+		throw new NotFoundError(`User ${id} not found`);
+	}
+
+	return targetId;
+}
 
 export const userRoutes = new Elysia({ prefix: "/users" })
 	.use(authGuard)
@@ -17,7 +52,7 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		}
 
 		// CASL RBAC check
-		checkPermission(ability, "read", "User");
+		checkPermission(ability, "read", "Users");
 
 		const users = await getAllUsers();
 		return users.map(({ password, ...rest }) => rest);
@@ -34,4 +69,51 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		}
 		const { password, ...rest } = userProfile;
 		return rest;
-	});
+	})
+
+	// ── Permission Management (admin only) ──────────────────────────
+
+	// GET /users/:id/permissions — list user's permissions
+	.get(
+		"/:id/permissions",
+		async ({ params: { id }, ability, user }) => {
+			const targetId = await resolveTargetUser(user, ability, id);
+			return getPermissionsByUserId(targetId);
+		},
+		{
+			params: t.Object({ id: t.String() }),
+		},
+	)
+
+	// POST /users/:id/permissions — bulk set permissions (replaces all)
+	.post(
+		"/:id/permissions",
+		async ({ params: { id }, body, ability, user }) => {
+			const targetId = await resolveTargetUser(user, ability, id);
+
+			await setUserPermissions(targetId, body);
+			return { message: "Permissions updated successfully" };
+		},
+		{
+			params: t.Object({ id: t.String() }),
+			body: t.Array(
+				t.Object({
+					subject: t.String(),
+					action: t.String(),
+				}),
+			),
+		},
+	)
+
+	// DELETE /users/:id/permissions — clear all permissions
+	.delete(
+		"/:id/permissions",
+		async ({ params: { id }, ability, user }) => {
+			const targetId = await resolveTargetUser(user, ability, id);
+			await deleteUserPermissions(targetId);
+			return { message: "Permissions cleared successfully" };
+		},
+		{
+			params: t.Object({ id: t.String() }),
+		},
+	);

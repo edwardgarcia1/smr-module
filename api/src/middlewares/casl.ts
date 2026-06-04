@@ -2,48 +2,55 @@ import { Elysia, type Context } from "elysia";
 import { createMongoAbility, AbilityBuilder, type MongoAbility, type InferSubjects } from "@casl/ability";
 import { type AuthUser } from "./auth";
 import { ForbiddenError } from "./error";
+import { getPermissionsByUserId } from "../modules/users/permission.service";
 
-export type Subject = "User" | "Site" | "ProductClass" | "Vendor" | "Inventory" | "Component" | "SlsPrc" | "SlsPrcDet" | "Sales" | "ItemCost" | "ItemPrice" | "PriceClass" | "Bundling" | "Dashboard" | "PurchaseOrder" | "all";
+/** Subjects grouped by sidebar tab modules.
+ *  "Dashboard" omitted — accessible to all authenticated users (no permission check).
+ *  "Users" kept — only seeded for superadmin; not shown in the UI dialog. */
+export const ALL_SUBJECTS = [
+	"Requirements",
+	"Prices",
+	"MinStock",
+	"PurchaseOrders",
+	"InventoryItems",
+	"Principals",
+	"Users",
+	"Settings",
+] as const;
+
+export type Subject = (typeof ALL_SUBJECTS)[number];
+
 export type Actions = "manage" | "create" | "read" | "update" | "delete";
 
 export type AppAbility = MongoAbility<[Actions, InferSubjects<Subject>]>;
 
 export const caslMiddleware = (app: Elysia) =>
-    app.derive(async (context: Context) => {
-        // Access user from context. authGuard must run before this middleware.
-        const user = (context as any).user as AuthUser | null;
-        
-        const { build, can } = new AbilityBuilder<AppAbility>(createMongoAbility);
+	app.derive(async (context: Context) => {
+		// Access user from context. authGuard must run before this middleware.
+		const user = (context as any).user as AuthUser | null;
 
-        if (user) {
-            // Original logic: only superadmin can list/manipulate users
-			if (user.role === "superadmin") {
-				can("manage", "User");
-				can("manage", "Site");
-				can("manage", "ProductClass");
-				can("manage", "Vendor");
-				can("manage", "Inventory");
-				can("manage", "Component");
-				can("manage", "SlsPrc");
-				can("manage", "SlsPrcDet");
-				can("manage", "Sales");
-				can("manage", "ItemCost");
-				can("manage", "ItemPrice");
-				can("manage", "PriceClass");
-				can("manage", "Bundling");
-				can("manage", "Dashboard");
-			can("manage", "PurchaseOrder");
+		const { build, can } = new AbilityBuilder<AppAbility>(createMongoAbility);
+
+		if (user) {
+			// Load permissions from DB dynamically
+			const permissions = await getPermissionsByUserId(user.id);
+			for (const perm of permissions) {
+				if (perm.action === "manage") {
+					can("manage", perm.subject as Subject);
+				} else {
+					can(perm.action as Actions, perm.subject as Subject);
+				}
 			}
-        }
+		}
 
-        const ability = build();
+		const ability = build();
 
-        return { ability };
-    });
+		return { ability };
+	});
 
 export const checkPermission = (ability: AppAbility, action: Actions, subject: Subject) => {
-    if (!ability.can(action, subject)) {
-        throw new ForbiddenError("Insufficient permissions");
-    }
-    return true;
+	if (!ability.can(action, subject)) {
+		throw new ForbiddenError("Insufficient permissions");
+	}
+	return true;
 };

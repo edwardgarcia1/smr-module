@@ -53,7 +53,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 		.slice(0, 2);
 	const navigate = useNavigate();
 	const location = useLocation();
-	const ability = useAbility();
+	const { ability } = useAbility();
 	const user = useAuthStore((state) => state.user);
 	const logout = useAuthStore((state) => state.logout);
 	const collapsedWidth = 56;
@@ -187,7 +187,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					/>
 				</ListItemButton>
 				{/* Consolidated Requirements page with Purchasing/Bundling toggle */}
-				{(ability.can("read", "purchasing-requirements") || ability.can("read", "bundling")) && (
+				{ability.can("read", "Requirements") && (
 					<ListItemButton
 						selected={isActive("/purchasing-requirements")}
 						onClick={() => handleNav("/purchasing-requirements")}
@@ -210,7 +210,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				)}
-				<Can I="read" a="prices" ability={ability}>
+				<Can I="read" a="Prices" ability={ability}>
 					<ListItemButton
 						selected={isActive("/prices")}
 						onClick={() => handleNav("/prices")}
@@ -233,7 +233,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="min-stock" ability={ability}>
+				<Can I="read" a="MinStock" ability={ability}>
 					<ListItemButton
 						selected={isActive("/min-stock")}
 						onClick={() => handleNav("/min-stock")}
@@ -256,7 +256,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="purchase-orders" ability={ability}>
+				<Can I="read" a="PurchaseOrders" ability={ability}>
 					<ListItemButton
 						selected={isActive("/purchase-orders")}
 						onClick={() => handleNav("/purchase-orders")}
@@ -279,7 +279,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="inventory-items" ability={ability}>
+				<Can I="read" a="InventoryItems" ability={ability}>
 					<ListItemButton
 						selected={isActive("/inventory-items")}
 						onClick={() => handleNav("/inventory-items")}
@@ -302,7 +302,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="principals" ability={ability}>
+				<Can I="read" a="Principals" ability={ability}>
 					<ListItemButton
 						selected={isActive("/principals")}
 						onClick={() => handleNav("/principals")}
@@ -325,7 +325,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="users" ability={ability}>
+				<Can I="read" a="Users" ability={ability}>
 					<ListItemButton
 						selected={isActive("/users")}
 						onClick={() => handleNav("/users")}
@@ -348,7 +348,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 						/>
 					</ListItemButton>
 				</Can>
-				<Can I="read" a="settings" ability={ability}>
+				<Can I="read" a="Settings" ability={ability}>
 					<ListItemButton
 						selected={isActive("/settings")}
 						onClick={() => handleNav("/settings")}

@@ -1,6 +1,11 @@
 import sql from "mssql";
 import { CREATE_USERS_TABLE_SQL } from "./modules/users/user.schema";
 import {
+	CREATE_PERMISSIONS_TABLE_SQL,
+	INSERT_PERMISSION_SQL,
+} from "./modules/users/permission.schema";
+import { ALL_SUBJECTS } from "./middlewares/casl";
+import {
 	CREATE_ITEMPRICE_TABLE_SQL,
 	CREATE_PRICECLASS_TABLE_SQL,
 } from "./modules/price/price.schema";
@@ -35,6 +40,10 @@ async function migrate() {
 		// Create SMR_Users table if it doesn't exist
 		await pool.request().query(CREATE_USERS_TABLE_SQL);
 		console.log("SMR_Users table ready");
+
+		// Create SMR_Permissions table if it doesn't exist
+		await pool.request().query(CREATE_PERMISSIONS_TABLE_SQL);
+		console.log("SMR_Permissions table ready");
 
 		// Create SMR_ItemPrice table (renamed from SMR_ItemCost)
 		await pool.request().query(CREATE_ITEMPRICE_TABLE_SQL);
@@ -99,6 +108,26 @@ async function migrate() {
           INSERT INTO SMR_Users (username, password, name, role)
           VALUES (@username, @password, @name, @role)
         `);
+
+			// Fetch the created user's ID
+			const createdUser = await pool
+				.request()
+				.input("username", username)
+				.query("SELECT id FROM SMR_Users WHERE username = @username");
+			const createdUserId = createdUser.recordset[0]?.id;
+
+			// Seed manage permissions for all canonical subjects
+			if (createdUserId) {
+				for (const subject of ALL_SUBJECTS) {
+					await pool
+						.request()
+						.input("userId", createdUserId)
+						.input("subject", subject)
+						.input("action", "manage")
+						.query(INSERT_PERMISSION_SQL);
+				}
+				console.log("Superadmin permissions seeded successfully");
+			}
 
 			console.log("Superadmin user created successfully");
 		} else {

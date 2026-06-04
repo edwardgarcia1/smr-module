@@ -39,7 +39,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/inventory",
 		async ({ query: { promoFilter }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			return getAllInventory(
 				(promoFilter ?? "all") as "all" | "promos" | "non_promos",
@@ -61,7 +61,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/inventory/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			const inv = await getInventoryById(invtId);
 			if (!inv) throw new NotFoundError(`Inventory ${invtId} not found`);
@@ -77,7 +77,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/inventory",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
+			checkPermission(ability, "create", "InventoryItems");
 
 			return createInventory(body);
 		},
@@ -97,7 +97,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/inventory/:invtId",
 		async ({ params: { invtId }, body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "InventoryItems");
 
 			return updateInventory(invtId, body);
 		},
@@ -117,7 +117,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/inventory/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "InventoryItems");
 
 			await deleteInventory(invtId);
 			return { message: `Inventory ${invtId} deleted` };
@@ -132,7 +132,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/component — list all components
 	.get("/component", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "InventoryItems");
 
 		return getAllComponents();
 	})
@@ -146,7 +146,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			const comp = await getComponentById(kitId, cmpnentId);
 			if (!comp)
@@ -166,7 +166,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/component/:kitId",
 		async ({ params: { kitId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			return getComponentsByKitId(kitId);
 		},
@@ -180,7 +180,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/component",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
+			checkPermission(ability, "create", "InventoryItems");
 
 			return createComponent(body);
 		},
@@ -203,7 +203,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "InventoryItems");
 
 			return updateComponent(kitId, cmpnentId, body);
 		},
@@ -227,7 +227,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "InventoryItems");
 
 			await deleteComponent(kitId, cmpnentId);
 			return {
@@ -247,7 +247,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 	// GET /item/site — list all ItemSite records
 	.get("/site", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-		checkPermission(ability, "read", "Site");
+		checkPermission(ability, "read", "InventoryItems");
 		return getAllItemSites();
 	})
 
@@ -260,7 +260,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			const itemSite = await getItemSiteById(invtId, siteId);
 			if (!itemSite)
@@ -280,7 +280,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/site/:invtId",
 		async ({ params: { invtId }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 			return getItemSitesByInvtId(invtId);
 		},
 		{
@@ -293,7 +293,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/site",
 		async ({ body, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "create", "Site");
+			checkPermission(ability, "create", "InventoryItems");
 			return createItemSite(body);
 		},
 		{
@@ -323,7 +323,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "update", "Site");
+			checkPermission(ability, "update", "InventoryItems");
 			return updateItemSite(invtId, siteId, body);
 		},
 		{
@@ -354,7 +354,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 			user,
 		}) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "delete", "Site");
+			checkPermission(ability, "delete", "InventoryItems");
 			await deleteItemSite(invtId, siteId);
 			return { message: `ItemSite ${invtId}/${siteId} deleted` };
 		},
@@ -373,7 +373,7 @@ export const itemRoutes = new Elysia({ prefix: "/item" })
 		"/",
 		async ({ query: { sites }, ability, user }) => {
 						if (!user) throw new UnauthorizedError("Authentication required");
-			checkPermission(ability, "read", "Site");
+			checkPermission(ability, "read", "InventoryItems");
 
 			return getInventoryWithComponentsAndItemSites(sites);
 		},

@@ -29,7 +29,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 			// GET /inventory — list all sites (cached 5 min)
 			.get("/", async ({ ability, user }) => {
 				if (!user) throw new UnauthorizedError("Authentication required");
-				checkPermission(ability, "read", "Site");
+				checkPermission(ability, "read", "InventoryItems");
 
 				return withCache(`${CACHE_PREFIX}all`, REF_CACHE_TTL, getAllSites);
 			}),
@@ -45,7 +45,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 				"/:siteId",
 				async ({ params: { siteId }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "Site");
+					checkPermission(ability, "read", "InventoryItems");
 
 					const site = await getSiteById(siteId);
 					if (!site) throw new NotFoundError(`Site ${siteId} not found`);
@@ -61,7 +61,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 				"/",
 				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "Site");
+					checkPermission(ability, "create", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return createSite(body);
@@ -79,7 +79,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 				"/:siteId",
 				async ({ params: { siteId }, body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "Site");
+					checkPermission(ability, "update", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return updateSite(siteId, body);
@@ -97,7 +97,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 				"/:siteId",
 				async ({ params: { siteId }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "Site");
+					checkPermission(ability, "delete", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deleteSite(siteId);

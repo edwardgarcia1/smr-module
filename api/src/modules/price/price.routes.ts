@@ -47,7 +47,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/class",
 				async ({ ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "PriceClass");
+					checkPermission(ability, "read", "Prices");
 
 					return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctPriceClasses);
 				},
@@ -66,7 +66,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/classes",
 				async ({ ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "PriceClass");
+					checkPermission(ability, "read", "Prices");
 
 					return toPlainJson(await getAllPriceClasses());
 				},
@@ -77,7 +77,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/classes",
 				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "PriceClass");
+					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return toPlainJson(await createPriceClass(body, user.name));
@@ -100,7 +100,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					user,
 				}) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "PriceClass");
+					checkPermission(ability, "update", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return toPlainJson(await updatePriceClass(id, body));
@@ -120,7 +120,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/classes/:id",
 				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "PriceClass");
+					checkPermission(ability, "delete", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deletePriceClass(id);
@@ -140,7 +140,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/items/:id",
 				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemPrice");
+					checkPermission(ability, "read", "Prices");
 
 					const price = await getItemPriceById(id);
 					if (!price) throw new NotFoundError(`ItemPrice ${id} not found`);
@@ -156,7 +156,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/items",
 				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "ItemPrice");
+					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return toPlainJson(await createItemPrice({ ...body, encoded_by: user.name }));
@@ -183,7 +183,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					user,
 				}) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "update", "ItemPrice");
+					checkPermission(ability, "update", "Prices");
 
 					// Fetch existing record to get inventory_id
 					const existing = await getItemPriceById(id);
@@ -224,7 +224,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/items/:id",
 				async ({ params: { id }, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "delete", "ItemPrice");
+					checkPermission(ability, "delete", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					await deleteItemPrice(id);
@@ -240,7 +240,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/items/import",
 				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "create", "ItemPrice");
+					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return importItemPrices(body.items, user.name);
@@ -268,7 +268,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/convert",
 				async ({ body, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemPrice");
+					checkPermission(ability, "read", "Prices");
 
 					return batchConvertPrices(body.items);
 				},
@@ -294,7 +294,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 				"/",
 				async ({ query, ability, user }) => {
 					if (!user) throw new UnauthorizedError("Authentication required");
-					checkPermission(ability, "read", "ItemPrice");
+					checkPermission(ability, "read", "Prices");
 
 					const page = clamp(Number(query.page) || 1, 1, Infinity);
 					const limit = clamp(Number(query.limit) || DEFAULT_LIMIT, 1, MAX_LIMIT);
