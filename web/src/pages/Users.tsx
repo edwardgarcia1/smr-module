@@ -16,6 +16,7 @@ import {
 	Skeleton,
 	TextField,
 	InputAdornment,
+	Typography,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { api } from "../services/api";
@@ -106,10 +107,6 @@ const Users: React.FC = () => {
 
 	const isSelected = (id: number) => selected.indexOf(id) !== -1;
 
-	// Avoid a layout jump when reaching the last page with empty rows.
-	const emptyRows =
-		page > 0 ? Math.max(0, (1 + page) * rowsPerPage - users.length) : 0;
-
 	const filteredUsers = useMemo(() => {
 		if (!searchQuery.trim()) return users;
 
@@ -169,60 +166,131 @@ const Users: React.FC = () => {
 	];
 
 	return (
-		<>
-			{error ? (
-				<Alert severity="error" sx={{ mb: 2 }}>
+		<Box
+			sx={{
+				height: "calc(100dvh - 130px)",
+				display: "flex",
+				flexDirection: "column",
+				overflow: "hidden",
+				width: "100%",
+			}}
+		>
+			{error && (
+				<Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
 					{error}
 				</Alert>
-			) : (
-				<Paper sx={{ width: "100%", mb: 2 }}>
-					<Box sx={{ p: 2, borderBottom: 1, borderColor: "divider" }}>
-						<TextField
-							fullWidth
-							variant="outlined"
-							placeholder="Search users..."
-							value={searchQuery}
-							onChange={(e) => setSearchQuery(e.target.value)}
-							slotProps={{
-								input: {
-									startAdornment: (
-										<InputAdornment position="start">
-											<SearchIcon />
-										</InputAdornment>
-									),
-								},
-							}}
-							sx={{
-								"& .MuiOutlinedInput-root": {
-									borderRadius: 2,
-									height: 44,
-								},
-								"& .MuiInputBase-input": {
-									paddingY: 0,
-								},
-							}}
-						/>
-					</Box>
-					<TableContainer sx={{ maxHeight: 440 }}>
-						<Table stickyHeader aria-labelledby="tableTitle">
+			)}
+
+			<Paper
+				sx={{
+					flex: 1,
+					overflow: "hidden",
+					display: "flex",
+					flexDirection: "column",
+					borderRadius: 2,
+				}}
+			>
+				<Box
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						px: 2,
+						pt: 1.5,
+						pb: 1.5,
+						borderBottom: "1px solid",
+						borderColor: "divider",
+						gap: 2,
+					}}
+				>
+					<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
+						Users
+					</Typography>
+					<TextField
+						variant="outlined"
+						placeholder="Search users..."
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						size="small"
+						slotProps={{
+							input: {
+								startAdornment: (
+									<InputAdornment position="start">
+										<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+									</InputAdornment>
+								),
+							},
+						}}
+						sx={{
+							width: 280,
+							"& .MuiOutlinedInput-root": { borderRadius: 2, height: 36 },
+							"& .MuiInputBase-input": { paddingY: 0 },
+						}}
+					/>
+					{!loading && (
+						<Typography variant="caption" sx={{ color: "text.secondary" }}>
+							{users.length} records
+						</Typography>
+					)}
+				</Box>
+
+				{loading ? (
+					<Box sx={{ flex: 1, overflow: "auto" }}>
+						<Table size="small">
 							<TableHead>
 								<TableRow>
-									{headCells.map((headCell) => (
+									{headCells.map((hc) => (
 										<TableCell
-											key={headCell.id}
-											padding={headCell.disablePadding ? "none" : "normal"}
-											sortDirection={orderBy === headCell.id ? order : false}
-											sx={{ bgcolor: "var(--sidebar-bg)", color: "var(--sidebar-text)" }}
+											key={hc.id}
+											padding={hc.disablePadding ? "none" : "normal"}
+											sx={{ fontWeight: 600 }}
 										>
-											{headCell.id === "select" ? (
-												loading ? (
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												) : (
+											{hc.label}
+										</TableCell>
+									))}
+								</TableRow>
+							</TableHead>
+							<TableBody>
+								{Array.from({ length: rowsPerPage }, (_, i) => (
+									<TableRow key={i}>
+										<TableCell padding="none">
+											<Skeleton
+												variant="rectangular"
+												width={24}
+												height={24}
+												sx={{ mx: 1 }}
+											/>
+										</TableCell>
+										<TableCell component="th" scope="row" padding="none">
+											<Skeleton variant="text" width={40} />
+										</TableCell>
+										<TableCell>
+											<Skeleton variant="text" width={120} />
+										</TableCell>
+										<TableCell>
+											<Skeleton variant="text" width={150} />
+										</TableCell>
+										<TableCell>
+											<Skeleton variant="text" width={80} />
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</Box>
+				) : (
+					<>
+						<TableContainer sx={{ flex: 1, overflow: "auto" }}>
+							<Table size="small" aria-labelledby="tableTitle">
+								<TableHead>
+									<TableRow>
+										{headCells.map((headCell) => (
+											<TableCell
+												key={headCell.id}
+												padding={headCell.disablePadding ? "none" : "normal"}
+												sortDirection={orderBy === headCell.id ? order : false}
+												sx={{ fontWeight: 600 }}
+											>
+												{headCell.id === "select" ? (
 													<Checkbox
 														indeterminate={
 															selected.length > 0 &&
@@ -234,59 +302,33 @@ const Users: React.FC = () => {
 														}
 														onChange={handleSelectAllClick}
 														aria-label="select all users"
-														sx={{
-															color: "var(--sidebar-text)",
-															"&.Mui-checked": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-indeterminate": { color: "var(--sidebar-text)" },
-															"&.MuiCheckbox-root": { color: "var(--sidebar-text)" },
-														}}
 													/>
-												)
-											) : (
-												<TableSortLabel
-													active={orderBy === headCell.id}
-													direction={orderBy === headCell.id ? order : "asc"}
-													onClick={() => handleRequestSort(headCell.id)}
-													sx={{
-														"&.MuiTableSortLabel-active": { color: "var(--sidebar-text) !important" },
-														"& .MuiTableSortLabel-icon": { color: "var(--sidebar-text) !important" },
-														color: "var(--sidebar-text)",
-													}}
-												>
-													{headCell.label}
-												</TableSortLabel>
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{loading
-									? [...Array(rowsPerPage)].map((_, index) => (
-											<TableRow key={`skeleton-${index}`}>
-												<TableCell padding="none">
-													<Skeleton
-														variant="rectangular"
-														width={24}
-														height={24}
-														sx={{ mx: 1 }}
-													/>
-												</TableCell>
-												<TableCell component="th" scope="row" padding="none">
-													<Skeleton variant="text" width={40} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={120} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={150} />
-												</TableCell>
-												<TableCell>
-													<Skeleton variant="text" width={80} />
-												</TableCell>
-											</TableRow>
-										))
-									: paginatedUsers.map((user, index) => {
+												) : (
+													<TableSortLabel
+														active={orderBy === headCell.id}
+														direction={orderBy === headCell.id ? order : "asc"}
+														onClick={() => handleRequestSort(headCell.id)}
+													>
+														{headCell.label}
+													</TableSortLabel>
+												)}
+											</TableCell>
+										))}
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{paginatedUsers.length === 0 ? (
+										<TableRow>
+											<TableCell
+												colSpan={5}
+												align="center"
+												sx={{ py: 4, color: "text.secondary" }}
+											>
+												No users found
+											</TableCell>
+										</TableRow>
+									) : (
+										paginatedUsers.map((user, index) => {
 											const isItemSelected = isSelected(user.id);
 											const labelId = `enhanced-table-checkbox-${index}`;
 											return (
@@ -326,41 +368,25 @@ const Users: React.FC = () => {
 													</TableCell>
 												</TableRow>
 											);
-										})}
-								{!loading && emptyRows > 0 && (
-									<TableRow style={{ height: 53 * emptyRows }}>
-										<TableCell colSpan={5} />
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</TableContainer>
-					<TablePagination
-						component="div"
-						count={users.length}
-						rowsPerPage={rowsPerPage}
-						page={page}
-						onPageChange={handleChangePage}
-						onRowsPerPageChange={handleChangeRowsPerPage}
-						labelRowsPerPage="Rows:"
-						sx={{
-							width: "100%",
-							display: "flex",
-							flexDirection: { xs: "column", sm: "row" },
-							alignItems: "center",
-							gap: 1,
-							"& .MuiTablePagination-toolbar": {
-								flexWrap: "wrap",
-								justifyContent: { xs: "center", sm: "flex-end" },
-							},
-							"& .MuiTablePagination-spacer": {
-								display: "none",
-							},
-						}}
-					/>
-				</Paper>
-			)}
-		</>
+										})
+									)}
+								</TableBody>
+							</Table>
+						</TableContainer>
+						<TablePagination
+							component="div"
+							count={users.length}
+							rowsPerPage={rowsPerPage}
+							page={page}
+							onPageChange={handleChangePage}
+							onRowsPerPageChange={handleChangeRowsPerPage}
+							rowsPerPageOptions={[10, 20, 50]}
+							sx={{ flexShrink: 0 }}
+						/>
+					</>
+				)}
+			</Paper>
+		</Box>
 	);
 };
 
