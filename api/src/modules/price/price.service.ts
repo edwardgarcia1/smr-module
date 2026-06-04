@@ -110,10 +110,11 @@ export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> =>
 			.input("price_class", item.price_class)
 			.input("valid_from", validFrom)
 			.input("valid_to", item.valid_to ?? null)
+			.input("encoded_by", item.encoded_by)
 			.query(`
-				INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
-				OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
-				VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
+				INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by)
+				OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to, INSERTED.encoded_by
+				VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to, @encoded_by)
 			`);
 
 		const created = result.recordset[0];
@@ -133,7 +134,7 @@ export const getItemPriceById = async (
 			.request()
 			.input("id", id)
 			.query(
-				"SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to FROM SMR_ItemPrice WHERE id = @id",
+				"SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by FROM SMR_ItemPrice WHERE id = @id",
 			),
 	);
 	const raw = result.recordset[0] as Record<string, unknown> | undefined;
@@ -152,7 +153,7 @@ export const getItemPricesByInventoryId = async (
 			.request()
 			.input("inventory_id", inventoryId)
 			.query(`
-				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by
 				FROM SMR_ItemPrice
 				WHERE inventory_id = @inventory_id
 				ORDER BY valid_from DESC
@@ -174,6 +175,7 @@ export const updateItemPrice = async (
 	if (updates.unit !== undefined) setClauses.push("unit = @unit");
 	if (updates.price_class !== undefined) setClauses.push("price_class = @price_class");
 	if (updates.valid_to !== undefined) setClauses.push("valid_to = @valid_to");
+	if (updates.encoded_by !== undefined) setClauses.push("encoded_by = @encoded_by");
 
 	if (setClauses.length === 0) {
 		const existing = await getItemPriceById(id);
@@ -187,11 +189,12 @@ export const updateItemPrice = async (
 		if (updates.unit !== undefined) req.input("unit", updates.unit);
 		if (updates.price_class !== undefined) req.input("price_class", updates.price_class);
 		if (updates.valid_to !== undefined) req.input("valid_to", updates.valid_to);
+		if (updates.encoded_by !== undefined) req.input("encoded_by", updates.encoded_by);
 
 		const result = await req.query(`
 			UPDATE SMR_ItemPrice
 			SET ${setClauses.join(", ")}
-			OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to
+			OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to, INSERTED.encoded_by
 			WHERE id = @id
 		`);
 
@@ -241,6 +244,7 @@ export const expireItemPrice = async (id: number, validTo: string): Promise<void
 
 export const createPriceClass = async (
 	pc: NewPriceClass,
+	createdBy: string,
 ): Promise<PriceClass> => {
 	return withDb(async (pool) => {
 		// Check for duplicate
@@ -260,10 +264,11 @@ export const createPriceClass = async (
 			.request()
 			.input("id", pc.id)
 			.input("description", pc.description ?? null)
+			.input("created_by", createdBy)
 			.query(`
-				INSERT INTO SMR_PriceClass (id, description)
-				OUTPUT INSERTED.id, INSERTED.description
-				VALUES (@id, @description)
+				INSERT INTO SMR_PriceClass (id, description, created_by)
+				OUTPUT INSERTED.id, INSERTED.description, INSERTED.created_by
+				VALUES (@id, @description, @created_by)
 			`);
 
 		const created = result.recordset[0];
@@ -278,7 +283,7 @@ export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
 		pool
 			.request()
 			.query(`
-				SELECT id, description
+				SELECT id, description, created_by
 				FROM SMR_PriceClass
 				ORDER BY id
 			`),
@@ -301,7 +306,7 @@ export const getPriceClassById = async (
 			.request()
 			.input("id", id)
 			.query(`
-				SELECT id, description
+				SELECT id, description, created_by
 				FROM SMR_PriceClass
 				WHERE id = @id
 			`),
@@ -330,7 +335,7 @@ export const updatePriceClass = async (
 	id: string,
 	updates: PriceClassUpdate,
 ): Promise<PriceClass> => {
-	const result = await withDb((pool) =>
+		const result = await withDb((pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -338,7 +343,7 @@ export const updatePriceClass = async (
 			.query(`
 				UPDATE SMR_PriceClass
 				SET description = @description
-				OUTPUT INSERTED.id, INSERTED.description
+				OUTPUT INSERTED.id, INSERTED.description, INSERTED.created_by
 				WHERE id = @id
 			`),
 	);
@@ -571,6 +576,7 @@ export const getPricesPaginated = async (
 			price_class: string;
 			valid_from: string;
 			valid_to: string | null;
+			encoded_by: string;
 		};
 
 		const currentMap = new Map<string, PriceClassEntry[]>();
@@ -586,7 +592,7 @@ export const getPricesPaginated = async (
 
 			// Current prices (valid_to IS NULL) — one per price_class
 			const currentResult = await priceReq.query(`
-				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by
 				FROM SMR_ItemPrice
 				WHERE inventory_id IN (${idParams.join(", ")}) AND valid_to IS NULL
 				ORDER BY inventory_id, price_class
@@ -599,6 +605,7 @@ export const getPricesPaginated = async (
 					unit: r.unit,
 					price_class: r.price_class,
 					valid_from: r.valid_from,
+					encoded_by: r.encoded_by,
 				};
 				const existing = currentMap.get(r.inventory_id) ?? [];
 				existing.push(entry);
@@ -607,7 +614,7 @@ export const getPricesPaginated = async (
 
 			// All prices (for history)
 			const allResult = await priceReq.query(`
-				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to
+				SELECT id, inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by
 				FROM SMR_ItemPrice
 				WHERE inventory_id IN (${idParams.join(", ")})
 				ORDER BY inventory_id, valid_from DESC
@@ -629,6 +636,7 @@ export const getPricesPaginated = async (
 					price: toBig(r.price),
 					unit: r.unit,
 					price_class: r.price_class,
+					encoded_by: r.encoded_by,
 				};
 				const existing = historyMap.get(r.inventory_id) ?? [];
 				existing.push(entry);
@@ -692,6 +700,7 @@ export { MAX_LIMIT, DEFAULT_LIMIT };
  */
 export const importItemPrices = async (
 	items: BulkImportItem[],
+	encodedBy: string,
 ): Promise<ImportResult> => {
 	let inserted = 0;
 	let updated = 0;
@@ -765,9 +774,10 @@ export const importItemPrices = async (
 					.input("price_class", item.price_class)
 					.input("valid_from", validFrom)
 					.input("valid_to", item.valid_to ?? null)
+					.input("encoded_by", encodedBy)
 					.query(`
-						INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to)
-						VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to)
+						INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by)
+						VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to, @encoded_by)
 					`);
 				inserted++;
 			});

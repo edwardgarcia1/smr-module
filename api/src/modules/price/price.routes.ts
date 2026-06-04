@@ -80,7 +80,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "PriceClass");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await createPriceClass(body));
+					return toPlainJson(await createPriceClass(body, user.name));
 				},
 				{
 					body: t.Object({
@@ -159,7 +159,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "ItemPrice");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await createItemPrice(body));
+					return toPlainJson(await createItemPrice({ ...body, encoded_by: user.name }));
 				},
 				{
 					body: t.Object({
@@ -203,6 +203,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 						unit: body.unit ?? existing.unit,
 						price_class: body.price_class ?? existing.price_class,
 						valid_from: nowStr,
+						encoded_by: user.name,
 					});
 
 					invalidateCachePrefix(CACHE_PREFIX);
@@ -242,7 +243,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "ItemPrice");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return importItemPrices(body.items);
+					return importItemPrices(body.items, user.name);
 				},
 				{
 					body: t.Object({

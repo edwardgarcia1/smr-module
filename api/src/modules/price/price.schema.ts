@@ -55,6 +55,7 @@ export interface ItemPrice {
 	price_class: string;
 	valid_from: string; // DATETIME
 	valid_to: string | null; // DATETIME, NULL = current
+	encoded_by: string; // user who created this price version
 }
 
 /** `price` accepts `Big | number` so API body numbers work as-is. */
@@ -65,15 +66,17 @@ export type NewItemPrice = {
 	price_class: string;
 	valid_from?: string; // defaults to current DATETIME
 	valid_to?: string | null;
+	encoded_by: string;
 };
 
-export type ItemPriceUpdate = Partial<Pick<ItemPrice, "price" | "unit" | "price_class" | "valid_to">>;
+export type ItemPriceUpdate = Partial<Pick<ItemPrice, "price" | "unit" | "price_class" | "valid_to" | "encoded_by">>;
 
 // ─── SMR_PriceClass (simplified lookup) ───────────────────────────────
 
 export interface PriceClass {
 	id: string;       // the price class name (NVARCHAR PK)
 	description: string | null;
+	created_by: string;
 }
 
 export type NewPriceClass = {
@@ -93,6 +96,7 @@ export interface PriceHistoryEntry {
 	price: Big;
 	unit: string;
 	price_class: string;
+	encoded_by: string;
 }
 
 // ─── Current price entry (one per price_class) ─────────────────────────
@@ -103,6 +107,7 @@ export interface PriceClassEntry {
 	unit: string;
 	price_class: string;
 	valid_from: string; // DATETIME — when this price became active
+	encoded_by: string;
 }
 
 // ─── Price record — response shape (one per inventory_id) ──────────────
@@ -194,6 +199,7 @@ BEGIN
     price_class NVARCHAR(30) NOT NULL,
     valid_from DATETIME NOT NULL,
     valid_to DATETIME NULL,
+    encoded_by NVARCHAR(100) NOT NULL,
     CONSTRAINT PK_SMR_ItemPrice PRIMARY KEY (id)
   );
 
@@ -213,6 +219,7 @@ BEGIN
   CREATE TABLE SMR_PriceClass (
     id NVARCHAR(30) NOT NULL,
     description NVARCHAR(150) NULL,
+    created_by NVARCHAR(100) NOT NULL,
     CONSTRAINT PK_SMR_PriceClass PRIMARY KEY (id)
   );
 END

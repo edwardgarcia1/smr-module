@@ -48,6 +48,7 @@ interface PriceHistoryEntry {
 	price: number;
 	unit: string;
 	price_class: string;
+	encoded_by: string;
 }
 
 interface PriceClassEntry {
@@ -55,6 +56,7 @@ interface PriceClassEntry {
 	price: number;
 	unit: string;
 	price_class: string;
+	encoded_by: string;
 }
 
 interface PriceRecord {
@@ -160,6 +162,7 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
 								<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
 								<TableCell sx={{ fontWeight: 600 }}>Valid From</TableCell>
 								<TableCell sx={{ fontWeight: 600 }}>Valid To</TableCell>
+								<TableCell sx={{ fontWeight: 600 }}>Encoded By</TableCell>
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -176,6 +179,7 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({
 									<TableCell>{h.unit}</TableCell>
 									<TableCell>{fmtDate(h.valid_from)}</TableCell>
 									<TableCell>{fmtDate(h.valid_to)}</TableCell>
+									<TableCell>{h.encoded_by}</TableCell>
 								</TableRow>
 							))}
 						</TableBody>
@@ -487,6 +491,7 @@ const RowComponent: React.FC<RowProps> = ({
 												Price
 											</TableCell>
 											<TableCell sx={{ fontWeight: 600 }}>Unit</TableCell>
+											<TableCell sx={{ fontWeight: 600 }}>Encoded By</TableCell>
 											<TableCell align="right" sx={{ fontWeight: 600 }}>
 												Actions
 											</TableCell>
@@ -498,6 +503,7 @@ const RowComponent: React.FC<RowProps> = ({
 												<TableCell>{p.price_class}</TableCell>
 												<TableCell align="right">{fmtNum(p.price)}</TableCell>
 												<TableCell>{p.unit}</TableCell>
+												<TableCell>{p.encoded_by}</TableCell>
 												<TableCell align="right">
 													<IconButton
 														size="small"
@@ -942,6 +948,7 @@ const ImportDialog: React.FC<{
 interface PriceClassItem {
 	id: string;
 	description: string | null;
+	created_by: string;
 }
 
 // ── PriceClass Dialog (simplified) ────────────────────────────────
@@ -1098,6 +1105,7 @@ const PriceClassRowComponent: React.FC<PriceClassRowProps> = ({
 		<TableRow selected={isEditing} sx={{ "& > *": { borderBottom: "unset" } }}>
 			<TableCell sx={{ fontWeight: 600 }}>{pc.id}</TableCell>
 			<TableCell>{pc.description ?? "—"}</TableCell>
+			<TableCell>{pc.created_by}</TableCell>
 			<TableCell align="right" sx={{ width: 100 }}>
 				<IconButton
 					size="small"
@@ -1234,7 +1242,7 @@ const PriceClassesDialog: React.FC<PriceClassesDialogProps> = ({
 
 				{loading ? (
 					<TableSkeleton
-						cols={[{}, {}, { icon: true, align: "right" }]}
+						cols={[{}, {}, {}, { icon: true, align: "right" }]}
 						rows={4}
 					/>
 				) : classes.length === 0 ? (
@@ -1254,6 +1262,7 @@ const PriceClassesDialog: React.FC<PriceClassesDialogProps> = ({
 								<TableRow>
 									<TableCell>Price Class</TableCell>
 									<TableCell>Description</TableCell>
+									<TableCell>Created By</TableCell>
 									<TableCell align="right" sx={{ width: 100 }}>
 										Actions
 									</TableCell>
