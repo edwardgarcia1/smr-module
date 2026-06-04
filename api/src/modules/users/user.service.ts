@@ -45,11 +45,10 @@ export const createUser = async (user: NewUser): Promise<User> => {
 			.request()
 			.input("username", user.username)
 			.input("password", hashedPassword)
-			.input("name", user.name)
-			.input("role", user.role || "user").query(`
-        INSERT INTO SMR_Users (username, password, name, role)
-        OUTPUT INSERTED.id, INSERTED.username, INSERTED.password, INSERTED.name, INSERTED.role
-        VALUES (@username, @password, @name, @role)
+			.input("name", user.name).query(`
+        INSERT INTO SMR_Users (username, password, name)
+        OUTPUT INSERTED.id, INSERTED.username, INSERTED.password, INSERTED.name
+        VALUES (@username, @password, @name)
       `),
 	);
 

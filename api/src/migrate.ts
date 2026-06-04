@@ -104,9 +104,9 @@ async function migrate() {
 				.input("username", username)
 				.input("password", hashedPassword)
 				.input("name", process.env.SUPERADMIN_NAME || "Super Admin")
-				.input("role", "superadmin").query(`
-          INSERT INTO SMR_Users (username, password, name, role)
-          VALUES (@username, @password, @name, @role)
+				.query(`
+          INSERT INTO SMR_Users (username, password, name)
+          VALUES (@username, @password, @name)
         `);
 
 			// Fetch the created user's ID

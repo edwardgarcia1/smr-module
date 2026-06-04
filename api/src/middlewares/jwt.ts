@@ -4,7 +4,6 @@ import { Elysia } from "elysia";
 export interface DecodedToken {
   id: number;
   username: string;
-  role: string;
 }
 
 export interface RefreshTokenPayload {

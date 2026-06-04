@@ -14,7 +14,6 @@ import {
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
 import BadgeIcon from "@mui/icons-material/Badge";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useAuthStore } from "../store/useAuthStore";
 import { api } from "../services/api";
 
@@ -23,9 +22,6 @@ interface UserProfile {
 	username: string;
 	name: string;
 	email?: string;
-	role: string;
-	createdAt?: string;
-	updatedAt?: string;
 }
 
 const Profile: React.FC = () => {
@@ -157,18 +153,6 @@ const Profile: React.FC = () => {
 								) : (
 									profileData?.username || "N/A"
 								)
-							}
-						/>
-					</ListItem>
-					<Divider component="li" />
-					<ListItem>
-						<ListItemIcon>
-							<AdminPanelSettingsIcon color="primary" />
-						</ListItemIcon>
-						<ListItemText
-							primary="Role"
-							secondary={
-								loading ? <Skeleton width={100} /> : profileData?.role || "N/A"
 							}
 						/>
 					</ListItem>

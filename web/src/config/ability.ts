@@ -1,5 +1,4 @@
 import { AbilityBuilder, PureAbility } from '@casl/ability';
-import type { User } from '../store/useAuthStore';
 
 export type AppAbility = PureAbility;
 
@@ -46,35 +45,8 @@ export const buildAbilityFromPermissions = (
 	return build();
 };
 
-/** Fallback: build abilities from user role (used when permissions can't be fetched). */
-export const defineAbilitiesFor = (user: User | null): AppAbility => {
-	const { can, build } = new AbilityBuilder<PureAbility>(PureAbility);
-
-	if (!user) {
-		return build();
-	}
-
-	if (user.role === 'superadmin') {
-		can('manage', 'all');
-	} else if (user.role === 'admin') {
-		can('read', 'Users');
-		can('manage', 'Settings');
-		can('read', 'Principals');
-		can('read', 'Prices');
-		can('manage', 'MinStock');
-		can('manage', 'PurchaseOrders');
-		can('read', 'Requirements');
-		can('read', 'InventoryItems');
-	} else {
-		// Regular user
-		can('read', 'Settings');
-		can('read', 'Principals');
-		can('read', 'Prices');
-		can('read', 'MinStock');
-		can('read', 'PurchaseOrders');
-		can('read', 'Requirements');
-		can('read', 'InventoryItems');
-	}
-
+/** Fallback: empty ability that denies everything. Used when permissions can't be fetched. */
+export const buildEmptyAbility = (): AppAbility => {
+	const { build } = new AbilityBuilder<PureAbility>(PureAbility);
 	return build();
 };

@@ -6,7 +6,6 @@ export interface AuthUser {
 	id: number;
 	username: string;
 	name: string;
-	role: string;
 }
 
 declare module "elysia" {
@@ -64,7 +63,6 @@ export const authGuard = (app: Elysia) =>
 					id: userWithoutPassword.id,
 					username: userWithoutPassword.username,
 					name: userWithoutPassword.name,
-					role: userWithoutPassword.role,
 				},
 			};
 		} catch {

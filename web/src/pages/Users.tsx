@@ -9,7 +9,6 @@ import {
 	TableRow,
 	Paper,
 	Alert,
-	Chip,
 	TablePagination,
 	Checkbox,
 	TableSortLabel,
@@ -28,11 +27,10 @@ interface User {
 	id: number;
 	username: string;
 	name: string;
-	role: string;
 }
 
 type Order = "asc" | "desc";
-type OrderBy = "id" | "username" | "name" | "role";
+type OrderBy = "id" | "username" | "name";
 
 const Users: React.FC = () => {
 	const [users, setUsers] = useState<User[]>([]);
@@ -123,8 +121,7 @@ const Users: React.FC = () => {
 			return (
 				user.id.toString().includes(query) ||
 				user.username.toLowerCase().includes(query) ||
-				user.name.toLowerCase().includes(query) ||
-				user.role.toLowerCase().includes(query)
+				user.name.toLowerCase().includes(query)
 			);
 		});
 	}, [users, searchQuery]);
@@ -153,23 +150,11 @@ const Users: React.FC = () => {
 		page * rowsPerPage + rowsPerPage,
 	);
 
-	const getRoleColor = (role: string) => {
-		switch (role.toLowerCase()) {
-			case "superadmin":
-				return "error";
-			case "admin":
-				return "warning";
-			default:
-				return "default";
-		}
-	};
-
 	const headCells = [
 		{ id: "select" as const, disablePadding: true, label: "" },
 		{ id: "id" as const, disablePadding: false, label: "ID" },
 		{ id: "username" as const, disablePadding: false, label: "Username" },
 		{ id: "name" as const, disablePadding: false, label: "Name" },
-		{ id: "role" as const, disablePadding: false, label: "Role" },
 		{ id: "actions" as const, disablePadding: false, label: "Actions", sortable: false },
 	];
 
@@ -277,9 +262,6 @@ const Users: React.FC = () => {
 										<TableCell>
 											<Skeleton variant="text" width={150} />
 										</TableCell>
-										<TableCell>
-											<Skeleton variant="text" width={80} />
-										</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
@@ -330,7 +312,7 @@ const Users: React.FC = () => {
 									{paginatedUsers.length === 0 ? (
 										<TableRow>
 											<TableCell
-												colSpan={6}
+												colSpan={5}
 												align="center"
 												sx={{ py: 4, color: "text.secondary" }}
 											>
@@ -369,13 +351,6 @@ const Users: React.FC = () => {
 													</TableCell>
 													<TableCell>{user.username}</TableCell>
 													<TableCell>{user.name}</TableCell>
-													<TableCell>
-														<Chip
-															label={user.role.toUpperCase()}
-															color={getRoleColor(user.role)}
-															size="small"
-														/>
-													</TableCell>
 													<TableCell>
 														<Button
 															variant="outlined"

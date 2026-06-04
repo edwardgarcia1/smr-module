@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { AppAbility } from './ability';
-import { buildAbilityFromPermissions, defineAbilitiesFor } from './ability';
+import { buildAbilityFromPermissions, buildEmptyAbility } from './ability';
 import type { PermissionRow } from './ability';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../services/api';
@@ -14,11 +14,11 @@ const AbilityContext = createContext<AbilityContextValue | undefined>(undefined)
 
 export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const { user } = useAuthStore();
-	const [ability, setAbility] = useState<AppAbility>(defineAbilitiesFor(null));
+	const [ability, setAbility] = useState<AppAbility>(buildEmptyAbility());
 
 	const refreshAbility = useCallback(async () => {
 		if (!user) {
-			setAbility(defineAbilitiesFor(null));
+			setAbility(buildEmptyAbility());
 			return;
 		}
 
@@ -29,8 +29,8 @@ export const AbilityProvider: React.FC<{ children: React.ReactNode }> = ({ child
 			);
 			setAbility(buildAbilityFromPermissions(permissions));
 		} catch {
-			// Fall back to role-based abilities if backend unreachable
-			setAbility(defineAbilitiesFor(user));
+			// Fall back to empty ability (deny all) if backend unreachable
+			setAbility(buildEmptyAbility());
 		}
 	}, [user]);
 

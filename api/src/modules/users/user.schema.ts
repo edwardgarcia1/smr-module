@@ -6,14 +6,12 @@ export interface User {
   username: string;
   password: string;
   name: string;
-  role: "superadmin" | "admin" | "user";
 }
 
 export type NewUser = {
   username: string;
   password: string;
   name: string;
-  role?: User["role"];
 };
 
 /** MSSQL 2008 compatible DDL for SMR_Users table */
@@ -25,8 +23,6 @@ BEGIN
     username NVARCHAR(50) NOT NULL,
     password NVARCHAR(255) NOT NULL,
     name NVARCHAR(100) NOT NULL,
-    role NVARCHAR(20) NOT NULL DEFAULT 'user'
-      CHECK (role IN ('superadmin', 'admin', 'user')),
     CONSTRAINT UQ_SMR_Users_username UNIQUE (username)
   );
 END
