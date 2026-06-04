@@ -17,7 +17,6 @@ import { useRequirements } from "../hooks/useRequirements";
 import FilterPanel from "../components/requirements/FilterPanel";
 import PurchasingToolbar from "../components/requirements/PurchasingToolbar";
 import BundlingToolbar from "../components/requirements/BundlingToolbar";
-import PoPdfExportDialog from "../components/requirements/PoPdfExportDialog";
 import SavePoDialog from "../components/requirements/SavePoDialog";
 import {
 	purchasingGroupSelectors,
@@ -58,15 +57,11 @@ const RequirementsPage: React.FC = () => {
 		filteredPurchasingRows, filteredBundlingRows,
 		// Handlers
 		handleApply, handleBulkMinStockApply, processRowUpdate, getRowClassName,
-		handleExcelExport, handlePdfExport,
-		// Dialog
-		pdfDialogOpen, openPdfDialog, closePdfDialog, logoOptions,
+		handleExcelExport,
 		// Toolbar state
 		bulkMinStock, setBulkMinStock,
 		selectedPriceClass, setSelectedPriceClass,
-		poReference,
 		showDemandColumns, setShowDemandColumns,
-		isPdfExporting,
 		priceClasses, selectedCategories, setSelectedCategories,
 		// Save PO
 		savePoDialogOpen, openSavePoDialog, closeSavePoDialog,
@@ -137,7 +132,7 @@ const RequirementsPage: React.FC = () => {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
 						slots={{ toolbar: PurchasingToolbar as React.ComponentType<any> }}
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					slotProps={{ toolbar: { apiRef, handleExcelExport, onOpenPdfDialog: openPdfDialog, isPdfExporting, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef, onOpenSaveDialog: openSavePoDialog } as any, pagination: { labelRowsPerPage: "Rows:" } }}
+					slotProps={{ toolbar: { apiRef, handleExcelExport, darkMode, frequency, bulkMinStock, setBulkMinStock, handleBulkMinStockApply, priceClasses, selectedPriceClass, setSelectedPriceClass, selectedCategories, setSelectedCategories, showDemandColumns, setShowDemandColumns, purchasingColumns, userColumnVisibilityModelRef, onOpenSaveDialog: openSavePoDialog } as any, pagination: { labelRowsPerPage: "Rows:" } }}
 						initialState={{
 							pagination: { paginationModel: { pageSize: 20 } },
 							sorting: { sortModel: [{ field: "_category", sort: "asc" }] },
@@ -184,19 +179,6 @@ const RequirementsPage: React.FC = () => {
 				onSave={handleSavePurchaseOrder}
 				isSaving={isSavingPo}
 			/>
-
-			{/* ── PO PDF Export Dialog ─────────────────────────────── */}
-			{applied && mode === "purchasing" && (
-				<PoPdfExportDialog
-					key={`pdf-dialog-${pdfDialogOpen}`}
-					open={pdfDialogOpen}
-					onClose={closePdfDialog}
-					onExport={handlePdfExport}
-					initialValues={{ poReference }}
-					logoOptions={logoOptions}
-					isExporting={isPdfExporting}
-				/>
-			)}
 
 			{/* Scroll anchor for auto-scroll on apply */}
 			<div ref={resultsAnchorRef} />

@@ -23,10 +23,7 @@ import {
 	fmt0,
 } from "../utils/numberFormat";
 import { exportDataGridToExcel } from "../utils/exportToExcel";
-import { exportPurchaseOrderToPdf } from "../utils/exportToPdf";
-import { downloadBlob } from "../utils/download";
-import type { PurchaseOrderExportRow } from "../utils/exportToPdf";
-import type { PoPdfExportFormData, LogoOption } from "../components/requirements/PoPdfExportDialog";
+import type { LogoOption } from "../components/requirements/PoPdfExportDialog";
 
 // ─── Logo options (discovered at build time via Vite import.meta.glob) ──────
 const logoModules = import.meta.glob<{ default: string }>("../assets/logo/*.{jpg,jpeg,png}", {
@@ -101,11 +98,6 @@ export interface UseRequirementsReturn {
 	processRowUpdate: (newRow: GridRowModel, oldRow: GridRowModel) => Promise<GridRowModel>;
 	getRowClassName: (params: { row: GridRowModel }) => string;
 	handleExcelExport: () => void;
-	handlePdfExport: (formData: PoPdfExportFormData) => void;
-	pdfDialogOpen: boolean;
-	openPdfDialog: () => void;
-	closePdfDialog: () => void;
-	logoOptions: LogoOption[];
 	bulkMinStock: string;
 	setBulkMinStock: (v: string) => void;
 	selectedPriceClass: string;
@@ -115,10 +107,8 @@ export interface UseRequirementsReturn {
 	closeSavePoDialog: () => void;
 	isSavingPo: boolean;
 	handleSavePurchaseOrder: (refNum: string) => Promise<void>;
-	poReference: string;
 	showDemandColumns: boolean;
 	setShowDemandColumns: (v: boolean) => void;
-	isPdfExporting: boolean;
 	priceClasses: string[];
 	categories: MinStockCategory[];
 	selectedCategories: string[];
@@ -226,11 +216,6 @@ export function useRequirements(): UseRequirementsReturn {
 	const [gridError, setGridError] = useState<string | null>(null);
 	const [applied, setApplied] = useState(false);
 	const [isApplying, setIsApplying] = useState(false);
-	const [isPdfExporting, setIsPdfExporting] = useState(false);
-	const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
-	const openPdfDialog = useCallback(() => setPdfDialogOpen(true), []);
-	const closePdfDialog = useCallback(() => setPdfDialogOpen(false), []);
-
 	const [savePoDialogOpen, setSavePoDialogOpen] = useState(false);
 	const [isSavingPo, setIsSavingPo] = useState(false);
 	const openSavePoDialog = useCallback(() => setSavePoDialogOpen(true), []);
@@ -285,7 +270,6 @@ export function useRequirements(): UseRequirementsReturn {
 	// ─── Toolbar states ───────────────────────────────────────────────
 	const [bulkMinStock, setBulkMinStock] = useState<string>("1.0");
 	const [selectedPriceClass, setSelectedPriceClass] = useState<string>("COST");
-	const [poReference] = useState("");
 	const [showDemandColumns, setShowDemandColumns] = useState(true);
 
 	// ─── Refs ─────────────────────────────────────────────────────────
@@ -873,74 +857,6 @@ export function useRequirements(): UseRequirementsReturn {
 		}
 	}, [mode, purchasingRows, selectedStorage, dateRange, demandMode, frequency]);
 
-	// ─── PDF Export (purchasing only) ─────────────────────────────────
-	const handlePdfExport = useCallback(async (formData: PoPdfExportFormData) => {
-		if (mode !== "purchasing") return;
-		setIsPdfExporting(true);
-		setGridError(null);
-		try {
-			const sortedRowIds = apiRef.current?.getSortedRowIds() ?? [];
-			const rowById = new Map(filteredPurchasingRows.map((r) => [r.id, r]));
-			const rowsToExport: Record<string, unknown>[] = [];
-			for (const id of sortedRowIds) {
-				const row = rowById.get(id);
-				if (row) rowsToExport.push(row as Record<string, unknown>);
-			}
-			if (rowsToExport.length === 0) {
-				rowsToExport.push(...filteredPurchasingRows.map((r) => r as Record<string, unknown>));
-			}
-
-		const poRows: PurchaseOrderExportRow[] = rowsToExport
-			.map((r) => {
-				const rawFinalQty = r.customOrder != null ? Number(r.customOrder) : r.suggestedOrderCS != null ? Number(r.suggestedOrderCS) : 0;
-				const finalQty = Math.round(rawFinalQty);
-				const price = r.price_perCS != null ? Number(r.price_perCS) : null;
-				return {
-					invtID: String(r.invtID ?? ""),
-					descr: String(r.descr ?? ""),
-					qtyPerCS: Number(r.qtyPerCS) || 0,
-					price_perCS: price,
-					finalOrderCS: finalQty,
-					amount: price != null ? Math.round(finalQty * price * 100) / 100 : null,
-				};
-			})
-			.filter((r) => r.finalOrderCS !== 0);
-
-			const dt = dayjs().format("YYYYMMDD_HHmmss");
-			const storageIDs = selectedStorage.map((s) => s.id).join("-");
-			const fileName = `PO_${selectedPrincipal?.ClassID ?? "UNKNOWN"}_${storageIDs}_${dt}.pdf`;
-
-			// Build principal address from vendor data (available from /lookups join)
-			const p = selectedPrincipal;
-			const principalAddr1 = p?.VendorAddr1?.trim() || "";
-			const principalAddr2 = [p?.VendorAddr2?.trim(), p?.VendorCity?.trim()]
-				.filter(Boolean)
-				.join(", ");
-
-			const pdfBuf = await exportPurchaseOrderToPdf(poRows, formData.selectedLogoSrc, {
-				poReference: formData.poReference || undefined,
-				principalName: selectedPrincipal?.Descr,
-				principalAddress1: principalAddr1,
-				principalAddress2: principalAddr2,
-				attn: formData.attn,
-				note: "Full Case",
-				preparedBy: formData.preparedBy,
-				endorsedBy: formData.endorsedBy,
-				checkedBy: formData.checkedBy,
-				approvedBy: formData.approvedBy,
-				notedBy: formData.notedBy,
-			});
-			downloadBlob(pdfBuf, fileName, "application/pdf");
-			setPdfDialogOpen(false);
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : "Failed to generate PDF.";
-			console.error("PDF export error:", msg);
-			setGridError(msg);
-		} finally {
-			setIsPdfExporting(false);
-		}
-	}, [mode, filteredPurchasingRows, selectedPrincipal, selectedStorage, apiRef]);
-
 	// ─── Column Grouping Models ──────────────────────────────────────
 	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(() => {
 		const groups: GridColumnGroupingModel = [
@@ -1091,19 +1007,12 @@ export function useRequirements(): UseRequirementsReturn {
 		processRowUpdate,
 		getRowClassName,
 		handleExcelExport,
-		handlePdfExport,
-		pdfDialogOpen,
-		openPdfDialog,
-		closePdfDialog,
-		logoOptions: LOGO_OPTIONS,
 		bulkMinStock,
 		setBulkMinStock,
 		selectedPriceClass,
 		setSelectedPriceClass,
-		poReference,
 		showDemandColumns,
 		setShowDemandColumns,
-		isPdfExporting,
 		savePoDialogOpen,
 		openSavePoDialog,
 		closeSavePoDialog,

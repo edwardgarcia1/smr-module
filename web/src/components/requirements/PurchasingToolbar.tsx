@@ -6,13 +6,11 @@ import {
 	Button,
 	Autocomplete,
 	Tooltip,
-	CircularProgress,
 	useTheme,
 } from "@mui/material";
 import ViewColumnIcon from "@mui/icons-material/ViewColumn";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import TableChartIcon from "@mui/icons-material/TableChart";
-import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
@@ -27,8 +25,6 @@ import {
 interface PurchasingToolbarProps {
 	apiRef: { current: { setColumnVisibilityModel: (model: Record<string, boolean>) => void } | null };
 	handleExcelExport: () => void;
-	onOpenPdfDialog: () => void;
-	isPdfExporting: boolean;
 	darkMode: boolean;
 	frequency: string;
 	bulkMinStock: string;
@@ -49,8 +45,6 @@ interface PurchasingToolbarProps {
 const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 	apiRef,
 	handleExcelExport,
-	onOpenPdfDialog,
-	isPdfExporting,
 	darkMode,
 	frequency,
 	bulkMinStock,
@@ -143,32 +137,6 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 						>
 							<Box component="span" sx={labelSx}>
 								Excel
-							</Box>
-						</Button>
-					</Tooltip>
-					<Tooltip title="Export to PO PDF">
-						<Button
-							size="small"
-							color="primary"
-							startIcon={
-								isPdfExporting ? (
-									<CircularProgress size={14} thickness={2.5} />
-								) : (
-									<PictureAsPdfIcon />
-								)
-							}
-							onClick={onOpenPdfDialog}
-							disabled={isPdfExporting}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-							}}
-						>
-							<Box component="span" sx={labelSx}>
-								{isPdfExporting ? "Exporting..." : "PO PDF"}
 							</Box>
 						</Button>
 					</Tooltip>
