@@ -184,14 +184,14 @@ END
 /**
  * Seed categories for stock cover / min stock ratio categorisation.
  *   ratio = stockCoverCount / coverageThreshold
- *   Immediate (Red):   ratio < 0.75   → below 75% of min stock
- *   Secondary (Yellow): ratio < 1.50  → 75% – 149%
+ *   Immediate (Red):   ratio < 1.00   → below 100% of min stock
+ *   Secondary (Yellow): ratio < 1.50  → 100% – 149%
  *   Monitoring (Blue):  ratio < 2.00  → 150% – 199%
  *   Overstocked (Green): ratio >= 2.00 → 200% and over (threshold=NULL)
  */
 export const SEED_MIN_STOCK_CATEGORIES_SQL = `
 IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Immediate')
-  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Immediate', 0.75);
+  INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Immediate', 1.00);
 IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Secondary')
   INSERT INTO SMR_MinStockCategory (category_name, threshold) VALUES ('Secondary', 1.50);
 IF NOT EXISTS (SELECT 1 FROM SMR_MinStockCategory WHERE category_name = 'Monitoring')
