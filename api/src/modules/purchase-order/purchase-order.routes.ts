@@ -59,7 +59,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "create", "PurchaseOrder");
 
-			const { refNum, principalId, siteId, demandMode, frequency, salesFrom, salesTo, rows, preparedBy } = body;
+			const { refNum, principalId, siteId, demandMode, frequency, salesFrom, salesTo, rows, createdBy } = body;
 
 			if (!refNum || refNum.trim().length === 0) {
 				throw new BadRequestError("refNum is required");
@@ -77,7 +77,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 					frequency: frequency ?? "monthly",
 					sales_from: salesFrom,
 					sales_to: salesTo,
-					prepared_by: preparedBy ?? "",
+					created_by: createdBy ?? "",
 				},
 				rows,
 			);
@@ -91,7 +91,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 				frequency: t.String(),
 				salesFrom: t.String(),
 				salesTo: t.String(),
-				preparedBy: t.Optional(t.String()),
+				createdBy: t.Optional(t.String()),
 				rows: t.Array(t.Record(t.String(), t.Any())),
 			}),
 		},

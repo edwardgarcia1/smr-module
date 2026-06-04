@@ -102,7 +102,7 @@ interface PurchaseOrder {
 	sales_to: string;
 	csv_filename: string | null;
 	created_at: string;
-	prepared_by: string;
+	created_by: string;
 	last_update_at: string | null;
 	last_update_by: string | null;
 	status: PoStatus;
@@ -1100,7 +1100,7 @@ const PurchaseOrders: React.FC = () => {
 		{ id: "demand_mode", label: "Demand Mode" },
 		{ id: "frequency", label: "Frequency" },
 		{ id: "status", label: "Status" },
-		{ id: "prepared_by", label: "Prepared By" },
+		{ id: "created_by", label: "Created By" },
 		{ id: "last_update_at", label: "Last Updated" },
 		{ id: "last_update_by", label: "Updated By" },
 		{ id: "created_at", label: "Created" },
@@ -1597,7 +1597,7 @@ const PurchaseOrders: React.FC = () => {
 														<MenuItem value="Cancelled">Cancelled</MenuItem>
 													</Select>
 												</TableCell>
-												<TableCell>{po.prepared_by || "—"}</TableCell>
+												<TableCell>{po.created_by || "—"}</TableCell>
 												<TableCell>
 													{po.last_update_at ? formatDate(po.last_update_at) : "—"}
 												</TableCell>
@@ -1808,7 +1808,10 @@ const PurchaseOrders: React.FC = () => {
 				open={pdfDetailOpen}
 				onClose={closeDetailPdfDialog}
 				onExport={handleDetailPdfExport}
-				initialValues={{ poReference: selectedPo?.ref_num ?? "" }}
+				initialValues={{
+					poReference: selectedPo?.ref_num ?? "",
+					preparedBy: selectedPo?.last_update_by || selectedPo?.created_by || "",
+				}}
 				logoOptions={LOGO_OPTIONS}
 				isExporting={isDetailPdfExporting}
 			/>

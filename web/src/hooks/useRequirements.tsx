@@ -804,7 +804,7 @@ export function useRequirements(): UseRequirementsReturn {
 		setGridError(null);
 		try {
 			const user = useAuthStore.getState().user;
-			const preparedBy = user?.name ?? "";
+			const createdBy = user?.name ?? "";
 			const siteId = selectedStorage.map((s) => s.id).join(",");
 			const salesFrom = dateRange.from?.startOf("month").format("YYYY-MM-DD") ?? "";
 			const salesTo = dateRange.to?.endOf("month").format("YYYY-MM-DD") ?? "";
@@ -842,7 +842,7 @@ export function useRequirements(): UseRequirementsReturn {
 					frequency,
 					salesFrom,
 					salesTo,
-					preparedBy,
+					createdBy,
 					rows,
 				},
 			});

@@ -15,7 +15,7 @@ export interface PurchaseOrder {
 	sales_to: string;
 	csv_filename: string | null;
 	created_at: string;
-	prepared_by: string;
+	created_by: string;
 	last_update_at: string | null;
 	last_update_by: string | null;
 	status: PoStatus;
@@ -31,7 +31,7 @@ export type NewPurchaseOrder = {
 	frequency: string;
 	sales_from: string;
 	sales_to: string;
-	prepared_by: string;
+	created_by: string;
 };
 
 // ─── DDL ───────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ BEGIN
     sales_from DATE NOT NULL,
     sales_to DATE NOT NULL,
     csv_filename NVARCHAR(255) NULL,
-    prepared_by NVARCHAR(100) NOT NULL DEFAULT '',
+    created_by NVARCHAR(100) NOT NULL DEFAULT '',
     last_update_at DATETIME2 NULL,
     last_update_by NVARCHAR(100) NULL,
     status NVARCHAR(20) NOT NULL DEFAULT 'Pending',

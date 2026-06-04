@@ -10,7 +10,7 @@ import type { PurchaseOrder, NewPurchaseOrder } from "./purchase-order.schema";
 
 const PO_COLUMNS = `
   id, ref_num, principal_id, site_id, demand_mode, frequency,
-  sales_from, sales_to, csv_filename, prepared_by,
+   sales_from, sales_to, csv_filename, created_by,
   last_update_at, last_update_by, status,
   status_from, status_by, created_at
 `;
@@ -20,7 +20,7 @@ const PO_COLUMNS_INSERTED = `
   INSERTED.id, INSERTED.ref_num, INSERTED.principal_id, INSERTED.site_id,
   INSERTED.demand_mode, INSERTED.frequency,
   INSERTED.sales_from, INSERTED.sales_to, INSERTED.csv_filename,
-  INSERTED.prepared_by, INSERTED.last_update_at, INSERTED.last_update_by,
+  INSERTED.created_by, INSERTED.last_update_at, INSERTED.last_update_by,
   INSERTED.status, INSERTED.status_from, INSERTED.status_by,
   INSERTED.created_at
 `;
@@ -186,10 +186,10 @@ export async function createPurchaseOrder(
 			.input("frequency", body.frequency)
 			.input("sales_from", body.sales_from)
 			.input("sales_to", body.sales_to)
-			.input("prepared_by", body.prepared_by).query(`
-        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, prepared_by)
+			.input("created_by", body.created_by).query(`
+        INSERT INTO SMR_PurchaseOrders (ref_num, principal_id, site_id, demand_mode, frequency, sales_from, sales_to, created_by)
         OUTPUT ${PO_COLUMNS_INSERTED}
-        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @prepared_by)
+        VALUES (@ref_num, @principal_id, @site_id, @demand_mode, @frequency, @sales_from, @sales_to, @created_by)
       `);
 
 		const created = trimStrings(insertResult.recordset[0] as PurchaseOrder);
