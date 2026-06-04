@@ -6,6 +6,7 @@ import {
 	updatePurchaseOrderCsv,
 	updatePoStatus,
 	deletePurchaseOrder,
+	getPurchaseOrdersByPrincipal,
 } from "./purchase-order.service";
 import { authGuard } from "../../middlewares/auth";
 import { caslMiddleware, checkPermission } from "../../middlewares/casl";
@@ -26,6 +27,20 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 		checkPermission(ability, "read", "PurchaseOrder");
 		return getAllPurchaseOrders();
 	})
+
+	/**
+	 * GET /purchase-order/check/:principalId — check for active POs (not Encoded/Cancelled)
+	 * for a given principal. Used by RequirementsPage to warn before applying.
+	 */
+	.get(
+		"/check/:principalId",
+		async ({ params: { principalId }, ability, user }) => {
+			if (!user) throw new UnauthorizedError("Authentication required");
+			checkPermission(ability, "read", "PurchaseOrder");
+			return getPurchaseOrdersByPrincipal(principalId);
+		},
+		{ params: t.Object({ principalId: t.String() }) },
+	)
 
 	/**
 	 * GET /purchase-order/:id — get a single PO with its CSV data

@@ -301,6 +301,25 @@ export async function updatePoStatus(
 	});
 }
 
+/**
+ * Get purchase orders by principal_id where status is NOT Encoded or Cancelled.
+ * Used by the Requirements page to warn users about existing active POs before applying.
+ */
+export async function getPurchaseOrdersByPrincipal(principalId: string): Promise<PurchaseOrder[]> {
+	const result = await withDb((pool) =>
+		pool
+			.request()
+			.input("principalId", principalId)
+			.query(
+				`SELECT ${PO_COLUMNS} FROM SMR_PurchaseOrders
+         WHERE principal_id = @principalId
+         AND status NOT IN ('Encoded', 'Cancelled')
+         ORDER BY created_at DESC`,
+			),
+	);
+	return trimStrings(result.recordset as PurchaseOrder[]);
+}
+
 export async function deletePurchaseOrder(id: number): Promise<void> {
 	// First, get the csv_filename to delete the file
 	const result = await withDb((pool) =>

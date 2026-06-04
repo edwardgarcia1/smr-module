@@ -37,6 +37,7 @@ export const LOGO_OPTIONS: LogoOption[] = Object.entries(logoModules)
 	.sort((a, b) => a.name.localeCompare(b.name));
 import apiRequest from "../services/api";
 import { useAuthStore } from "../store/useAuthStore";
+import type { ConflictingPo } from "../components/requirements/ExistingPoWarningDialog";
 import ComponentsListCell from "../components/requirements/ComponentsListCell";
 import {
 	computeCategoryName,
@@ -120,6 +121,10 @@ export interface UseRequirementsReturn {
 	bundlingColumnGroupModel: GridColumnGroupingModel;
 	periodKeys: string[];
 	displayFactor: number;
+	existingPoWarningOpen: boolean;
+	existingPoWarning: ConflictingPo[];
+	handleContinueApply: () => void;
+	closeExistingPoWarning: () => void;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -221,6 +226,13 @@ export function useRequirements(): UseRequirementsReturn {
 	const openSavePoDialog = useCallback(() => setSavePoDialogOpen(true), []);
 	const closeSavePoDialog = useCallback(() => setSavePoDialogOpen(false), []);
 	const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+	// ─── Existing PO warning dialog state ──────────────────────────
+	const [existingPoWarningOpen, setExistingPoWarningOpen] = useState(false);
+	const [existingPoWarning, setExistingPoWarning] = useState<ConflictingPo[]>([]);
+	const closeExistingPoWarning = useCallback(() => {
+		setExistingPoWarningOpen(false);
+	}, []);
 
 	const setMode = useCallback((newMode: Mode) => {
 		setModeState(newMode);
@@ -567,8 +579,8 @@ export function useRequirements(): UseRequirementsReturn {
 		[frequency, demandMode],
 	);
 
-	// ─── Apply Handler ────────────────────────────────────────────────
-	const handleApply = useCallback(async () => {
+	// ─── Core Apply Logic (fetches requirements data) ────────────────
+	const executeApply = useCallback(async () => {
 		setGridError(null);
 		setApplied(false);
 		setPurchasingRows([]);
@@ -668,6 +680,58 @@ export function useRequirements(): UseRequirementsReturn {
 		buildPurchasingColumns, buildBundlingColumns,
 	]);
 
+	// ─── Handle Apply (with PO conflict check) ─────────────────────
+	const handleContinueApply = useCallback(async () => {
+		setExistingPoWarningOpen(false);
+		setExistingPoWarning([]);
+		await executeApply();
+	}, [executeApply]);
+
+	const handleApply = useCallback(async () => {
+		setGridError(null);
+		setApplied(false);
+		setPurchasingRows([]);
+		setBundlingRows([]);
+		setPurchasingColumns([]);
+		setBundlingColumns([]);
+
+		// Validation (no loading spinner during validation)
+		if (!selectedPrincipal) {
+			setGridError("Please select a Principal.");
+			return;
+		}
+		if (!dateRange.from || !dateRange.to) {
+			setGridError("Please select a date range.");
+			return;
+		}
+		if (dateRange.to.isBefore(dateRange.from)) {
+			setGridError("End date must be after start date.");
+			return;
+		}
+
+		// Check for conflicting POs in purchasing mode before applying
+		if (mode === "purchasing" && selectedPrincipal) {
+			try {
+				const conflicting = await apiRequest<ConflictingPo[]>(
+					`/purchase-order/check/${encodeURIComponent(selectedPrincipal.ClassID)}`,
+				);
+				if (conflicting && conflicting.length > 0) {
+					setExistingPoWarning(conflicting);
+					setExistingPoWarningOpen(true);
+					return; // Show warning — user must decide
+				}
+			} catch {
+				// Non-blocking: if the check fails, just proceed
+			}
+		}
+
+		await executeApply();
+	}, [
+		selectedPrincipal, selectedStorage, dateRange, frequency,
+		demandMode, monthlyValidDays, mode, selectedPriceClass,
+		buildPurchasingColumns, buildBundlingColumns, executeApply,
+	]);
+
 	// ─── Bulk min stock update ────────────────────────────────────────
 	const handleBulkMinStockApply = useCallback(async () => {
 		const raw = parseFloat(bulkMinStock);
@@ -691,13 +755,13 @@ export function useRequirements(): UseRequirementsReturn {
 				await apiRequest("/min-stock/principals", { method: "POST", body: { class_id: selectedPrincipal.ClassID, min_stock: val } });
 			}
 
-			await handleApply();
+			await executeApply();
 		} catch (err: unknown) {
 			setGridError(err instanceof Error ? err.message : "Failed to update principal min stock.");
 		} finally {
 			setIsApplying(false);
 		}
-	}, [bulkMinStock, selectedPrincipal, frequency, handleApply]);
+	}, [bulkMinStock, selectedPrincipal, frequency, executeApply]);
 
 	// ─── Grid Edit Handler (purchasing only) ──────────────────────────
 	const processRowUpdate = useCallback(
@@ -956,9 +1020,9 @@ export function useRequirements(): UseRequirementsReturn {
 		const prev = prevPriceClassRef.current;
 		if (selectedPriceClass !== prev) {
 			prevPriceClassRef.current = selectedPriceClass;
-			handleApply();
+			executeApply();
 		}
-	}, [selectedPriceClass, applied, mode, handleApply]);
+	}, [selectedPriceClass, applied, mode, executeApply]);
 
 	// ─── Sync price column visibility with selectedPriceClass ────────
 	useEffect(() => {
@@ -1030,5 +1094,9 @@ export function useRequirements(): UseRequirementsReturn {
 		bundlingColumnGroupModel,
 		periodKeys,
 		displayFactor,
+		existingPoWarningOpen,
+		existingPoWarning,
+		handleContinueApply,
+		closeExistingPoWarning,
 	};
 }

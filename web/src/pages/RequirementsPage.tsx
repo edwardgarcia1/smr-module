@@ -18,6 +18,7 @@ import FilterPanel from "../components/requirements/FilterPanel";
 import PurchasingToolbar from "../components/requirements/PurchasingToolbar";
 import BundlingToolbar from "../components/requirements/BundlingToolbar";
 import SavePoDialog from "../components/requirements/SavePoDialog";
+import ExistingPoWarningDialog from "../components/requirements/ExistingPoWarningDialog";
 import {
 	purchasingGroupSelectors,
 	bundlingGroupSelectors,
@@ -70,6 +71,9 @@ const RequirementsPage: React.FC = () => {
 		apiRef, resultsAnchorRef, userColumnVisibilityModelRef,
 		// Column models
 		purchasingColumnGroupModel, bundlingColumnGroupModel,
+		// Existing PO warning
+		existingPoWarningOpen, existingPoWarning,
+		handleContinueApply, closeExistingPoWarning,
 	} = useRequirements();
 
 	// Track column visibility model changes from user interaction
@@ -178,6 +182,14 @@ const RequirementsPage: React.FC = () => {
 				onClose={closeSavePoDialog}
 				onSave={handleSavePurchaseOrder}
 				isSaving={isSavingPo}
+			/>
+
+			{/* ── Existing PO Warning Dialog ────────────────────── */}
+			<ExistingPoWarningDialog
+				open={existingPoWarningOpen}
+				poList={existingPoWarning}
+				onClose={closeExistingPoWarning}
+				onContinue={handleContinueApply}
 			/>
 
 			{/* Scroll anchor for auto-scroll on apply */}
