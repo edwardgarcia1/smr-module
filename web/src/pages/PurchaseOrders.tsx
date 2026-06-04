@@ -67,6 +67,8 @@ import {
 	CATEGORY_ORDER,
 	CAT_EXCEL_COLORS,
 	ALLOWED_SITE_IDS,
+	DEMAND_MODES,
+	FREQUENCIES,
 } from "../config/requirements";
 import type {
 	MinStockCategory,
@@ -90,6 +92,7 @@ import dayjs from "dayjs";
 // ─── Types ────────────────────────────────────────────────────────────
 
 type PoStatus = "Pending" | "Printed" | "Approved" | "Encoded" | "Cancelled";
+const PO_STATUSES: PoStatus[] = ["Pending", "Printed", "Approved", "Encoded", "Cancelled"];
 
 interface PurchaseOrder {
 	id: number;
@@ -392,6 +395,14 @@ const PurchaseOrders: React.FC = () => {
 		{ id: string; name: string }[]
 	>([]);
 	const [searchRef, setSearchRef] = useState("");
+	const [filterDemandModes, setFilterDemandModes] = useState<string[]>([]);
+	const [filterFrequencies, setFilterFrequencies] = useState<string[]>([]);
+	const [filterStatuses, setFilterStatuses] = useState<PoStatus[]>([]);
+
+	const siteFilterOptions = useMemo(
+		() => [{ id: "ALL_SITES", name: "All Sites" }, ...storageLocations],
+		[storageLocations],
+	);
 
 	const filteredOrders = useMemo(() => {
 		return orders.filter((po) => {
@@ -400,18 +411,54 @@ const PurchaseOrders: React.FC = () => {
 				!filterPrincipals.some((p) => p.ClassID === po.principal_id)
 			)
 				return false;
-			if (
-				filterSites.length > 0 &&
-				!filterSites.some((s) => (po.site_id ?? "").split(",").includes(s.id))
-			)
-				return false;
+			// Site filter: null/empty site_id means "all sites"
+			if (filterSites.length > 0) {
+				const hasAllSites = filterSites.some((s) => s.id === "ALL_SITES");
+				const poSiteIds = (po.site_id ?? "")
+					.split(",")
+					.map((s) => s.trim())
+					.filter(Boolean);
+				if (poSiteIds.length === 0) {
+					// PO applies to all sites — only match if "All Sites" selected
+					if (!hasAllSites) return false;
+				} else {
+					// PO has specific sites
+					const matchesSpecific = poSiteIds.some((id) =>
+						filterSites.some((fs) => fs.id === id),
+					);
+					if (!matchesSpecific) return false;
+				}
+			}
 			if (searchRef.trim()) {
 				const q = searchRef.trim().toLowerCase();
 				if (!po.ref_num.toLowerCase().includes(q)) return false;
 			}
+			if (
+				filterDemandModes.length > 0 &&
+				!filterDemandModes.includes(po.demand_mode)
+			)
+				return false;
+			if (
+				filterFrequencies.length > 0 &&
+				!filterFrequencies.includes(po.frequency)
+			)
+				return false;
+			if (
+				filterStatuses.length > 0 &&
+				!filterStatuses.includes(po.status)
+			)
+				return false;
 			return true;
 		});
-	}, [orders, filterPrincipals, filterSites, searchRef]);
+	}, [
+		orders,
+		filterPrincipals,
+		filterSites,
+		searchRef,
+		filterDemandModes,
+		filterFrequencies,
+		filterStatuses,
+	]);
 
 	// ─── Fetch list ───────────────────────────────────────────────
 
@@ -1462,7 +1509,7 @@ const PurchaseOrders: React.FC = () => {
 								<Autocomplete
 									multiple
 									size="small"
-									options={storageLocations}
+									options={siteFilterOptions}
 									value={filterSites}
 									onChange={(_, newVal) => setFilterSites(newVal)}
 									getOptionLabel={(option) => option.name}
@@ -1486,6 +1533,108 @@ const PurchaseOrders: React.FC = () => {
 											{...params}
 											label="Site"
 											placeholder="Select sites"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+							<FormControl sx={{ minWidth: 200 }}>
+								<Autocomplete
+									multiple
+									size="small"
+									options={DEMAND_MODES}
+									value={filterDemandModes}
+									onChange={(_, newVal) => setFilterDemandModes(newVal)}
+									disableCloseOnSelect
+									getOptionLabel={(option) => capitalize(option)}
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{capitalize(option)}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Demand Mode"
+											placeholder="Select modes"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+							<FormControl sx={{ minWidth: 200 }}>
+								<Autocomplete
+									multiple
+									size="small"
+									options={FREQUENCIES}
+									value={filterFrequencies}
+									onChange={(_, newVal) => setFilterFrequencies(newVal)}
+									disableCloseOnSelect
+									getOptionLabel={(option) => capitalize(option)}
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{capitalize(option)}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Frequency"
+											placeholder="Select frequencies"
+											sx={{
+												"& .MuiOutlinedInput-root": { borderRadius: 2 },
+											}}
+										/>
+									)}
+								/>
+							</FormControl>
+							<FormControl sx={{ minWidth: 200 }}>
+								<Autocomplete
+									multiple
+									size="small"
+									options={PO_STATUSES}
+									value={filterStatuses}
+									onChange={(_, newVal) => setFilterStatuses(newVal)}
+									disableCloseOnSelect
+									getOptionLabel={(option) => option}
+									renderOption={(props, option, { selected }) => {
+										const { key, ...rest } = props;
+										return (
+											<li key={key} {...rest}>
+												<Checkbox
+													icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+													checkedIcon={<CheckBoxIcon fontSize="small" />}
+													checked={selected}
+												/>
+												{option}
+											</li>
+										);
+									}}
+									renderInput={(params) => (
+										<TextField
+											{...params}
+											label="Status"
+											placeholder="Select statuses"
 											sx={{
 												"& .MuiOutlinedInput-root": { borderRadius: 2 },
 											}}
@@ -1590,11 +1739,9 @@ const PurchaseOrders: React.FC = () => {
 															);
 														}}
 													>
-														<MenuItem value="Pending">Pending</MenuItem>
-														<MenuItem value="Printed">Printed</MenuItem>
-														<MenuItem value="Approved">Approved</MenuItem>
-														<MenuItem value="Encoded">Encoded</MenuItem>
-														<MenuItem value="Cancelled">Cancelled</MenuItem>
+														{PO_STATUSES.map((s) => (
+															<MenuItem key={s} value={s}>{s}</MenuItem>
+														))}
 													</Select>
 												</TableCell>
 												<TableCell>{po.created_by || "—"}</TableCell>

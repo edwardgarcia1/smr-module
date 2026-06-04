@@ -11,6 +11,9 @@ export type Mode = "purchasing" | "bundling";
 export type Frequency = "weekly" | "monthly";
 export type DemandMode = "average" | "highest";
 
+export const DEMAND_MODES: DemandMode[] = ["average", "highest"];
+export const FREQUENCIES: Frequency[] = ["weekly", "monthly"];
+
 // ─── Data Types ───────────────────────────────────────────────────────────────
 
 export interface MinStockCategory {
