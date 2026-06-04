@@ -2,8 +2,9 @@
  * SavePoDialog — Dialog prompting for a reference number before saving
  * the current purchasing grid snapshot as a purchase order.
  */
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
+	Alert,
 	Dialog,
 	DialogTitle,
 	DialogContent,
@@ -30,23 +31,36 @@ const SavePoDialog: React.FC<SavePoDialogProps> = ({
 	defaultRefNum = "",
 }) => {
 	const [refNum, setRefNum] = useState(defaultRefNum);
+	const [error, setError] = useState<string | null>(null);
 
-	const handleSave = async () => {
+	const handleSave = useCallback(async () => {
 		if (!refNum.trim()) return;
-		await onSave(refNum.trim());
-	};
+		setError(null);
+		try {
+			await onSave(refNum.trim());
+		} catch (err: unknown) {
+			const msg = err instanceof Error ? err.message : "Failed to save purchase order.";
+			setError(msg);
+		}
+	}, [refNum, onSave]);
 
-	const handleClose = () => {
+	const handleClose = useCallback(() => {
 		if (!isSaving) {
 			setRefNum(defaultRefNum);
+			setError(null);
 			onClose();
 		}
-	};
+	}, [isSaving, defaultRefNum, onClose]);
 
 	return (
 		<Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
 			<DialogTitle>Save Purchase Order</DialogTitle>
 			<DialogContent>
+				{error && (
+					<Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+						{error}
+					</Alert>
+				)}
 				<TextField
 					autoFocus
 					margin="dense"

@@ -852,6 +852,7 @@ export function useRequirements(): UseRequirementsReturn {
 			const msg = err instanceof Error ? err.message : "Failed to save purchase order.";
 			console.error("Save PO error:", msg);
 			setGridError(msg);
+			throw err; // re-throw so SavePoDialog can display the error inline
 		} finally {
 			setIsSavingPo(false);
 		}
