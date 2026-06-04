@@ -120,6 +120,25 @@ function csvToRows(csv: string): { headers: string[]; rows: Record<string, strin
 
 // ─── File helpers ─────────────────────────────────────────────────────
 
+/**
+ * Sanitize a string for use in filenames.
+ *
+ * - Replaces characters invalid on Windows (\ / : * ? " < > |) and spaces
+ *   with underscores. Spaces are also replaced because they cause issues in
+ *   shell scripts, URLs, and command-line tools on any OS (Linux included).
+ * - Collapses runs of underscores into one.
+ * - Trims leading/trailing dots and spaces to prevent hidden files and
+ *   path-traversal edge cases.
+ */
+function sanitizeFilename(input: string): string {
+	return input
+		.replace(/[<>:"/\\|?*\x00 ]/g, "_")
+		.replace(/\.\./g, "_")
+		.replace(/^[. ]+|[. ]+$/g, "")
+		.replace(/_+/g, "_")
+		.replace(/^_|_$/g, "");
+}
+
 function ensurePoDir(): void {
 	if (!existsSync(PO_FILES_DIR)) {
 		mkdirSync(PO_FILES_DIR, { recursive: true });
@@ -210,7 +229,7 @@ export async function createPurchaseOrder(
 		if (!created) throw new Error("Failed to create purchase order");
 
 		// 2. Write CSV file
-		const csvFilename = `po_${created.id}.csv`;
+		const csvFilename = `po_${sanitizeFilename(created.ref_num)}.csv`;
 		const csvContent = rowsToCsv(rows);
 		ensurePoDir();
 		await writeFile(join(PO_FILES_DIR, csvFilename), csvContent, "utf-8");
@@ -243,7 +262,7 @@ export async function updatePurchaseOrderCsv(
 ): Promise<PurchaseOrder> {
 	// Verify PO exists and get current filename
 	const existing = await getPurchaseOrderById(id);
-	const csvFilename = existing.meta.csv_filename ?? `po_${id}.csv`;
+	const csvFilename = existing.meta.csv_filename ?? `po_${sanitizeFilename(existing.meta.ref_num)}.csv`;
 
 	// Rewrite CSV file
 	const csvContent = rowsToCsv(rows);
