@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { existsSync, mkdirSync } from "fs";
@@ -147,8 +147,8 @@ function ensurePoDir(): void {
 
 // ─── CRUD ─────────────────────────────────────────────────────────────
 
-export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
-	const result = await withDb((pool) =>
+export async function getAllPurchaseOrders(tenantKey = "default"): Promise<PurchaseOrder[]> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query(
@@ -160,8 +160,9 @@ export async function getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
 
 export async function getPurchaseOrderById(
 	id: number,
+	tenantKey = "default",
 ): Promise<{ meta: PurchaseOrder; csvData: { headers: string[]; rows: Record<string, string>[] } }> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -193,9 +194,10 @@ export async function getPurchaseOrderById(
 export async function createPurchaseOrder(
 	body: NewPurchaseOrder,
 	rows: Record<string, unknown>[],
+	tenantKey = "default",
 ): Promise<PurchaseOrder> {
 	// Check for duplicate ref_num before attempting insert
-	const existing = await withDb((pool) =>
+	const existing = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("ref_num", body.ref_num)
@@ -208,7 +210,7 @@ export async function createPurchaseOrder(
 		);
 	}
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		// 1. Insert the record (csv_filename will be set after we know the ID)
 		const insertResult = await pool
 			.request()
@@ -260,9 +262,10 @@ export async function updatePurchaseOrderCsv(
 	id: number,
 	rows: Record<string, unknown>[],
 	updatedBy: string,
+	tenantKey = "default",
 ): Promise<PurchaseOrder> {
 	// Verify PO exists and get current filename
-	const existing = await getPurchaseOrderById(id);
+	const existing = await getPurchaseOrderById(id, tenantKey);
 	const csvFilename = existing.meta.csv_filename ?? `po_${sanitizeFilename(existing.meta.ref_num)}.csv`;
 
 	// Rewrite CSV file
@@ -271,7 +274,7 @@ export async function updatePurchaseOrderCsv(
 	await writeFile(join(PO_FILES_DIR, csvFilename), csvContent, "utf-8");
 
 	// Update last_update_at / last_update_by
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		const result = await pool
 			.request()
 			.input("id", id)
@@ -300,8 +303,9 @@ export async function updatePoStatus(
 	id: number,
 	status: string,
 	updatedBy: string,
+	tenantKey = "default",
 ): Promise<PurchaseOrder> {
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		const result = await pool
 			.request()
 			.input("id", id)
@@ -325,8 +329,8 @@ export async function updatePoStatus(
  * Get purchase orders by principal_id where status is NOT Encoded or Cancelled.
  * Used by the Requirements page to warn users about existing active POs before applying.
  */
-export async function getPurchaseOrdersByPrincipal(principalId: string): Promise<PurchaseOrder[]> {
-	const result = await withDb((pool) =>
+export async function getPurchaseOrdersByPrincipal(principalId: string, tenantKey = "default"): Promise<PurchaseOrder[]> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("principalId", principalId)
@@ -340,9 +344,9 @@ export async function getPurchaseOrdersByPrincipal(principalId: string): Promise
 	return trimStrings(result.recordset as PurchaseOrder[]);
 }
 
-export async function deletePurchaseOrder(id: number): Promise<void> {
+export async function deletePurchaseOrder(id: number, tenantKey = "default"): Promise<void> {
 	// First, get the csv_filename to delete the file
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -357,7 +361,7 @@ export async function deletePurchaseOrder(id: number): Promise<void> {
 	}
 
 	// Delete from database
-	await withDb((pool) =>
+	await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)

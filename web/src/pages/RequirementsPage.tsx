@@ -50,6 +50,7 @@ const RequirementsPage: React.FC = () => {
 		storageLocations, selectedStorage, setSelectedStorage,
 		frequency, setFrequency,
 		demandMode, setDemandMode,
+		demandSource, setDemandSource,
 		dateRange, setDateRange,
 		monthlyValidDays, monthlyKeys, handleMonthlyValidDayChange,
 		// Grid data
@@ -100,6 +101,8 @@ const RequirementsPage: React.FC = () => {
 				onFrequencyChange={setFrequency}
 				demandMode={demandMode}
 				onDemandModeChange={setDemandMode}
+				demandSource={demandSource}
+				onDemandSourceChange={setDemandSource}
 				dateRange={dateRange}
 				onDateRangeChange={(field, value) =>
 					setDateRange((prev) => ({ ...prev, [field]: value }))

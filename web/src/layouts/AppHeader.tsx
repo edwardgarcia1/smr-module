@@ -9,8 +9,10 @@ import {
 	Box,
 	Breadcrumbs,
 	Link,
+	Chip,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import { useAuthStore } from "../store/useAuthStore";
 
 export interface BreadcrumbItem {
 	label: string;
@@ -33,6 +35,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 	isLoading = false,
 }) => {
 	const navigate = useNavigate();
+	const user = useAuthStore((s) => s.user);
+	const availableTenants = useAuthStore((s) => s.availableTenants);
 	const currentDate = new Date().toLocaleDateString("en-PH", {
 		weekday: "long",
 		year: "numeric",
@@ -123,6 +127,17 @@ const AppHeader: React.FC<AppHeaderProps> = ({
 						})}
 					</Breadcrumbs>
 				) : null}
+				{user?.tenant && (
+					<Chip
+						label={
+							availableTenants.find((t) => t.key === user.tenant)?.displayName ??
+							user.tenant
+						}
+						size="small"
+						variant="outlined"
+						sx={{ mr: 2, color: "var(--text)", borderColor: "var(--text)" }}
+					/>
+				)}
 				<Box sx={{ display: "flex", alignItems: "center", ml: "auto" }}>
 					<Typography
 						variant="body1"

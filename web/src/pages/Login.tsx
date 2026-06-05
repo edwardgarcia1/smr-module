@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	Box,
 	Button,
@@ -11,6 +11,10 @@ import {
 	Link,
 	IconButton,
 	InputAdornment,
+	FormControl,
+	InputLabel,
+	Select,
+	MenuItem,
 } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import Visibility from "@mui/icons-material/Visibility";
@@ -23,11 +27,29 @@ const appName = import.meta.env.VITE_APP_NAME;
 const Login: React.FC = () => {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
+	const [selectedTenant, setSelectedTenant] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
 	const navigate = useNavigate();
 	const login = useAuthStore((state) => state.login);
+	const availableTenants = useAuthStore((state) => state.availableTenants);
+	const setAvailableTenants = useAuthStore((state) => state.setAvailableTenants);
+
+	// Fetch available tenants on mount
+	useEffect(() => {
+		fetch("/api/tenants")
+			.then((r) => r.json())
+			.then((data) => {
+				setAvailableTenants(data);
+				if (data.length === 1) {
+					setSelectedTenant(data[0].key);
+				}
+			})
+			.catch(() => {
+				// Tenant endpoint unavailable — single-tenant mode
+			});
+	}, [setAvailableTenants]);
 
 	const handleClickShowPassword = () => setShowPassword((show) => !show);
 	const handleMouseDownPassword = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -40,7 +62,7 @@ const Login: React.FC = () => {
 		setLoading(true);
 
 		try {
-			const data = await authService.login(username, password);
+			const data = await authService.login(username, password, selectedTenant || undefined);
 			login(data.user);
 			navigate("/");
 		} catch (err) {
@@ -96,6 +118,22 @@ const Login: React.FC = () => {
 							<Alert severity="error" sx={{ width: "100%", mb: 2 }}>
 								{error}
 							</Alert>
+						)}
+						{availableTenants.length > 1 && (
+							<FormControl fullWidth sx={{ mb: 2, mt: 1 }}>
+								<InputLabel>Warehouse / Database</InputLabel>
+								<Select
+									value={selectedTenant}
+									label="Warehouse / Database"
+									onChange={(e) => setSelectedTenant(e.target.value)}
+								>
+									{availableTenants.map((t) => (
+										<MenuItem key={t.key} value={t.key}>
+											{t.displayName}
+										</MenuItem>
+									))}
+								</Select>
+							</FormControl>
 						)}
 						<TextField
 							margin="normal"

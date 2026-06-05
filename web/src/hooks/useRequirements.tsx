@@ -53,6 +53,7 @@ import {
 	type Mode,
 	type Frequency,
 	type DemandMode,
+	type DemandSource,
 	type Principal,
 	type StorageLocation,
 	type MinStockCategory,
@@ -79,6 +80,8 @@ export interface UseRequirementsReturn {
 	setFrequency: (f: Frequency) => void;
 	demandMode: DemandMode;
 	setDemandMode: (m: DemandMode) => void;
+	demandSource: DemandSource;
+	setDemandSource: (s: DemandSource) => void;
 	dateRange: DateRangeItem;
 	setDateRange: React.Dispatch<React.SetStateAction<DateRangeItem>>;
 	monthlyValidDays: Record<string, number>;
@@ -168,6 +171,9 @@ export function useRequirements(): UseRequirementsReturn {
 	);
 	const [demandMode, setDemandMode] = useState<DemandMode>(
 		persistedForm?.demandMode ?? "average",
+	);
+	const [demandSource, setDemandSource] = useState<DemandSource>(
+		persistedForm?.demandSource ?? "shipped",
 	);
 	const [monthlyValidDays, setMonthlyValidDays] = useState<Record<string, number>>({});
 	const monthlyKeys = useMemo(
@@ -613,6 +619,9 @@ export function useRequirements(): UseRequirementsReturn {
 			if (demandMode === "highest") {
 				params.set("demandMode", "highest");
 			}
+			if (demandSource === "ordered") {
+				params.set("demandSource", "ordered");
+			}
 			if (frequency === "weekly") {
 				const totalVD = Object.values(monthlyValidDays).reduce((s, v) => s + v, 0);
 				if (totalVD > 0) {
@@ -676,7 +685,7 @@ export function useRequirements(): UseRequirementsReturn {
 		}
 	}, [
 		selectedPrincipal, selectedStorage, dateRange, frequency,
-		demandMode, monthlyValidDays, mode, selectedPriceClass,
+		demandSource, demandMode, monthlyValidDays, mode, selectedPriceClass,
 		buildPurchasingColumns, buildBundlingColumns,
 	]);
 
@@ -728,7 +737,7 @@ export function useRequirements(): UseRequirementsReturn {
 		await executeApply();
 	}, [
 		selectedPrincipal, selectedStorage, dateRange, frequency,
-		demandMode, monthlyValidDays, mode, selectedPriceClass,
+		demandSource, demandMode, monthlyValidDays, mode, selectedPriceClass,
 		buildPurchasingColumns, buildBundlingColumns, executeApply,
 	]);
 
@@ -992,9 +1001,10 @@ export function useRequirements(): UseRequirementsReturn {
 			selectedStorage,
 			frequency,
 			demandMode,
+			demandSource,
 			dateRange: serializeDateRange(dateRange),
 		}),
-		[mode, selectedPrincipal, selectedStorage, frequency, demandMode, dateRange],
+		[mode, selectedPrincipal, selectedStorage, frequency, demandMode, demandSource, dateRange],
 	);
 
 	useEffect(() => {
@@ -1052,6 +1062,8 @@ export function useRequirements(): UseRequirementsReturn {
 		setFrequency,
 		demandMode,
 		setDemandMode,
+		demandSource,
+		setDemandSource,
 		dateRange,
 		setDateRange,
 		monthlyValidDays,

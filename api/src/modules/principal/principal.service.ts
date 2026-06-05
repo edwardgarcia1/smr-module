@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type {
@@ -15,8 +15,9 @@ import type {
 
 export const createProductClass = async (
 	pc: NewProductClass,
+	tenantKey = "default",
 ): Promise<ProductClass> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("ClassID", pc.ClassID)
@@ -35,8 +36,9 @@ export const createProductClass = async (
 
 export const getProductClassById = async (
 	classId: string,
+	tenantKey = "default",
 ): Promise<ProductClass | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("ClassID", classId)
@@ -47,8 +49,8 @@ export const getProductClassById = async (
 	return trimStrings(result.recordset[0] as ProductClass | undefined);
 };
 
-export const getAllProductClasses = async (): Promise<ProductClass[]> => {
-	const result = await withDb((pool) =>
+export const getAllProductClasses = async (tenantKey = "default"): Promise<ProductClass[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query("SELECT ClassID, Descr, User5 FROM ProductClass"),
@@ -59,8 +61,9 @@ export const getAllProductClasses = async (): Promise<ProductClass[]> => {
 export const updateProductClass = async (
 	classId: string,
 	updates: ProductClassUpdate,
+	tenantKey = "default",
 ): Promise<ProductClass> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("ClassID", classId)
@@ -79,8 +82,8 @@ export const updateProductClass = async (
 	return trimStrings(result.recordset[0] as ProductClass);
 };
 
-export const deleteProductClass = async (classId: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deleteProductClass = async (classId: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("ClassID", classId)
@@ -96,8 +99,8 @@ export const deleteProductClass = async (classId: string): Promise<void> => {
 
 // ─── Vendor CRUD ─────────────────────────────────────────────────────
 
-export const createVendor = async (vendor: NewVendor): Promise<Vendor> => {
-	const result = await withDb((pool) =>
+export const createVendor = async (vendor: NewVendor, tenantKey = "default"): Promise<Vendor> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("VendId", vendor.VendId)
@@ -118,8 +121,9 @@ export const createVendor = async (vendor: NewVendor): Promise<Vendor> => {
 
 export const getVendorById = async (
 	venId: string,
+	tenantKey = "default",
 ): Promise<Vendor | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("VendId", venId)
@@ -130,8 +134,8 @@ export const getVendorById = async (
 	return trimStrings(result.recordset[0] as Vendor | undefined);
 };
 
-export const getAllVendors = async (): Promise<Vendor[]> => {
-	const result = await withDb((pool) =>
+export const getAllVendors = async (tenantKey = "default"): Promise<Vendor[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query("SELECT VendId, Addr1, Addr2, City, Terms FROM Vendor"),
@@ -142,8 +146,9 @@ export const getAllVendors = async (): Promise<Vendor[]> => {
 export const updateVendor = async (
 	venId: string,
 	updates: VendorUpdate,
+	tenantKey = "default",
 ): Promise<Vendor> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("VendId", venId)
@@ -164,8 +169,8 @@ export const updateVendor = async (
 	return trimStrings(result.recordset[0] as Vendor);
 };
 
-export const deleteVendor = async (venId: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deleteVendor = async (venId: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("VendId", venId)
@@ -182,8 +187,8 @@ export const deleteVendor = async (venId: string): Promise<void> => {
 // ─── Joined query ────────────────────────────────────────────────────
 
 export const getProductClassesWithVendors =
-	async (): Promise<ProductClassWithVendor[]> => {
-		const result = await withDb((pool) => pool.request().query(`
+	async (tenantKey = "default"): Promise<ProductClassWithVendor[]> => {
+		const result = await withTenantDb(tenantKey, (pool) => pool.request().query(`
       SELECT
         pc.ClassID, pc.Descr, pc.User5,
         v.VendId,

@@ -33,7 +33,7 @@ export const caslMiddleware = (app: Elysia) =>
 
 		if (user) {
 			// Load permissions from DB dynamically
-			const permissions = await getPermissionsByUserId(user.id);
+			const permissions = await getPermissionsByUserId(user.id, user.tenant);
 			for (const perm of permissions) {
 				if (perm.action === "manage") {
 					can("manage", perm.subject as Subject);

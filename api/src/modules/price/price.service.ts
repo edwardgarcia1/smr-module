@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import Big from "big.js";
@@ -48,19 +48,20 @@ async function normalizeToCsUnit(
 	inventoryId: string,
 	price: Big | number,
 	unit: string,
+	tenantKey = "default",
 ): Promise<{ price: Big; unit: string }> {
 	if (unit.toUpperCase() === "CS") return { price: toBig(price), unit };
 
 	// Forward: found row where FromUnit = current unit, ToUnit = CS
 	// 1 current_unit = factor × CS → price_per_CS = price_per_current / factor (Big precision)
-	const factor = await findConversionFactor(inventoryId, unit, "CS");
+	const factor = await findConversionFactor(inventoryId, unit, "CS", tenantKey);
 	if (factor !== null) {
 		return { price: toBig(price).div(factor), unit: "CS" };
 	}
 
 	// Reverse: found row where FromUnit = CS, ToUnit = current unit
 	// 1 CS = reverseFactor × current_unit → price_per_CS = price_per_current × reverseFactor (Big precision)
-	const reverseFactor = await findConversionFactor(inventoryId, "CS", unit);
+	const reverseFactor = await findConversionFactor(inventoryId, "CS", unit, tenantKey);
 	if (reverseFactor !== null) {
 		return { price: toBig(price).times(reverseFactor), unit: "CS" };
 	}
@@ -76,13 +77,13 @@ const DEFAULT_LIMIT = 500;
 
 // ─── SMR_ItemPrice CRUD (renamed from SMR_ItemCost) ───────────────────
 
-export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> => {
+export const createItemPrice = async (item: NewItemPrice, tenantKey = "default"): Promise<ItemPrice> => {
 	const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
 	// Normalize unit to CS if possible
-	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
+	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit, tenantKey);
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		// Expire any existing active price for this inventory_id + price_class combo
 		const current = await pool
 			.request()
@@ -128,8 +129,9 @@ export const createItemPrice = async (item: NewItemPrice): Promise<ItemPrice> =>
 
 export const getItemPriceById = async (
 	id: number,
+	tenantKey = "default",
 ): Promise<ItemPrice | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -147,8 +149,9 @@ export const getItemPriceById = async (
 
 export const getItemPricesByInventoryId = async (
 	inventoryId: string,
+	tenantKey = "default",
 ): Promise<ItemPrice[]> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", inventoryId)
@@ -169,6 +172,7 @@ export const getItemPricesByInventoryId = async (
 export const updateItemPrice = async (
 	id: number,
 	updates: ItemPriceUpdate,
+	tenantKey = "default",
 ): Promise<ItemPrice> => {
 	const setClauses: string[] = [];
 	if (updates.price !== undefined) setClauses.push("price = @price");
@@ -178,12 +182,12 @@ export const updateItemPrice = async (
 	if (updates.encoded_by !== undefined) setClauses.push("encoded_by = @encoded_by");
 
 	if (setClauses.length === 0) {
-		const existing = await getItemPriceById(id);
+		const existing = await getItemPriceById(id, tenantKey);
 		if (!existing) throw new NotFoundError(`ItemPrice ${id} not found`);
 		return existing;
 	}
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		const req = pool.request().input("id", id);
 		if (updates.price !== undefined) req.input("price", bigToNumber(toBig(updates.price)));
 		if (updates.unit !== undefined) req.input("unit", updates.unit);
@@ -209,8 +213,8 @@ export const updateItemPrice = async (
 	});
 };
 
-export const deleteItemPrice = async (id: number): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deleteItemPrice = async (id: number, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -226,8 +230,8 @@ export const deleteItemPrice = async (id: number): Promise<void> => {
  * Set valid_to on an existing ItemPrice (used when replacing with a newer entry).
  * This expires the old price record 1 second before the new price's valid_from.
  */
-export const expireItemPrice = async (id: number, validTo: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const expireItemPrice = async (id: number, validTo: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -245,8 +249,9 @@ export const expireItemPrice = async (id: number, validTo: string): Promise<void
 export const createPriceClass = async (
 	pc: NewPriceClass,
 	createdBy: string,
+	tenantKey = "default",
 ): Promise<PriceClass> => {
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		// Check for duplicate
 		const existing = await pool
 			.request()
@@ -278,8 +283,8 @@ export const createPriceClass = async (
 };
 
 /** Returns all price classes ordered by id */
-export const getAllPriceClasses = async (): Promise<PriceClass[]> => {
-	const result = await withDb((pool) =>
+export const getAllPriceClasses = async (tenantKey = "default"): Promise<PriceClass[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query(`
@@ -300,8 +305,9 @@ export const getCurrentPriceClasses = getAllPriceClasses;
 /** Returns the price class for a specific id */
 export const getPriceClassById = async (
 	id: string,
+	tenantKey = "default",
 ): Promise<PriceClass | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -317,8 +323,8 @@ export const getPriceClassById = async (
 };
 
 /** Returns just the list of price class IDs */
-export const getDistinctPriceClasses = async (): Promise<string[]> => {
-	const result = await withDb((pool) =>
+export const getDistinctPriceClasses = async (tenantKey = "default"): Promise<string[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query(`
@@ -334,8 +340,9 @@ export const getDistinctPriceClasses = async (): Promise<string[]> => {
 export const updatePriceClass = async (
 	id: string,
 	updates: PriceClassUpdate,
+	tenantKey = "default",
 ): Promise<PriceClass> => {
-		const result = await withDb((pool) =>
+		const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -354,8 +361,8 @@ export const updatePriceClass = async (
 	return trimStrings(result.recordset[0] as Record<string, unknown>) as unknown as PriceClass;
 };
 
-export const deletePriceClass = async (id: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deletePriceClass = async (id: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -387,8 +394,9 @@ async function findConversionFactor(
 	inventoryId: string,
 	fromUnit: string,
 	toUnit: string,
+	tenantKey = "default",
 ): Promise<number | null> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtId", inventoryId)
@@ -415,13 +423,14 @@ async function convertPrice(
 	price: Big | number,
 	fromUnit: string,
 	toUnit: string,
+	tenantKey = "default",
 ): Promise<{ price: Big; unit: string }> {
 	if (fromUnit === toUnit) return { price: toBig(price), unit: fromUnit };
 
 	// Forward: found row where FromUnit = source unit
 	// 1 source_unit = factor × target_unit
 	// price_per_target = price_per_source / factor  (Big precision)
-	const factor = await findConversionFactor(inventoryId, fromUnit, toUnit);
+	const factor = await findConversionFactor(inventoryId, fromUnit, toUnit, tenantKey);
 	if (factor !== null) {
 		return { price: toBig(price).div(factor), unit: toUnit };
 	}
@@ -429,7 +438,7 @@ async function convertPrice(
 	// Reverse: found row where FromUnit = target unit
 	// 1 target_unit = reverseFactor × source_unit
 	// price_per_target = price_per_source × reverseFactor  (Big precision)
-	const reverseFactor = await findConversionFactor(inventoryId, toUnit, fromUnit);
+	const reverseFactor = await findConversionFactor(inventoryId, toUnit, fromUnit, tenantKey);
 	if (reverseFactor !== null) {
 		return { price: toBig(price).times(reverseFactor), unit: toUnit };
 	}
@@ -445,6 +454,7 @@ async function convertPrice(
  */
 export const batchConvertPrices = async (
 	items: ConvertBatchItem[],
+	tenantKey = "default",
 ): Promise<ConvertBatchResult[]> => {
 	const results: ConvertBatchResult[] = [];
 	for (const item of items) {
@@ -453,6 +463,7 @@ export const batchConvertPrices = async (
 			item.price,
 			item.from_unit,
 			item.to_unit,
+			tenantKey,
 		);
 		results.push({
 			inventory_id: item.inventory_id,
@@ -484,6 +495,7 @@ export const getPricesPaginated = async (
 	search?: string,
 	reqUnit?: string,
 	classID?: string,
+	tenantKey = "default",
 ): Promise<PaginatedResponse<PriceRecord>> => {
 	const offset = (page - 1) * limit;
 
@@ -501,7 +513,7 @@ export const getPricesPaginated = async (
 	const whereClause =
 		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		// ── Count total inventory items ────────────────────────────────
 		const countQuery = `
 			SELECT COUNT(*) AS _total
@@ -653,7 +665,7 @@ export const getPricesPaginated = async (
 			if (reqUnit) {
 				prices = await Promise.all(
 					prices.map(async (p) => {
-						const converted = await convertPrice(inv.inventory_id, p.price, p.unit, reqUnit);
+						const converted = await convertPrice(inv.inventory_id, p.price, p.unit, reqUnit, tenantKey);
 						return { ...p, price: converted.price, unit: converted.unit };
 					}),
 				);
@@ -701,6 +713,7 @@ export { MAX_LIMIT, DEFAULT_LIMIT };
 export const importItemPrices = async (
 	items: BulkImportItem[],
 	encodedBy: string,
+	tenantKey = "default",
 ): Promise<ImportResult> => {
 	let inserted = 0;
 	let updated = 0;
@@ -717,7 +730,7 @@ export const importItemPrices = async (
 		}
 
 		try {
-			await withDb(async (pool) => {
+			await withTenantDb(tenantKey, async (pool) => {
 				// Check if inventory exists
 				const invCheck = await pool
 					.request()
@@ -742,7 +755,7 @@ export const importItemPrices = async (
 				const validFrom = item.valid_from ?? toMsSqlDatetime(new Date());
 
 				// Normalize unit to CS if possible
-				const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit);
+				const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit, tenantKey);
 
 				// Find current price for this inventory item + price_class combo
 				const current = await pool
@@ -801,8 +814,8 @@ export const importItemPrices = async (
  * Legacy alias — returns distinct price_class values from SMR_PriceClass.
  * Replaces the old getDistinctCatalogNbr from SlsPrc.
  */
-export const getDistinctCatalogNbr = async (): Promise<string[]> => {
-	return getDistinctPriceClasses();
+export const getDistinctCatalogNbr = async (tenantKey = "default"): Promise<string[]> => {
+	return getDistinctPriceClasses(tenantKey);
 };
 
 /** @deprecated Use createItemPrice instead */

@@ -1,5 +1,6 @@
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
+import { tenantRoutes } from "./modules/tenant/tenant.routes";
 import { authRoutes } from "./modules/users/auth.routes";
 import { userRoutes } from "./modules/users/users.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
@@ -19,6 +20,7 @@ export const routes = new Elysia({ prefix: "/api" })
         path: "/docs",
     }))
     .use(errorMiddleware)
+    .use(tenantRoutes)
     .use(authRoutes)
     .use(userRoutes)
     .use(inventoryRoutes)

@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import type sql from "mssql";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError } from "../../middlewares/error";
@@ -60,10 +60,11 @@ function buildDateRangeClause(
 
 export async function getBundlingRequirements(
 	query: BundlingQuery,
+	tenantKey = "default",
 ): Promise<BundlingItem[]> {
-	const { classID, siteID, dateRange, frequency, validDays } = query;
+	const { classID, siteID, dateRange, frequency, validDays, demandSource } = query;
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 
 	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
 		buildSiteClause(
@@ -94,7 +95,7 @@ export async function getBundlingRequirements(
 			MAX(i.ClassID) AS ClassID,
 			sl.UnitDesc,
 			${periodSelect},
-			SUM(sl.QtyShip) AS TotalQtyShip
+			SUM(CASE WHEN @demandSource = 'ordered' THEN sl.QtyOrd ELSE sl.QtyShip END) AS TotalQtyShip
 		FROM dbo.SOShipLine AS sl
 		LEFT JOIN dbo.SOShipHeader AS sh
 			ON sl.ShipperID = sh.ShipperID
@@ -115,7 +116,7 @@ export async function getBundlingRequirements(
 		ORDER BY sl.InvtID
 	`;
 
-	const salesReq = pool.request().input("classID", classID);
+	const salesReq = pool.request().input("classID", classID).input("demandSource", demandSource ?? "shipped");
 	for (const [k, v] of Object.entries(siteParams)) salesReq.input(k, v);
 	for (const [k, v] of Object.entries(dateParams)) salesReq.input(k, v);
 
@@ -144,7 +145,7 @@ export async function getBundlingRequirements(
 
 	// ── Step 6: Build INUnit conversion cache (promo + components) ──
 	const allInvtForConv = [...new Set([...invtIDs, ...allComponentIDs])];
-	const convCache = await buildConversionCache(allInvtForConv);
+	const convCache = await buildConversionCache(allInvtForConv, tenantKey);
 
 	// ── Step 7: Validate all unit conversions ──────────────────────
 	const conversionFailures: {
@@ -208,7 +209,7 @@ export async function getBundlingRequirements(
 		invtID: id,
 		classID: invtClassMap.get(id) ?? "",
 	}));
-	const resolvedMinStocks = await resolveManyMinStock(minStockPairs);
+	const resolvedMinStocks = await resolveManyMinStock(minStockPairs, tenantKey);
 	const coverageMap = new Map<string, number>();
 	for (const r of resolvedMinStocks) {
 		coverageMap.set(r.invtID, r.minStock);

@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { trimStrings } from "../../utils/trimStrings";
 import { NotFoundError, BadRequestError } from "../../middlewares/error";
 import {
@@ -25,8 +25,8 @@ import type {
 
 // ─── MinStockSetting CRUD ────────────────────────────────────────────
 
-export async function getAllSettings(): Promise<MinStockSetting[]> {
-	const result = await withDb((pool) =>
+export async function getAllSettings(tenantKey = "default"): Promise<MinStockSetting[]> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query("SELECT id, inventory_id, class_id, min_stock_setting FROM SMR_MinStockSetting ORDER BY inventory_id"),
@@ -36,8 +36,9 @@ export async function getAllSettings(): Promise<MinStockSetting[]> {
 
 export async function getSettingByInvtId(
 	invtId: string,
+	tenantKey = "default",
 ): Promise<MinStockSetting | undefined> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", invtId)
@@ -50,6 +51,7 @@ export async function getSettingByInvtId(
 
 export async function upsertSetting(
 	body: NewMinStockSetting,
+	tenantKey = "default",
 ): Promise<MinStockSetting> {
 	const valid = ["Custom", "Principal", "Default"];
 	if (!valid.includes(body.min_stock_setting)) {
@@ -58,7 +60,7 @@ export async function upsertSetting(
 		);
 	}
 
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", body.inventory_id)
@@ -84,6 +86,7 @@ export async function upsertSetting(
 export async function updateSetting(
 	invtId: string,
 	updates: MinStockSettingUpdate,
+	tenantKey = "default",
 ): Promise<MinStockSetting> {
 	const valid = ["Custom", "Principal", "Default"];
 	if (!valid.includes(updates.min_stock_setting)) {
@@ -92,7 +95,7 @@ export async function updateSetting(
 		);
 	}
 
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", invtId)
@@ -110,8 +113,8 @@ export async function updateSetting(
 	return trimStrings(result.recordset[0] as MinStockSetting);
 }
 
-export async function deleteSetting(invtId: string): Promise<void> {
-	const result = await withDb((pool) =>
+export async function deleteSetting(invtId: string, tenantKey = "default"): Promise<void> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", invtId)
@@ -127,8 +130,8 @@ export async function deleteSetting(invtId: string): Promise<void> {
 
 // ─── MinStockItem CRUD ───────────────────────────────────────────────
 
-export async function getAllMinStockItems(): Promise<MinStockItem[]> {
-	const result = await withDb((pool) =>
+export async function getAllMinStockItems(tenantKey = "default"): Promise<MinStockItem[]> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query("SELECT id, inventory_id, min_stock FROM SMR_MinStockItem ORDER BY inventory_id"),
@@ -138,8 +141,9 @@ export async function getAllMinStockItems(): Promise<MinStockItem[]> {
 
 export async function getMinStockItemById(
 	id: number,
+	tenantKey = "default",
 ): Promise<MinStockItem | undefined> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -152,8 +156,9 @@ export async function getMinStockItemById(
 
 export async function getMinStockItemByInvtId(
 	invtId: string,
+	tenantKey = "default",
 ): Promise<MinStockItem | undefined> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", invtId)
@@ -166,8 +171,9 @@ export async function getMinStockItemByInvtId(
 
 export async function createMinStockItem(
 	body: NewMinStockItem,
+	tenantKey = "default",
 ): Promise<MinStockItem> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("inventory_id", body.inventory_id)
@@ -185,8 +191,9 @@ export async function createMinStockItem(
 export async function updateMinStockItem(
 	id: number,
 	updates: MinStockItemUpdate,
+	tenantKey = "default",
 ): Promise<MinStockItem> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -203,8 +210,8 @@ export async function updateMinStockItem(
 	return result.recordset[0] as MinStockItem;
 }
 
-export async function deleteMinStockItem(id: number): Promise<void> {
-	const result = await withDb((pool) =>
+export async function deleteMinStockItem(id: number, tenantKey = "default"): Promise<void> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -217,10 +224,10 @@ export async function deleteMinStockItem(id: number): Promise<void> {
 
 // ─── MinStockPrincipal CRUD ──────────────────────────────────────────
 
-export async function getAllMinStockPrincipals(): Promise<
+export async function getAllMinStockPrincipals(tenantKey = "default"): Promise<
 	MinStockPrincipal[]
 > {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query("SELECT id, class_id, min_stock FROM SMR_MinStockPrincipal ORDER BY class_id"),
@@ -230,8 +237,9 @@ export async function getAllMinStockPrincipals(): Promise<
 
 export async function getMinStockPrincipalById(
 	id: number,
+	tenantKey = "default",
 ): Promise<MinStockPrincipal | undefined> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -244,8 +252,9 @@ export async function getMinStockPrincipalById(
 
 export async function getMinStockPrincipalByClassId(
 	classId: string,
+	tenantKey = "default",
 ): Promise<MinStockPrincipal | undefined> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("class_id", classId)
@@ -258,8 +267,9 @@ export async function getMinStockPrincipalByClassId(
 
 export async function createMinStockPrincipal(
 	body: NewMinStockPrincipal,
+	tenantKey = "default",
 ): Promise<MinStockPrincipal> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("class_id", body.class_id)
@@ -277,8 +287,9 @@ export async function createMinStockPrincipal(
 export async function updateMinStockPrincipal(
 	id: number,
 	updates: MinStockPrincipalUpdate,
+	tenantKey = "default",
 ): Promise<MinStockPrincipal> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -302,8 +313,9 @@ export async function updateMinStockPrincipal(
  */
 export async function propagatePrincipalToItems(
 	classId: string,
+	tenantKey = "default",
 ): Promise<void> {
-	await withDb(async (pool) => {
+	await withTenantDb(tenantKey, async (pool) => {
 	// Update existing settings from Default → Principal
 	await pool
 		.request()
@@ -330,8 +342,8 @@ export async function propagatePrincipalToItems(
 	});
 }
 
-export async function deleteMinStockPrincipal(id: number): Promise<void> {
-	const result = await withDb((pool) =>
+export async function deleteMinStockPrincipal(id: number, tenantKey = "default"): Promise<void> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -350,12 +362,12 @@ export async function deleteMinStockPrincipal(id: number): Promise<void> {
  * Returns all product classes with their vendor info and per-class min stock values.
  * Single endpoint — no extra frontend join needed.
  */
-export async function getAllPrincipalsWithMinStock(): Promise<
+export async function getAllPrincipalsWithMinStock(tenantKey = "default"): Promise<
 	PrincipalWithMinStockDetails[]
 > {
 	const [principals, minStockPrincipals] = await Promise.all([
-		getProductClassesWithVendors(),
-		getAllMinStockPrincipals(),
+		getProductClassesWithVendors(tenantKey),
+		getAllMinStockPrincipals(tenantKey),
 	]);
 
 	const mpMap = new Map<string, MinStockPrincipal>();
@@ -388,14 +400,14 @@ export async function getAllPrincipalsWithMinStock(): Promise<
  *   Principal → class-level SMR_MinStockPrincipal value
  *   Default   → global default row (inventory_id = 'Default')
  */
-export async function getAllItemsWithMinStock(): Promise<
+export async function getAllItemsWithMinStock(tenantKey = "default"): Promise<
 	ItemWithMinStockDetails[]
 > {
 	const [items, settings, minStockItems, principals] = await Promise.all([
-		getAllInventory(),
-		getAllSettings(),
-		getAllMinStockItems(),
-		getAllMinStockPrincipals(),
+		getAllInventory("all", tenantKey),
+		getAllSettings(tenantKey),
+		getAllMinStockItems(tenantKey),
+		getAllMinStockPrincipals(tenantKey),
 	]);
 
 	const settingMap = new Map<string, MinStockSetting>();
@@ -466,8 +478,9 @@ export async function getAllItemsWithMinStock(): Promise<
 export async function resolveMinStock(
 	invtID: string,
 	classID: string,
+	tenantKey = "default",
 ): Promise<ResolvedMinStock> {
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 	// Step 1: fetch setting (or default)
 	const settingResult = await pool
 		.request()
@@ -560,8 +573,9 @@ export async function resolveMinStock(
 /** Bulk resolve for multiple items at once. */
 export async function resolveManyMinStock(
 	items: { invtID: string; classID: string }[],
+	tenantKey = "default",
 ): Promise<ResolvedMinStock[]> {
-	return Promise.all(items.map((i) => resolveMinStock(i.invtID, i.classID)));
+	return Promise.all(items.map((i) => resolveMinStock(i.invtID, i.classID, tenantKey)));
 }
 
 // ─── MinStockCategory ────────────────────────────────────────────────
@@ -570,8 +584,8 @@ export async function resolveManyMinStock(
  * Get all min stock categories ordered by threshold ASC.
  * Used by frontend to categorise items based on stock cover / min stock ratio.
  */
-export async function getAllCategories(): Promise<MinStockCategory[]> {
-	const result = await withDb((pool) =>
+export async function getAllCategories(tenantKey = "default"): Promise<MinStockCategory[]> {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.query(
@@ -584,8 +598,9 @@ export async function getAllCategories(): Promise<MinStockCategory[]> {
 export async function updateCategory(
 	id: number,
 	updates: MinStockCategoryUpdate,
+	tenantKey = "default",
 ): Promise<MinStockCategory> {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)

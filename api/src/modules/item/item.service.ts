@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type {
@@ -21,8 +21,9 @@ import type {
 
 export const createInventory = async (
 	inv: NewInventory,
+	tenantKey = "default",
 ): Promise<Inventory> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", inv.InvtID)
@@ -43,8 +44,9 @@ export const createInventory = async (
 
 export const getInventoryById = async (
 	invtId: string,
+	tenantKey = "default",
 ): Promise<Inventory | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -57,6 +59,7 @@ export const getInventoryById = async (
 
 export const getAllInventory = async (
 	promoFilter: "all" | "promos" | "non_promos" = "all",
+	tenantKey = "default",
 ): Promise<InventoryWithPromo[]> => {
 	const baseSelect = `SELECT i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit`;
 
@@ -74,15 +77,16 @@ export const getAllInventory = async (
 				   0 AS isPromo
 				 FROM Inventory i
 				 WHERE NOT EXISTS (SELECT 1 FROM Component c WHERE c.KitID = i.InvtID)`;
-	const result = await withDb((pool) => pool.request().query(query));
+	const result = await withTenantDb(tenantKey, (pool) => pool.request().query(query));
 	return trimStrings(result.recordset as InventoryWithPromo[]);
 };
 
 export const updateInventory = async (
 	invtId: string,
 	updates: InventoryUpdate,
+	tenantKey = "default",
 ): Promise<Inventory> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -103,8 +107,8 @@ export const updateInventory = async (
 	return trimStrings(result.recordset[0] as Inventory);
 };
 
-export const deleteInventory = async (invtId: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deleteInventory = async (invtId: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -122,8 +126,9 @@ export const deleteInventory = async (invtId: string): Promise<void> => {
 
 export const createComponent = async (
 	comp: NewComponent,
+	tenantKey = "default",
 ): Promise<Component> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("KitID", comp.KitID)
@@ -143,8 +148,9 @@ export const createComponent = async (
 export const getComponentById = async (
 	kitId: string,
 	cmpnentId: string,
+	tenantKey = "default",
 ): Promise<Component | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("KitID", kitId)
@@ -158,8 +164,9 @@ export const getComponentById = async (
 
 export const getComponentsByKitId = async (
 	kitId: string,
+	tenantKey = "default",
 ): Promise<Component[]> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("KitID", kitId)
@@ -170,8 +177,8 @@ export const getComponentsByKitId = async (
 	return trimStrings(result.recordset as Component[]);
 };
 
-export const getAllComponents = async (): Promise<Component[]> => {
-	const result = await withDb((pool) =>
+export const getAllComponents = async (tenantKey = "default"): Promise<Component[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool.request().query("SELECT KitID, CmpnentID, CmpnentQty FROM Component"),
 	);
 	return trimStrings(result.recordset as Component[]);
@@ -181,8 +188,9 @@ export const updateComponent = async (
 	kitId: string,
 	cmpnentId: string,
 	updates: ComponentUpdate,
+	tenantKey = "default",
 ): Promise<Component> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("KitID", kitId)
@@ -204,8 +212,9 @@ export const updateComponent = async (
 export const deleteComponent = async (
 	kitId: string,
 	cmpnentId: string,
+	tenantKey = "default",
 ): Promise<void> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("KitID", kitId)
@@ -230,8 +239,9 @@ const ITEMSITE_INSERT_COLS =
 
 export const createItemSite = async (
 	itemSite: NewItemSite,
+	tenantKey = "default",
 ): Promise<ItemSite> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", itemSite.InvtID)
@@ -256,8 +266,8 @@ export const createItemSite = async (
 	return created as ItemSite;
 };
 
-export const getAllItemSites = async (): Promise<ItemSite[]> => {
-	const result = await withDb((pool) =>
+export const getAllItemSites = async (tenantKey = "default"): Promise<ItemSite[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool.request().query(`SELECT ${ITEMSITE_COLS} FROM ItemSite`),
 	);
 	return trimStrings(result.recordset as ItemSite[]);
@@ -266,8 +276,9 @@ export const getAllItemSites = async (): Promise<ItemSite[]> => {
 export const getItemSiteById = async (
 	invtId: string,
 	siteId: string,
+	tenantKey = "default",
 ): Promise<ItemSite | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -281,8 +292,9 @@ export const getItemSiteById = async (
 
 export const getItemSitesByInvtId = async (
 	invtId: string,
+	tenantKey = "default",
 ): Promise<ItemSite[]> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -297,8 +309,9 @@ export const updateItemSite = async (
 	invtId: string,
 	siteId: string,
 	updates: ItemSiteUpdate,
+	tenantKey = "default",
 ): Promise<ItemSite> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -338,8 +351,9 @@ export const updateItemSite = async (
 export const deleteItemSite = async (
 	invtId: string,
 	siteId: string,
+	tenantKey = "default",
 ): Promise<void> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("InvtID", invtId)
@@ -356,10 +370,12 @@ export const deleteItemSite = async (
 
 // ─── Joined query ────────────────────────────────────────────────────
 
-export const getInventoryWithComponents = async (): Promise<
+export const getInventoryWithComponents = async (
+	tenantKey = "default",
+): Promise<
 	InventoryWithComponent[]
 > => {
-	const result = await withDb((pool) => pool.request().query(`
+	const result = await withTenantDb(tenantKey, (pool) => pool.request().query(`
       SELECT
         i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         c.KitID, c.CmpnentID, c.CmpnentQty
@@ -370,10 +386,12 @@ export const getInventoryWithComponents = async (): Promise<
 	return trimStrings(result.recordset as InventoryWithComponent[]);
 };
 
-export const getInventoryWithItemSites = async (): Promise<
+export const getInventoryWithItemSites = async (
+	tenantKey = "default",
+): Promise<
 	InventoryWithItemSite[]
 > => {
-	const result = await withDb((pool) => pool.request().query(`
+	const result = await withTenantDb(tenantKey, (pool) => pool.request().query(`
       SELECT
         i.InvtID, i.ClassID, i.ProdMgrID, i.Descr, i.StkUnit,
         s.SiteID, s.QtyCustOrd, s.QtyAlloc, s.QtyShipNotInv, s.QtyAllocIN,
@@ -387,8 +405,9 @@ export const getInventoryWithItemSites = async (): Promise<
 
 export const getInventoryWithComponentsAndItemSites = async (
 	sites?: string,
+	tenantKey = "default",
 ): Promise<InventoryWithComponentsAndItemSites[]> => {
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 		const request = pool.request();
 		let siteFilter = "";
 

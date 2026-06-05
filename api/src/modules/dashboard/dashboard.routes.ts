@@ -10,5 +10,5 @@ export const dashboardRoutes = new Elysia({ prefix: "/dashboard" })
 	// Accessible to all authenticated users (no permission check).
 	.get("/summary", async ({ user }) => {
 		if (!user) throw new UnauthorizedError("Authentication required");
-		return getDashboardSummary();
+		return getDashboardSummary(user.tenant);
 	});

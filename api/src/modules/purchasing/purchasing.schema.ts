@@ -10,6 +10,12 @@ export interface RequirementsQuery {
 	validDays?: number;
 	/** JSON string of per-month valid days: { "YYYY-MM": number } */
 	monthlyValidDays?: string;
+	/**
+	 * Demand data source:
+	 *   "shipped" — use SOShipLine.QtyShip (default)
+	 *   "ordered" — use SOShipLine.QtyOrd
+	 */
+	demandSource?: "shipped" | "ordered";
 	/** Price class to fetch prices for (e.g. "CP1", "COST"). Defaults to "CP1". */
 	priceClass?: string;
 	/**

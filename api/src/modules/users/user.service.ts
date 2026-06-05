@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { BadRequestError } from "../../middlewares/error";
 import type { User, NewUser } from "./user.schema";
 
@@ -29,7 +29,7 @@ const validatePasswordStrength = (
 	return { valid: true };
 };
 
-export const createUser = async (user: NewUser): Promise<User> => {
+export const createUser = async (user: NewUser, tenantKey = "default"): Promise<User> => {
 	const passwordValidation = validatePasswordStrength(user.password);
 	if (!passwordValidation.valid) {
 		throw new BadRequestError(passwordValidation.error);
@@ -40,7 +40,7 @@ export const createUser = async (user: NewUser): Promise<User> => {
 		cost: 10,
 	});
 
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("username", user.username)
@@ -61,8 +61,9 @@ export const createUser = async (user: NewUser): Promise<User> => {
 
 export const findUserByUsername = async (
 	username: string,
+	tenantKey = "default",
 ): Promise<User | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("username", username)
@@ -72,8 +73,11 @@ export const findUserByUsername = async (
 	return result.recordset[0] as User | undefined;
 };
 
-export const findUserById = async (id: number): Promise<User | undefined> => {
-	const result = await withDb((pool) =>
+export const findUserById = async (
+	id: number,
+	tenantKey = "default",
+): Promise<User | undefined> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("id", id)
@@ -83,8 +87,8 @@ export const findUserById = async (id: number): Promise<User | undefined> => {
 	return result.recordset[0] as User | undefined;
 };
 
-export const getAllUsers = async (): Promise<User[]> => {
-	const result = await withDb((pool) =>
+export const getAllUsers = async (tenantKey = "default"): Promise<User[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool.request().query("SELECT * FROM SMR_Users"),
 	);
 	return result.recordset as User[];

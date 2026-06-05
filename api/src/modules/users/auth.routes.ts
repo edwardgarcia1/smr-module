@@ -8,6 +8,7 @@ import {
 import { jwtMiddleware, refreshTokenMiddleware } from "../../middlewares/jwt";
 import { authGuard } from "../../middlewares/auth";
 import { BadRequestError, UnauthorizedError } from "../../middlewares/error";
+import { getTenant } from "../../config/tenants";
 import { extractAndVerifyToken } from "../../shared/auth";
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
@@ -20,13 +21,19 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 				username: string;
 				password: string;
 				name: string;
+				tenant?: string;
 			};
+			const effectiveTenant = bodyTyped.tenant || "default";
 
-			const existingUser = await findUserByUsername(bodyTyped.username);
+			if (!getTenant(effectiveTenant)) {
+				throw new BadRequestError(`Unknown tenant: ${effectiveTenant}`);
+			}
+
+			const existingUser = await findUserByUsername(bodyTyped.username, effectiveTenant);
 			if (existingUser) {
 				throw new BadRequestError("Username already exists");
 			}
-			const user = await createUser(bodyTyped);
+			const user = await createUser(bodyTyped, effectiveTenant);
 			return { message: "User registered successfully", userId: user.id };
 		},
 		{
@@ -34,15 +41,22 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 				username: t.String(),
 				password: t.String(),
 				name: t.String(),
+				tenant: t.Optional(t.String()),
 			}),
 		},
 	)
 	.post(
 		"/login",
 		async ({ body, jwt, refreshJwt, cookie, headers }) => {
-			const bodyTyped = body as { username: string; password: string };
+			const bodyTyped = body as { username: string; password: string; tenant?: string };
+			const effectiveTenant = bodyTyped.tenant || "default";
 
-			const user = await findUserByUsername(bodyTyped.username);
+			// Validate tenant exists before attempting DB connect
+			if (!getTenant(effectiveTenant)) {
+				throw new BadRequestError(`Unknown tenant: ${effectiveTenant}`);
+			}
+
+			const user = await findUserByUsername(bodyTyped.username, effectiveTenant);
 			if (!user) {
 				throw new UnauthorizedError("Invalid credentials");
 			}
@@ -54,11 +68,13 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 			const accessToken = await jwt.sign({
 				id: user.id,
 				username: user.username,
+				tenant: effectiveTenant,
 			});
 
 			const refreshToken = await refreshJwt.sign({
 				userId: user.id,
 				tokenId: Math.random().toString(36).substring(7),
+				tenant: effectiveTenant,
 			});
 
 			const isMobile = headers?.["x-client-type"] === "mobile";
@@ -71,6 +87,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 						id: user.id,
 						username: user.username,
 						name: user.name,
+						tenant: effectiveTenant,
 					},
 				};
 			}
@@ -101,6 +118,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 					id: user.id,
 					username: user.username,
 					name: user.name,
+					tenant: effectiveTenant,
 				},
 			};
 		},
@@ -108,6 +126,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 			body: t.Object({
 				username: t.String(),
 				password: t.String(),
+				tenant: t.Optional(t.String()),
 			}),
 		},
 	)
@@ -149,7 +168,8 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 		}
 
 		const userId = (decodedRefresh as any).userId;
-		const user = await findUserById(userId);
+		const tenant = (decodedRefresh as any).tenant ?? "default";
+		const user = await findUserById(userId, tenant);
 		if (!user) {
 			throw new UnauthorizedError("User not found");
 		}
@@ -157,11 +177,13 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 		const newAccessToken = await jwt.sign({
 			id: user.id,
 			username: user.username,
+			tenant,
 		});
 
 		const newRefreshToken = await refreshJwt.sign({
 			userId: user.id,
 			tokenId: Math.random().toString(36).substring(7),
+			tenant,
 		});
 
 		const isProd = process.env.NODE_ENV === "production";
@@ -194,11 +216,11 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 			throw new UnauthorizedError("Authentication required");
 		}
 
-		const userProfile = await findUserById(user.id);
+		const userProfile = await findUserById(user.id, user.tenant);
 		if (!userProfile) {
 			throw new UnauthorizedError("User not found");
 		}
 
 		const { password, ...userWithoutPassword } = userProfile;
-		return userWithoutPassword;
+		return { ...userWithoutPassword, tenant: user.tenant };
 	});

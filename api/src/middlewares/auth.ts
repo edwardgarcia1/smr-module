@@ -1,11 +1,13 @@
 import { Elysia } from "elysia";
 import { jwtMiddleware } from "./jwt";
 import { findUserById } from "../modules/users/user.service";
+import { getTenant } from "../config/tenants";
 
 export interface AuthUser {
 	id: number;
 	username: string;
 	name: string;
+	tenant: string;
 }
 
 declare module "elysia" {
@@ -50,7 +52,15 @@ export const authGuard = (app: Elysia) =>
 		try {
 			const decoded = await jwt.verify(token);
 			const userId = (decoded as any).id;
-			const user = await findUserById(userId);
+			const tenant = (decoded as any).tenant ?? "default";
+
+			// Reject tokens for tenants that no longer exist in config
+			if (!getTenant(tenant)) {
+				console.warn(`[Auth] Rejecting token for unknown tenant: ${tenant}`);
+				return { user: null };
+			}
+
+			const user = await findUserById(userId, tenant);
 
 			if (!user) {
 				return { user: null };
@@ -63,6 +73,7 @@ export const authGuard = (app: Elysia) =>
 					id: userWithoutPassword.id,
 					username: userWithoutPassword.username,
 					name: userWithoutPassword.name,
+					tenant,
 				},
 			};
 		} catch {

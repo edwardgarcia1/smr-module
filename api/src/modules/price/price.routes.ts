@@ -49,7 +49,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Prices");
 
-					return withCache(`${CACHE_PREFIX}class`, REF_CACHE_TTL, getDistinctPriceClasses);
+					return withCache(`${CACHE_PREFIX}class:${user.tenant}`, REF_CACHE_TTL, () => getDistinctPriceClasses(user.tenant));
 				},
 			),
 	)
@@ -68,7 +68,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Prices");
 
-					return toPlainJson(await getAllPriceClasses());
+					return toPlainJson(await getAllPriceClasses(user.tenant));
 				},
 			)
 
@@ -80,7 +80,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await createPriceClass(body, user.name));
+					return toPlainJson(await createPriceClass(body, user.name, user.tenant));
 				},
 				{
 					body: t.Object({
@@ -103,7 +103,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "update", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await updatePriceClass(id, body));
+					return toPlainJson(await updatePriceClass(id, body, user.tenant));
 				},
 				{
 					params: t.Object({
@@ -123,7 +123,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "delete", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deletePriceClass(id);
+					await deletePriceClass(id, user.tenant);
 					return { message: `PriceClass '${id}' deleted` };
 				},
 				{
@@ -142,7 +142,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Prices");
 
-					const price = await getItemPriceById(id);
+					const price = await getItemPriceById(id, user.tenant);
 					if (!price) throw new NotFoundError(`ItemPrice ${id} not found`);
 					return toPlainJson(price);
 				},
@@ -159,7 +159,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return toPlainJson(await createItemPrice({ ...body, encoded_by: user.name }));
+					return toPlainJson(await createItemPrice({ ...body, encoded_by: user.name }, user.tenant));
 				},
 				{
 					body: t.Object({
@@ -186,7 +186,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "update", "Prices");
 
 					// Fetch existing record to get inventory_id
-					const existing = await getItemPriceById(id);
+					const existing = await getItemPriceById(id, user.tenant);
 					if (!existing) throw new NotFoundError(`ItemPrice ${id} not found`);
 
 					// Expire old price — set valid_to to 1 second before current time
@@ -194,7 +194,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					const nowStr = now.toISOString().slice(0, 19).replace("T", " ");
 					const oneSecBefore = new Date(now.getTime() - 1000);
 					const oneSecBeforeStr = oneSecBefore.toISOString().slice(0, 19).replace("T", " ");
-					await expireItemPrice(id, oneSecBeforeStr);
+					await expireItemPrice(id, oneSecBeforeStr, user.tenant);
 
 					// Create new price entry with updated values
 					const newPrice = await createItemPrice({
@@ -204,7 +204,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 						price_class: body.price_class ?? existing.price_class,
 						valid_from: nowStr,
 						encoded_by: user.name,
-					});
+					}, user.tenant);
 
 					invalidateCachePrefix(CACHE_PREFIX);
 					return toPlainJson(newPrice);
@@ -227,7 +227,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "delete", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteItemPrice(id);
+					await deleteItemPrice(id, user.tenant);
 					return { message: `ItemPrice ${id} deleted` };
 				},
 				{
@@ -243,7 +243,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					checkPermission(ability, "create", "Prices");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return importItemPrices(body.items, user.name);
+					return importItemPrices(body.items, user.name, user.tenant);
 				},
 				{
 					body: t.Object({
@@ -270,7 +270,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Prices");
 
-					return batchConvertPrices(body.items);
+					return batchConvertPrices(body.items, user.tenant);
 				},
 				{
 					body: t.Object({
@@ -303,7 +303,7 @@ export const priceRoutes = new Elysia({ prefix: "/price" })
 					const classID = query.classID;
 
 					return toPlainJson(
-						await getPricesPaginated(page, limit, search, unit, classID),
+						await getPricesPaginated(page, limit, search, unit, classID, user.tenant),
 					);
 				},
 				{

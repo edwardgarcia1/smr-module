@@ -1,10 +1,11 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import type { Permission } from "./permission.schema";
 
 export const getPermissionsByUserId = async (
 	userId: number,
+	tenantKey = "default",
 ): Promise<Permission[]> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("userId", userId)
@@ -16,14 +17,15 @@ export const getPermissionsByUserId = async (
 export const setUserPermissions = async (
 	userId: number,
 	permissions: Array<{ subject: string; action: string }>,
+	tenantKey = "default",
 ): Promise<void> => {
 	if (permissions.length === 0) {
 		// No permissions to set — just delete existing
-		await deleteUserPermissions(userId);
+		await deleteUserPermissions(userId, tenantKey);
 		return;
 	}
 
-	await withDb(async (pool) => {
+	await withTenantDb(tenantKey, async (pool) => {
 		const transaction = pool.transaction();
 		await transaction.begin();
 
@@ -56,8 +58,11 @@ export const setUserPermissions = async (
 	});
 };
 
-export const deleteUserPermissions = async (userId: number): Promise<void> => {
-	await withDb((pool) =>
+export const deleteUserPermissions = async (
+	userId: number,
+	tenantKey: string = "default",
+): Promise<void> => {
+	await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("userId", userId)

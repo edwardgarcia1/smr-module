@@ -37,7 +37,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Principals");
 
-				return withCache(`${CACHE_PREFIX}ids`, REF_CACHE_TTL, getAllProductClasses);
+				return withCache(`${CACHE_PREFIX}ids:${user.tenant}`, REF_CACHE_TTL, () => getAllProductClasses(user.tenant));
 			})
 
 			// GET /principal/address — list all principal address (cached 5 min)
@@ -45,7 +45,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Principals");
 
-				return withCache(`${CACHE_PREFIX}address`, REF_CACHE_TTL, getAllVendors);
+				return withCache(`${CACHE_PREFIX}address:${user.tenant}`, REF_CACHE_TTL, () => getAllVendors(user.tenant));
 			})
 
 			// GET /principal — Principal IDs + Address on User5 = VendId (cached 5 min)
@@ -53,7 +53,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 								if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "Principals");
 
-				return withCache(`${CACHE_PREFIX}joined`, REF_CACHE_TTL, getProductClassesWithVendors);
+				return withCache(`${CACHE_PREFIX}joined:${user.tenant}`, REF_CACHE_TTL, () => getProductClassesWithVendors(user.tenant));
 			}),
 	)
 
@@ -69,7 +69,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Principals");
 
-					const pc = await getProductClassById(classId);
+					const pc = await getProductClassById(classId, user.tenant);
 					if (!pc) throw new NotFoundError(`ProductClass ${classId} not found`);
 					return pc;
 				},
@@ -86,7 +86,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "create", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createProductClass(body);
+					return createProductClass(body, user.tenant);
 				},
 				{
 					body: t.Object({
@@ -110,7 +110,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "update", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updateProductClass(classId, body);
+					return updateProductClass(classId, body, user.tenant);
 				},
 				{
 					params: t.Object({ classId: t.String() }),
@@ -129,7 +129,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "delete", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteProductClass(classId);
+					await deleteProductClass(classId, user.tenant);
 					return { message: `ProductClass ${classId} deleted` };
 				},
 				{
@@ -144,7 +144,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 										if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "Principals");
 
-					const vendor = await getVendorById(venId);
+					const vendor = await getVendorById(venId, user.tenant);
 					if (!vendor) throw new NotFoundError(`Vendor ${venId} not found`);
 					return vendor;
 				},
@@ -161,7 +161,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "create", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createVendor(body);
+					return createVendor(body, user.tenant);
 				},
 				{
 					body: t.Object({
@@ -182,7 +182,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "update", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updateVendor(venId, body);
+					return updateVendor(venId, body, user.tenant);
 				},
 				{
 					params: t.Object({ venId: t.String() }),
@@ -203,7 +203,7 @@ export const principalRoutes = new Elysia({ prefix: "/principal" })
 					checkPermission(ability, "delete", "Principals");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteVendor(venId);
+					await deleteVendor(venId, user.tenant);
 					return { message: `Vendor ${venId} deleted` };
 				},
 				{

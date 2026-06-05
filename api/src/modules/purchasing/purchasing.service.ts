@@ -1,4 +1,4 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError } from "../../middlewares/error";
 import {
@@ -63,11 +63,12 @@ function buildDateRangeClause(
 
 export async function getRequirements(
 	query: RequirementsQuery,
+	tenantKey = "default",
 ): Promise<RequirementItem[]> {
-	const { classID, siteID, dateRange, frequency, validDays, priceClass, demandMode } = query;
+	const { classID, siteID, dateRange, frequency, validDays, demandSource, priceClass, demandMode } = query;
 	const activePriceClass = priceClass ?? "CP1";
 
-	return withDb(async (pool) => {
+	return withTenantDb(tenantKey, async (pool) => {
 
 	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
 		buildSiteClause(
@@ -101,7 +102,7 @@ export async function getRequirements(
 			MAX(i.ClassID) AS ClassID,
 			sl.UnitDesc,
 			${periodSelect},
-			SUM(sl.QtyShip) AS TotalQtyShip
+			SUM(CASE WHEN @demandSource = 'ordered' THEN sl.QtyOrd ELSE sl.QtyShip END) AS TotalQtyShip
 		FROM dbo.SOShipLine AS sl
 		LEFT JOIN dbo.SOShipHeader AS sh
 			ON sl.ShipperID = sh.ShipperID
@@ -122,7 +123,7 @@ export async function getRequirements(
 		ORDER BY sl.InvtID
 	`;
 
-	const salesReq = pool.request().input("classID", classID);
+	const salesReq = pool.request().input("classID", classID).input("demandSource", demandSource ?? "shipped");
 	for (const [k, v] of Object.entries(siteParams)) salesReq.input(k, v);
 	for (const [k, v] of Object.entries(dateParams)) salesReq.input(k, v);
 
@@ -174,7 +175,7 @@ export async function getRequirements(
 	}
 
 	// ── Step 4: Bulk INUnit conversion cache ──────────────────────
-	const convCache = await buildConversionCache(invtIDs);
+	const convCache = await buildConversionCache(invtIDs, tenantKey);
 
 	// ── Step 5: Resolve min stock (coverage threshold) per item ──
 	const invtClassMap = new Map<string, string>();
@@ -187,7 +188,7 @@ export async function getRequirements(
 		invtID: id,
 		classID: invtClassMap.get(id) ?? "",
 	}));
-	const resolvedMinStocks = await resolveManyMinStock(minStockPairs);
+	const resolvedMinStocks = await resolveManyMinStock(minStockPairs, tenantKey);
 	const coverageMap = new Map<string, number>();
 	for (const r of resolvedMinStocks) {
 		coverageMap.set(r.invtID, r.minStock);

@@ -25,7 +25,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 	.get("/", async ({ ability, user }) => {
 		if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "PurchaseOrders");
-		return getAllPurchaseOrders();
+		return getAllPurchaseOrders(user.tenant);
 	})
 
 	/**
@@ -37,7 +37,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 		async ({ params: { principalId }, ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "PurchaseOrders");
-			return getPurchaseOrdersByPrincipal(principalId);
+			return getPurchaseOrdersByPrincipal(principalId, user.tenant);
 		},
 		{ params: t.Object({ principalId: t.String() }) },
 	)
@@ -50,7 +50,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 		async ({ params: { id }, ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "read", "PurchaseOrders");
-			return getPurchaseOrderById(id);
+			return getPurchaseOrderById(id, user.tenant);
 		},
 		{ params: t.Object({ id: t.Numeric() }) },
 	)
@@ -95,6 +95,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 					created_by: createdBy ?? "",
 				},
 				rows,
+				user.tenant,
 			);
 		},
 		{
@@ -126,7 +127,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 				throw new BadRequestError("rows must be a non-empty array");
 			}
 
-			return updatePurchaseOrderCsv(id, body.rows, user.name);
+			return updatePurchaseOrderCsv(id, body.rows, user.name, user.tenant);
 		},
 		{
 			params: t.Object({ id: t.Numeric() }),
@@ -153,7 +154,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 				);
 			}
 
-			return updatePoStatus(id, body.status, user.name);
+			return updatePoStatus(id, body.status, user.name, user.tenant);
 		},
 		{
 			params: t.Object({ id: t.Numeric() }),
@@ -171,7 +172,7 @@ export const purchaseOrderRoutes = new Elysia({ prefix: "/purchase-order" })
 		async ({ params: { id }, ability, user }) => {
 			if (!user) throw new UnauthorizedError("Authentication required");
 			checkPermission(ability, "delete", "PurchaseOrders");
-			await deletePurchaseOrder(id);
+			await deletePurchaseOrder(id, user.tenant);
 			return { message: `PurchaseOrder ${id} deleted` };
 		},
 		{ params: t.Object({ id: t.Numeric() }) },

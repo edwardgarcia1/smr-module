@@ -13,6 +13,12 @@ export interface BundlingQuery {
 	validDays?: number;
 	/** JSON string of per-month valid days: { "YYYY-MM": number } */
 	monthlyValidDays?: string;
+	/**
+	 * Demand data source:
+	 *   "shipped" — use SOShipLine.QtyShip (default)
+	 *   "ordered" — use SOShipLine.QtyOrd
+	 */
+	demandSource?: "shipped" | "ordered";
 }
 
 export interface DateRange {

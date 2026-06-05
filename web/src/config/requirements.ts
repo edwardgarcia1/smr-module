@@ -10,8 +10,10 @@ import type { Dayjs } from "dayjs";
 export type Mode = "purchasing" | "bundling";
 export type Frequency = "weekly" | "monthly";
 export type DemandMode = "average" | "highest";
+export type DemandSource = "shipped" | "ordered";
 
 export const DEMAND_MODES: DemandMode[] = ["average", "highest"];
+export const DEMAND_SOURCES: DemandSource[] = ["shipped", "ordered"];
 export const FREQUENCIES: Frequency[] = ["weekly", "monthly"];
 
 // ─── Data Types ───────────────────────────────────────────────────────────────
@@ -268,6 +270,7 @@ export interface PersistedFormState {
 	selectedStorage: StorageLocation[];
 	frequency: Frequency;
 	demandMode: DemandMode;
+	demandSource?: DemandSource;
 	dateRange: { from: string | null; to: string | null };
 }
 

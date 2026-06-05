@@ -1,7 +1,7 @@
 // ─── INUnit Conversion Cache ───────────────────────────────────────────
 // Shared between purchasing and bundling modules.
 
-import { withDb } from "../config/db";
+import { withTenantDb } from "../config/with-tenant-db";
 import { trimStrings } from "./trimStrings";
 
 interface UnitConvRow {
@@ -17,11 +17,12 @@ interface UnitConvRow {
  */
 export async function buildConversionCache(
 	invtIDs: string[],
+	tenantKey = "default",
 ): Promise<Map<string, number>> {
 	const cache = new Map<string, number>();
 	if (invtIDs.length === 0) return cache;
 
-	const result = await withDb(async (pool) => {
+	const result = await withTenantDb(tenantKey, async (pool) => {
 		const placeholders = invtIDs.map((_, i) => `@invt${i}`);
 		const sql = `
 			SELECT InvtId, FromUnit, ToUnit, CnvFact

@@ -35,7 +35,7 @@ async function resolveTargetUser(
 		throw new BadRequestError("Invalid user ID");
 	}
 
-	const targetUser = await findUserById(targetId);
+	const targetUser = await findUserById(targetId, user.tenant);
 	if (!targetUser) {
 		throw new NotFoundError(`User ${id} not found`);
 	}
@@ -54,7 +54,7 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		// CASL RBAC check
 		checkPermission(ability, "read", "Users");
 
-		const users = await getAllUsers();
+		const users = await getAllUsers(user.tenant);
 		return users.map(({ password, ...rest }) => rest);
 	})
 	.get("/profile", async ({ user }) => {
@@ -63,7 +63,7 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 			throw new UnauthorizedError("Authentication required");
 		}
 
-		const userProfile = await findUserById(user.id);
+		const userProfile = await findUserById(user.id, user.tenant);
 		if (!userProfile) {
 			throw new NotFoundError("User not found");
 		}
@@ -90,12 +90,12 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 				checkPermission(ability, "manage", "Users");
 			}
 
-			const targetUser = await findUserById(targetId);
+			const targetUser = await findUserById(targetId, user.tenant);
 			if (!targetUser) {
 				throw new NotFoundError(`User ${id} not found`);
 			}
 
-			return getPermissionsByUserId(targetId);
+			return getPermissionsByUserId(targetId, user.tenant);
 		},
 		{
 			params: t.Object({ id: t.String() }),
@@ -108,7 +108,7 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		async ({ params: { id }, body, ability, user }) => {
 			const targetId = await resolveTargetUser(user, ability, id);
 
-			await setUserPermissions(targetId, body);
+			await setUserPermissions(targetId, body, user!.tenant);
 			return { message: "Permissions updated successfully" };
 		},
 		{
@@ -127,7 +127,7 @@ export const userRoutes = new Elysia({ prefix: "/users" })
 		"/:id/permissions",
 		async ({ params: { id }, ability, user }) => {
 			const targetId = await resolveTargetUser(user, ability, id);
-			await deleteUserPermissions(targetId);
+			await deleteUserPermissions(targetId, user!.tenant);
 			return { message: "Permissions cleared successfully" };
 		},
 		{

@@ -16,10 +16,10 @@ export interface RegisterResponse {
  * Pages should use this instead of calling api.apiRequest directly.
  */
 export const authService = {
-	login: (username: string, password: string) =>
+	login: (username: string, password: string, tenant?: string) =>
 		api.apiRequest<LoginResponse>("/auth/login", {
 			method: "POST",
-			body: { username, password },
+			body: { username, password, ...(tenant ? { tenant } : {}) },
 		}),
 
 	register: (username: string, password: string, name: string, signal?: AbortSignal) =>

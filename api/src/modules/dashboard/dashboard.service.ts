@@ -1,12 +1,10 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { trimStrings } from "../../utils/trimStrings";
 import { withCache } from "../../utils/cache";
 import type { DashboardSummary, ItemsPerPrincipal } from "./dashboard.schema";
 
 /** Cache TTL for dashboard summary: 30 seconds (near-real-time) */
 const DASHBOARD_CACHE_TTL = 30_000;
-const CACHE_KEY = "dashboard:summary";
-
 /**
  * Build a lightweight dashboard summary.
  *
@@ -14,8 +12,8 @@ const CACHE_KEY = "dashboard:summary";
  * No sales-history joins or heavy computations.
  * Result is cached for 30 seconds to reduce DB load.
  */
-export async function getDashboardSummary(): Promise<DashboardSummary> {
-	return withCache(CACHE_KEY, DASHBOARD_CACHE_TTL, async () => {
+export async function getDashboardSummary(tenantKey = "default"): Promise<DashboardSummary> {
+	return withCache(`dashboard:summary:${tenantKey}`, DASHBOARD_CACHE_TTL, async () => {
 		const [
 			itemsCountResult,
 			principalsCountResult,
@@ -26,17 +24,17 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 			settingDistributionResult,
 		] = await Promise.all([
 			// 1. Total inventory items
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query("SELECT COUNT(*) AS [count] FROM Inventory"),
 			),
 
 			// 2. Total product classes (principals)
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query("SELECT COUNT(*) AS [count] FROM ProductClass"),
 			),
 
 			// 3. Items without a current price (valid_to IS NULL means currently active)
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query(`
 				SELECT COUNT(DISTINCT i.InvtID) AS [count]
 				FROM Inventory i
@@ -47,7 +45,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 			),
 
 			// 4-6. ItemSite: merged into one query (zero avail, PO qty, total cost)
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query(`
 				SELECT
 					COUNT(CASE WHEN QtyAvail <= 0 THEN 1 END) AS zeroAvail,
@@ -58,12 +56,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 			),
 
 			// 7. Total registered users
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query("SELECT COUNT(*) AS [count] FROM SMR_Users"),
 			),
 
 			// 8. Items grouped by principal (ClassID), with principal description
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query(`
 				SELECT
 					ISNULL(i.ClassID, '') AS classID,
@@ -77,7 +75,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 			),
 
 			// 9. Min-stock setting distribution
-			withDb((pool) =>
+			withTenantDb(tenantKey, (pool) =>
 				pool.request().query(`
 				SELECT min_stock_setting, COUNT(*) AS [count]
 				FROM SMR_MinStockSetting

@@ -78,6 +78,10 @@ export const bundlingRoutes = new Elysia({ prefix: "/bundling" })
 				? String(query.monthlyValidDays)
 				: undefined;
 
+			const demandSource = query.demandSource !== undefined
+				? (query.demandSource as "shipped" | "ordered")
+				: undefined;
+
 			return getBundlingRequirements({
 				classID: query.classID,
 				siteID: siteIDs,
@@ -85,7 +89,8 @@ export const bundlingRoutes = new Elysia({ prefix: "/bundling" })
 				frequency: query.frequency as "weekly" | "monthly",
 				validDays,
 				monthlyValidDays,
-			});
+				demandSource,
+			}, user.tenant);
 		},
 		{
 			query: t.Object({
@@ -97,6 +102,7 @@ export const bundlingRoutes = new Elysia({ prefix: "/bundling" })
 				frequency: t.String(),
 				validDays: t.Optional(t.String()),
 				monthlyValidDays: t.Optional(t.String()),
+				demandSource: t.Optional(t.String()),
 			}),
 		},
 	);

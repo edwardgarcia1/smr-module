@@ -31,7 +31,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 				if (!user) throw new UnauthorizedError("Authentication required");
 				checkPermission(ability, "read", "InventoryItems");
 
-				return withCache(`${CACHE_PREFIX}all`, REF_CACHE_TTL, getAllSites);
+				return withCache(`${CACHE_PREFIX}all:${user.tenant}`, REF_CACHE_TTL, () => getAllSites(user.tenant));
 			}),
 	)
 
@@ -47,7 +47,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 					if (!user) throw new UnauthorizedError("Authentication required");
 					checkPermission(ability, "read", "InventoryItems");
 
-					const site = await getSiteById(siteId);
+					const site = await getSiteById(siteId, user.tenant);
 					if (!site) throw new NotFoundError(`Site ${siteId} not found`);
 					return site;
 				},
@@ -64,7 +64,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 					checkPermission(ability, "create", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return createSite(body);
+					return createSite(body, user.tenant);
 				},
 				{
 					body: t.Object({
@@ -82,7 +82,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 					checkPermission(ability, "update", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					return updateSite(siteId, body);
+					return updateSite(siteId, body, user.tenant);
 				},
 				{
 					params: t.Object({ siteId: t.String() }),
@@ -100,7 +100,7 @@ export const inventoryRoutes = new Elysia({ prefix: "/inventory" })
 					checkPermission(ability, "delete", "InventoryItems");
 
 					invalidateCachePrefix(CACHE_PREFIX);
-					await deleteSite(siteId);
+					await deleteSite(siteId, user.tenant);
 					return { message: `Site ${siteId} deleted` };
 				},
 				{

@@ -27,5 +27,5 @@ export const lookupsRoutes = new Elysia({ prefix: "/lookups" })
 			if (!user) throw new UnauthorizedError("Authentication required");
 		checkPermission(ability, "read", "Settings");
 
-		return getLookups();
+		return getLookups(user.tenant);
 	});

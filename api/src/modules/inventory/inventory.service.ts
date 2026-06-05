@@ -1,10 +1,10 @@
-import { withDb } from "../../config/db";
+import { withTenantDb } from "../../config/with-tenant-db";
 import { BadRequestError, NotFoundError } from "../../middlewares/error";
 import { trimStrings } from "../../utils/trimStrings";
 import type { Site, NewSite, SiteUpdate } from "./inventory.schema";
 
-export const createSite = async (site: NewSite): Promise<Site> => {
-	const result = await withDb((pool) =>
+export const createSite = async (site: NewSite, tenantKey = "default"): Promise<Site> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("SiteId", site.SiteId)
@@ -24,8 +24,9 @@ export const createSite = async (site: NewSite): Promise<Site> => {
 
 export const getSiteById = async (
 	siteId: string,
+	tenantKey = "default",
 ): Promise<Site | undefined> => {
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("SiteId", siteId)
@@ -35,8 +36,8 @@ export const getSiteById = async (
 	return trimStrings(result.recordset[0] as Site | undefined);
 };
 
-export const getAllSites = async (): Promise<Site[]> => {
-	const result = await withDb((pool) =>
+export const getAllSites = async (tenantKey = "default"): Promise<Site[]> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool.request().query("SELECT SiteId, Name FROM Site"),
 	);
 	return trimStrings(result.recordset as Site[]);
@@ -45,12 +46,13 @@ export const getAllSites = async (): Promise<Site[]> => {
 export const updateSite = async (
 	siteId: string,
 	updates: SiteUpdate,
+	tenantKey = "default",
 ): Promise<Site> => {
 	if (!updates.Name) {
 		throw new BadRequestError("Name is required for update");
 	}
 
-	const result = await withDb((pool) =>
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("SiteId", siteId)
@@ -69,8 +71,8 @@ export const updateSite = async (
 	return trimStrings(result.recordset[0] as Site);
 };
 
-export const deleteSite = async (siteId: string): Promise<void> => {
-	const result = await withDb((pool) =>
+export const deleteSite = async (siteId: string, tenantKey = "default"): Promise<void> => {
+	const result = await withTenantDb(tenantKey, (pool) =>
 		pool
 			.request()
 			.input("SiteId", siteId)

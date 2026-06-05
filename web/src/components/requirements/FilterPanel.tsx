@@ -26,7 +26,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
-import type { Mode, Frequency, DemandMode, Principal, StorageLocation } from "../../config/requirements";
+import type { Mode, Frequency, DemandMode, DemandSource, Principal, StorageLocation } from "../../config/requirements";
 import type { DateRangeItem } from "../../config/requirements";
 
 interface FilterPanelProps {
@@ -42,6 +42,8 @@ interface FilterPanelProps {
 	onFrequencyChange: (freq: Frequency) => void;
 	demandMode: DemandMode;
 	onDemandModeChange: (mode: DemandMode) => void;
+	demandSource: DemandSource;
+	onDemandSourceChange: (source: DemandSource) => void;
 	dateRange: DateRangeItem;
 	onDateRangeChange: (field: "from" | "to", value: dayjs.Dayjs | null) => void;
 	monthlyValidDays: Record<string, number>;
@@ -66,6 +68,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 	onFrequencyChange,
 	demandMode,
 	onDemandModeChange,
+	demandSource,
+	onDemandSourceChange,
 	dateRange,
 	onDateRangeChange,
 	monthlyValidDays,
@@ -181,7 +185,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 							</FormControl>
 						</Grid>
 
-						{/* Row 2: Date Range | Demand Mode */}
+						{/* Row 2: Date Range | Demand Mode | Demand Source */}
 						<Grid size={{ xs: 12, md: 6 }}>
 							<FormControl fullWidth>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
@@ -225,7 +229,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 								</LocalizationProvider>
 							</FormControl>
 						</Grid>
-						<Grid size={{ xs: 12, md: 6 }}>
+						<Grid size={{ xs: 6, md: 3 }}>
 							<FormControl>
 								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
 									Demand Mode
@@ -249,7 +253,36 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 										value="highest"
 										sx={{ textTransform: "none", fontWeight: 600, px: 1.5, fontSize: "0.75rem" }}
 									>
-										Highest Demand
+										Highest
+									</ToggleButton>
+								</ToggleButtonGroup>
+							</FormControl>
+						</Grid>
+						<Grid size={{ xs: 6, md: 3 }}>
+							<FormControl>
+								<FormLabel sx={{ fontWeight: 500, mb: 0.5 }}>
+									Demand Source
+								</FormLabel>
+								<ToggleButtonGroup
+									value={demandSource}
+									exclusive
+									onChange={(_, newSource) => {
+										if (newSource !== null) onDemandSourceChange(newSource);
+									}}
+									size="small"
+									color="primary"
+								>
+									<ToggleButton
+										value="shipped"
+										sx={{ textTransform: "none", fontWeight: 600, px: 1.5, fontSize: "0.75rem" }}
+									>
+										Shipped
+									</ToggleButton>
+									<ToggleButton
+										value="ordered"
+										sx={{ textTransform: "none", fontWeight: 600, px: 1.5, fontSize: "0.75rem" }}
+									>
+										Ordered
 									</ToggleButton>
 								</ToggleButtonGroup>
 							</FormControl>
