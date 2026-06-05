@@ -1,8 +1,11 @@
 /**
  * ItemsTab — Per-item min stock table with dialog-based editing for
  * both the setting type and the min stock value.
+ *
+ * State management, search filtering, and pagination are delegated to
+ * the shared useMinStockTab hook.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
 	Box,
 	Typography,
@@ -39,16 +42,10 @@ import {
 	SETTING_OPTIONS,
 	SETTING_COLORS,
 } from "../../config/minStock";
+import { useMinStockTab } from "../../hooks/useMinStockTab";
 
 const ItemsTab: React.FC = () => {
-	const [rows, setRows] = useState<ItemWithMinStockDetails[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [page, setPage] = useState(0);
-	const [rowsPerPage, setRowsPerPage] = useState(10);
-
-	// Dialog state
+	// Dialog state (tab-specific)
 	const [dialogRow, setDialogRow] =
 		useState<ItemWithMinStockDetails | null>(null);
 	const [dialogSetting, setDialogSetting] = useState<ItemSetting>("Default");
@@ -56,65 +53,49 @@ const ItemsTab: React.FC = () => {
 	const [saving, setSaving] = useState(false);
 	const [dialogError, setDialogError] = useState<string | null>(null);
 
-	// Filter state
+	// Filter state (tab-specific)
 	const [settingFilter, setSettingFilter] = useState<ItemSetting[]>([]);
 	const [classIdFilter, setClassIdFilter] = useState<string[]>([]);
+
+	// Shared state & logic via hook
+	const filterFn = useCallback(
+		(row: ItemWithMinStockDetails) => {
+			if (settingFilter.length > 0 && !settingFilter.includes(row.setting))
+				return false;
+			if (classIdFilter.length > 0 && !classIdFilter.includes(row.ClassID))
+				return false;
+			return true;
+		},
+		[settingFilter, classIdFilter],
+	);
+
+	const {
+		rows,
+		loading,
+		error,
+		setError,
+		searchQuery,
+		page,
+		setPage,
+		rowsPerPage,
+		setRowsPerPage,
+		filteredRows,
+		paginatedRows,
+		fetchData,
+		handleSearchChange,
+	} = useMinStockTab<ItemWithMinStockDetails>({
+		url: "/min-stock/items-details",
+		searchFields: ["InvtID", "ClassID", "Descr"],
+		sortField: "InvtID",
+		filterFn,
+	});
+
 	const classIdOptions = useMemo(
 		() => [...new Set(rows.map((r) => r.ClassID))].sort(),
 		[rows],
 	);
 	const hasActiveFilters =
 		settingFilter.length > 0 || classIdFilter.length > 0;
-
-	const fetchData = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const data = await apiRequest<ItemWithMinStockDetails[]>(
-				"/min-stock/items-details",
-			);
-			data.sort((a, b) => a.InvtID.localeCompare(b.InvtID));
-			setRows(data);
-		} catch (err: unknown) {
-			setError(
-				err instanceof Error ? err.message : "Failed to fetch items",
-			);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
-
-	const filteredRows = useMemo(() => {
-		return rows.filter((r) => {
-			if (searchQuery.trim()) {
-				const q = searchQuery.toLowerCase().trim();
-				if (
-					!r.InvtID.toLowerCase().includes(q) &&
-					!r.ClassID.toLowerCase().includes(q) &&
-					!r.Descr.toLowerCase().includes(q)
-				)
-					return false;
-			}
-			if (settingFilter.length > 0 && !settingFilter.includes(r.setting))
-				return false;
-			if (classIdFilter.length > 0 && !classIdFilter.includes(r.ClassID))
-				return false;
-			return true;
-		});
-	}, [rows, searchQuery, settingFilter, classIdFilter]);
-
-	const paginatedRows = useMemo(
-		() =>
-			filteredRows.slice(
-				page * rowsPerPage,
-				page * rowsPerPage + rowsPerPage,
-			),
-		[filteredRows, page, rowsPerPage],
-	);
 
 	// ── Dialog handlers ───────────────────────────────────────────
 	const handleEditOpen = (row: ItemWithMinStockDetails) => {
@@ -156,19 +137,12 @@ const ItemsTab: React.FC = () => {
 						},
 					);
 				} else {
-					const created = await apiRequest<{ id: number }>(
+					await apiRequest<{ id: number }>(
 						"/min-stock/items",
 						{
 							method: "POST",
 							body: { inventory_id: InvtID, min_stock: val },
 						},
-					);
-					setRows((prev) =>
-						prev.map((r) =>
-							r.InvtID === InvtID
-								? { ...r, minStockItemId: created.id }
-								: r,
-						),
 					);
 				}
 			}
@@ -217,10 +191,7 @@ const ItemsTab: React.FC = () => {
 						size="small"
 						placeholder="Search inventory ID, class ID, or description..."
 						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setPage(0);
-						}}
+						onChange={(e) => handleSearchChange(e.target.value)}
 						slotProps={{
 							input: {
 								startAdornment: (
@@ -324,8 +295,7 @@ const ItemsTab: React.FC = () => {
 							onClick={() => {
 								setSettingFilter([]);
 								setClassIdFilter([]);
-								setSearchQuery("");
-								setPage(0);
+								handleSearchChange("");
 							}}
 							sx={{ borderRadius: 2 }}
 							title="Clear all filters"

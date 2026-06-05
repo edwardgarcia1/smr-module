@@ -1,7 +1,10 @@
 /**
  * PrincipalsTab — Min stock principals table with inline editing.
+ *
+ * State management, search filtering, and pagination are delegated to
+ * the shared useMinStockTab hook.
  */
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState } from "react";
 import {
 	Box,
 	Typography,
@@ -22,60 +25,35 @@ import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import apiRequest from "../../services/api";
 import type { PrincipalWithMinStockDetails } from "../../config/minStock";
+import { useMinStockTab } from "../../hooks/useMinStockTab";
 import InlineEditCell from "./InlineEditCell";
 
 const PrincipalsTab: React.FC = () => {
-	const [rows, setRows] = useState<PrincipalWithMinStockDetails[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [searchQuery, setSearchQuery] = useState("");
-	const [page, setPage] = useState(0);
-	const [rowsPerPage, setRowsPerPage] = useState(10);
-
+	// Inline editing state (tab-specific)
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [editValue, setEditValue] = useState("");
 	const [saving, setSaving] = useState(false);
 
-	const fetchData = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const data = await apiRequest<PrincipalWithMinStockDetails[]>(
-				"/min-stock/principals-details",
-			);
-			data.sort((a, b) => a.ClassID.localeCompare(b.ClassID));
-			setRows(data);
-		} catch (err: unknown) {
-			setError(
-				err instanceof Error ? err.message : "Failed to fetch principals",
-			);
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
-
-	const filteredRows = useMemo(() => {
-		if (!searchQuery.trim()) return rows;
-		const q = searchQuery.toLowerCase().trim();
-		return rows.filter(
-			(r) =>
-				r.ClassID.toLowerCase().includes(q) ||
-				r.Descr.toLowerCase().includes(q),
-		);
-	}, [rows, searchQuery]);
-
-	const paginatedRows = useMemo(
-		() =>
-			filteredRows.slice(
-				page * rowsPerPage,
-				page * rowsPerPage + rowsPerPage,
-			),
-		[filteredRows, page, rowsPerPage],
-	);
+	// Shared state & logic via hook
+	const {
+		rows,
+		setRows,
+		loading,
+		error,
+		setError,
+		searchQuery,
+		page,
+		setPage,
+		rowsPerPage,
+		setRowsPerPage,
+		filteredRows,
+		paginatedRows,
+		handleSearchChange,
+	} = useMinStockTab<PrincipalWithMinStockDetails>({
+		url: "/min-stock/principals-details",
+		searchFields: ["ClassID", "Descr"],
+		sortField: "ClassID",
+	});
 
 	const handleEditOpen = (row: PrincipalWithMinStockDetails) => {
 		setEditingId(row.ClassID);
@@ -161,10 +139,7 @@ const PrincipalsTab: React.FC = () => {
 						size="small"
 						placeholder="Search class ID or description..."
 						value={searchQuery}
-						onChange={(e) => {
-							setSearchQuery(e.target.value);
-							setPage(0);
-						}}
+						onChange={(e) => handleSearchChange(e.target.value)}
 						slotProps={{
 							input: {
 								startAdornment: (
