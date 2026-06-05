@@ -4,7 +4,7 @@ import {
 	SUBJECT_ALIASES,
 	type Subject,
 	type Actions,
-} from "../../../shared/permissions";
+} from "../shared/permissions";
 import { type AuthUser } from "./auth";
 import { ForbiddenError } from "./error";
 import { getPermissionsByUserId } from "../modules/users/permission.service";

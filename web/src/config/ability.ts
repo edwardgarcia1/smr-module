@@ -1,11 +1,11 @@
 import { AbilityBuilder, PureAbility } from '@casl/ability';
-import { ALL_SUBJECTS, SUBJECT_ALIASES } from '../../../shared/permissions';
+import { ALL_SUBJECTS, SUBJECT_ALIASES } from './permissions';
 
 export type AppAbility = PureAbility;
 
 /**
- * Re-exported from shared/permissions for backward compatibility.
- * @deprecated Import ALL_SUBJECTS directly from shared/permissions.
+ * Re-exported from permissions for backward compatibility.
+ * @deprecated Import ALL_SUBJECTS directly from permissions.
  */
 export const ALL_MODULES = ALL_SUBJECTS;
 
