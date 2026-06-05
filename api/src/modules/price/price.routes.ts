@@ -7,8 +7,6 @@ import {
 	importItemPrices,
 	createPriceClass,
 	getAllPriceClasses,
-	getCurrentPriceClasses,
-	getPriceClassById,
 	getDistinctPriceClasses,
 	updatePriceClass,
 	deletePriceClass,

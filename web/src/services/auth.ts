@@ -1,12 +1,12 @@
 import { api } from "./api";
 import type { User } from "../store/useAuthStore";
 
-export interface LoginResponse {
+interface LoginResponse {
 	user: User;
 	message: string;
 }
 
-export interface RegisterResponse {
+interface RegisterResponse {
 	message: string;
 	userId: string;
 }

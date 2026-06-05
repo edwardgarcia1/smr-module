@@ -9,7 +9,7 @@ export interface Permission {
 	action: PermissionAction;
 }
 
-export type NewPermission = Omit<Permission, "id">;
+type NewPermission = Omit<Permission, "id">;
 
 /** MSSQL 2008 compatible DDL for SMR_Permissions table */
 export const CREATE_PERMISSIONS_TABLE_SQL = `

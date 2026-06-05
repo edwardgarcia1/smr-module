@@ -1,12 +1,12 @@
 import { jwt } from "@elysiajs/jwt";
 import { Elysia } from "elysia";
 
-export interface DecodedToken {
+interface DecodedToken {
   id: number;
   username: string;
 }
 
-export interface RefreshTokenPayload {
+interface RefreshTokenPayload {
   userId: number;
   tokenId: string;
 }

@@ -10,6 +10,12 @@ interface RequestOptions extends Omit<RequestInit, "body" | "method"> {
 	isRefresh?: boolean;
 }
 
+// Session expiry callback — avoids circular dep with useAuthStore
+let _sessionExpiredHandler: (() => void) | null = null;
+export function setSessionExpiredHandler(handler: () => void): void {
+	_sessionExpiredHandler = handler;
+}
+
 // Shared pending refresh promise — deduplicates concurrent 401 refresh attempts
 let refreshPromise: Promise<void> | null = null;
 
@@ -59,8 +65,7 @@ const apiRequest = async <T>(
 			response = await fetch(url, config);
 		} catch {
 			// Refresh failed — clear user state so ProtectedRoute redirects to /login
-			const { useAuthStore } = await import("../store/useAuthStore");
-			useAuthStore.getState().logout();
+			_sessionExpiredHandler?.();
 			throw new Error("Session expired. Please login again.");
 		}
 	}

@@ -43,7 +43,7 @@ export async function withCache<T>(
 /**
  * Invalidate a specific cache entry.
  */
-export function invalidateCache(key: string): void {
+function invalidateCache(key: string): void {
 	store.delete(key);
 }
 
@@ -66,7 +66,7 @@ export function invalidateCachePrefix(prefix: string): void {
  *
  * @returns true if an unexpired entry exists for the given key
  */
-export function isCached(key: string): boolean {
+function isCached(key: string): boolean {
 	const entry = store.get(key);
 	return entry !== undefined && entry.expiresAt > Date.now();
 }
@@ -76,7 +76,7 @@ export function isCached(key: string): boolean {
  *
  * @example isCachedPrefix("inventory:") // checks inventory:all, etc.
  */
-export function isCachedPrefix(prefix: string): boolean {
+function isCachedPrefix(prefix: string): boolean {
 	for (const [key, entry] of store) {
 		if (key.startsWith(prefix) && entry.expiresAt > Date.now()) {
 			return true;
@@ -88,6 +88,6 @@ export function isCachedPrefix(prefix: string): boolean {
 /**
  * Clear the entire cache. Useful in testing or admin reset.
  */
-export function clearAllCache(): void {
+function clearAllCache(): void {
 	store.clear();
 }

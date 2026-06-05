@@ -45,7 +45,7 @@ export interface ProductClassWithVendor extends ProductClass {
 }
 
 /** MSSQL 2008 compatible DDL for ProductClass table */
-export const CREATE_PRODUCTCLASS_TABLE_SQL = `
+const CREATE_PRODUCTCLASS_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ProductClass' AND xtype='U')
 BEGIN
   CREATE TABLE ProductClass (
@@ -58,7 +58,7 @@ END
 `;
 
 /** MSSQL 2008 compatible DDL for Vendor table */
-export const CREATE_VENDOR_TABLE_SQL = `
+const CREATE_VENDOR_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Vendor' AND xtype='U')
 BEGIN
   CREATE TABLE Vendor (

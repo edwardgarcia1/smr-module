@@ -104,7 +104,7 @@ export interface InventoryWithComponentsAndItemSites extends Inventory {
 }
 
 /** MSSQL 2008 compatible DDL for Inventory table */
-export const CREATE_INVENTORY_TABLE_SQL = `
+const CREATE_INVENTORY_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Inventory' AND xtype='U')
 BEGIN
   CREATE TABLE Inventory (
@@ -119,7 +119,7 @@ END
 `;
 
 /** MSSQL 2008 compatible DDL for ItemSite table */
-export const CREATE_ITEMSITE_TABLE_SQL = `
+const CREATE_ITEMSITE_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ItemSite' AND xtype='U')
 BEGIN
   CREATE TABLE ItemSite (
@@ -141,7 +141,7 @@ END
 `;
 
 /** MSSQL 2008 compatible DDL for Component table */
-export const CREATE_COMPONENT_TABLE_SQL = `
+const CREATE_COMPONENT_TABLE_SQL = `
 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Component' AND xtype='U')
 BEGIN
   CREATE TABLE Component (

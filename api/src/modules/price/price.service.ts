@@ -147,7 +147,7 @@ export const getItemPriceById = async (
 	} as unknown as ItemPrice;
 };
 
-export const getItemPricesByInventoryId = async (
+const getItemPricesByInventoryId = async (
 	inventoryId: string,
 	tenantKey = "default",
 ): Promise<ItemPrice[]> => {
@@ -169,7 +169,7 @@ export const getItemPricesByInventoryId = async (
 	})) as unknown as ItemPrice[];
 };
 
-export const updateItemPrice = async (
+const updateItemPrice = async (
 	id: number,
 	updates: ItemPriceUpdate,
 	tenantKey = "default",
@@ -297,13 +297,13 @@ export const getAllPriceClasses = async (tenantKey = "default"): Promise<PriceCl
 };
 
 /** Legacy alias — returns all price classes */
-export const getPriceClasses = getAllPriceClasses;
+const getPriceClasses = getAllPriceClasses;
 
 /** Legacy alias — returns all price classes (no distinction between current/history anymore) */
-export const getCurrentPriceClasses = getAllPriceClasses;
+const getCurrentPriceClasses = getAllPriceClasses;
 
 /** Returns the price class for a specific id */
-export const getPriceClassById = async (
+const getPriceClassById = async (
 	id: string,
 	tenantKey = "default",
 ): Promise<PriceClass | undefined> => {
@@ -819,25 +819,25 @@ export const getDistinctCatalogNbr = async (tenantKey = "default"): Promise<stri
 };
 
 /** @deprecated Use createItemPrice instead */
-export const createItemCost = createItemPrice;
+const createItemCost = createItemPrice;
 
 /** @deprecated Use getItemPriceById instead */
-export const getItemCostById = getItemPriceById;
+const getItemCostById = getItemPriceById;
 
 /** @deprecated Use getItemPricesByInventoryId instead */
-export const getItemCostsByInventoryId = getItemPricesByInventoryId;
+const getItemCostsByInventoryId = getItemPricesByInventoryId;
 
 /** @deprecated Use updateItemPrice instead */
-export const updateItemCost = updateItemPrice;
+const updateItemCost = updateItemPrice;
 
 /** @deprecated Use deleteItemPrice instead */
-export const deleteItemCost = deleteItemPrice;
+const deleteItemCost = deleteItemPrice;
 
 /** @deprecated Use expireItemPrice instead */
-export const expireItemCost = expireItemPrice;
+const expireItemCost = expireItemPrice;
 
 /** @deprecated Use importItemPrices instead */
-export const importItemCosts = importItemPrices;
+const importItemCosts = importItemPrices;
 
 /** @deprecated Use getPriceClassById instead */
-export const getPriceClassHistory = getPriceClassById;
+const getPriceClassHistory = getPriceClassById;

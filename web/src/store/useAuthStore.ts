@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authService } from "../services/auth";
+import { setSessionExpiredHandler } from "../services/api";
 
 export interface User {
 	id: string;
@@ -8,7 +9,7 @@ export interface User {
 	tenant?: string;
 }
 
-export interface TenantOption {
+interface TenantOption {
 	key: string;
 	displayName: string;
 }
@@ -75,3 +76,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 		set({ availableTenants: tenants });
 	},
 }));
+
+// Register session expiry handler — breaks circular dep: api → store → auth → api
+setSessionExpiredHandler(() => useAuthStore.getState().logout());

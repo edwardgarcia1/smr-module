@@ -131,7 +131,7 @@ export interface PaginatedResponse<T> {
 }
 
 /** Query params accepted by GET /price */
-export interface PriceQuery {
+interface PriceQuery {
 	page: number;
 	limit: number;
 	search?: string;
@@ -177,13 +177,11 @@ export interface ConvertBatchResult {
 
 // ─── Backward-compat aliases ──────────────────────────────────────────
 
-export type { Inventory };
-
 /** @deprecated Use ItemPrice instead */
-export type ItemCost = ItemPrice;
+type ItemCost = ItemPrice;
 
 /** @deprecated Use NewItemPrice instead */
-export type NewItemCost = NewItemPrice;
+type NewItemCost = NewItemPrice;
 
 // ─── DDL ──────────────────────────────────────────────────────────────
 
@@ -210,7 +208,7 @@ END
 `;
 
 /** @deprecated Use CREATE_ITEMPRICE_TABLE_SQL instead */
-export const CREATE_ITEMCOST_TABLE_SQL = CREATE_ITEMPRICE_TABLE_SQL;
+const CREATE_ITEMCOST_TABLE_SQL = CREATE_ITEMPRICE_TABLE_SQL;
 
 /** MSSQL 2008 compatible DDL for SMR_PriceClass table (simplified lookup) */
 export const CREATE_PRICECLASS_TABLE_SQL = `

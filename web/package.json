@@ -11,6 +11,7 @@
 		"typecheck": "bun x tsc --noEmit"
 	},
 	"dependencies": {
+		"@casl/ability": "^6.7.2",
 		"@casl/react": "^6.0.0",
 		"@emotion/react": "^11.14.0",
 		"@emotion/styled": "^11.14.1",
@@ -25,6 +26,7 @@
 		"react-dom": "^19.2.4",
 		"react-router-dom": "^7.14.1",
 		"@cj-tech-master/excelts": "^9.5.8",
+		"xlsx": "^0.18.5",
 		"zustand": "^5.0.12"
 	},
 	"devDependencies": {

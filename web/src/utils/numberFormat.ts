@@ -19,7 +19,7 @@ function createFormatter(minFraction: number, maxFraction: number, fallback = "â
 export const fmt2 = createFormatter(2, 2);
 
 /** 4 decimal places, "â€”" for null/undefined */
-export const fmt4 = createFormatter(4, 4);
+const fmt4 = createFormatter(4, 4);
 
 /** 0 decimal places, "" for null/undefined */
 export const fmt0: Formatter = (value?: number | null) =>

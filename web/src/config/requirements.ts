@@ -13,7 +13,7 @@ export type DemandMode = "average" | "highest";
 export type DemandSource = "shipped" | "ordered";
 
 export const DEMAND_MODES: DemandMode[] = ["average", "highest"];
-export const DEMAND_SOURCES: DemandSource[] = ["shipped", "ordered"];
+const DEMAND_SOURCES: DemandSource[] = ["shipped", "ordered"];
 export const FREQUENCIES: Frequency[] = ["weekly", "monthly"];
 
 // ─── Data Types ───────────────────────────────────────────────────────────────
@@ -262,7 +262,7 @@ export function periodSortValue(key: string): number {
 
 // ─── Form Persistence ─────────────────────────────────────────────────────────
 
-export const FORM_STORAGE_KEY = "requirements-form-state-v1";
+const FORM_STORAGE_KEY = "requirements-form-state-v1";
 
 export interface PersistedFormState {
 	mode: Mode;
@@ -372,14 +372,14 @@ export function buildGroupColors(darkMode: boolean): GroupColors {
  * Build the dark-mode-aware row class color definitions for DataGrid sx.
  * Shared by purchasing and bundling grids to eliminate duplication.
  */
-export interface RowClassStyles {
+interface RowClassStyles {
 	className: string;
 	darkBg: string;
 	lightBg: string;
 	borderColor: string;
 }
 
-export const ROW_CLASS_STYLES: RowClassStyles[] = [
+const ROW_CLASS_STYLES: RowClassStyles[] = [
 	{ className: "row-immediate", darkBg: "rgba(211, 47, 47, 0.35)", lightBg: "#ffcdd2", borderColor: "#d32f2f" },
 	{ className: "row-secondary", darkBg: "rgba(255, 193, 7, 0.30)", lightBg: "#fff9c4", borderColor: "#f9a825" },
 	{ className: "row-monitoring", darkBg: "rgba(33, 150, 243, 0.27)", lightBg: "#bbdefb", borderColor: "#1976d2" },
@@ -391,7 +391,7 @@ export const ROW_CLASS_STYLES: RowClassStyles[] = [
 /**
  * Generate row class CSS rules for a DataGrid sx prop.
  */
-export function buildRowClassSx(darkMode: boolean): Record<string, object> {
+function buildRowClassSx(darkMode: boolean): Record<string, object> {
 	const rules: Record<string, object> = {};
 	for (const r of ROW_CLASS_STYLES) {
 		rules[`& .${r.className}`] = {

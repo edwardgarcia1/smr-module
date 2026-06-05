@@ -9,7 +9,6 @@ import { jwtMiddleware, refreshTokenMiddleware } from "../../middlewares/jwt";
 import { authGuard } from "../../middlewares/auth";
 import { BadRequestError, UnauthorizedError } from "../../middlewares/error";
 import { getTenant } from "../../config/tenants";
-import { extractAndVerifyToken } from "../../shared/auth";
 
 export const authRoutes = new Elysia({ prefix: "/auth" })
 	.use(jwtMiddleware)

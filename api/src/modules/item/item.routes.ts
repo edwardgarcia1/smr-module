@@ -11,7 +11,6 @@ import {
 	getComponentsByKitId,
 	updateComponent,
 	deleteComponent,
-	getInventoryWithComponents,
 	createItemSite,
 	getAllItemSites,
 	getItemSiteById,

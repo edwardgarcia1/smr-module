@@ -370,7 +370,7 @@ export const deleteItemSite = async (
 
 // ─── Joined query ────────────────────────────────────────────────────
 
-export const getInventoryWithComponents = async (
+const getInventoryWithComponents = async (
 	tenantKey = "default",
 ): Promise<
 	InventoryWithComponent[]
@@ -386,7 +386,7 @@ export const getInventoryWithComponents = async (
 	return trimStrings(result.recordset as InventoryWithComponent[]);
 };
 
-export const getInventoryWithItemSites = async (
+const getInventoryWithItemSites = async (
 	tenantKey = "default",
 ): Promise<
 	InventoryWithItemSite[]

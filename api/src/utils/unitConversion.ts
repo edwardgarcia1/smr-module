@@ -47,7 +47,7 @@ export async function buildConversionCache(
  * Look up conversion factor from cache.
  * INUnit stores: 1 FromUnit = CnvFact × ToUnit.
  */
-export function getCnvFactor(
+function getCnvFactor(
 	cache: Map<string, number>,
 	invtID: string,
 	fromUnit: string,

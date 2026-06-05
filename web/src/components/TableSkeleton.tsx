@@ -14,7 +14,7 @@ import {
 	Skeleton,
 } from "@mui/material";
 
-export interface SkeletonCol {
+interface SkeletonCol {
 	align?: "left" | "right" | "center";
 	icon?: boolean;
 	spacer?: boolean;
