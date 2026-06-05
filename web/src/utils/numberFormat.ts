@@ -18,9 +18,6 @@ function createFormatter(minFraction: number, maxFraction: number, fallback = "�
 /** 2 decimal places, "—" for null/undefined */
 export const fmt2 = createFormatter(2, 2);
 
-/** 4 decimal places, "—" for null/undefined */
-const fmt4 = createFormatter(4, 4);
-
 /** 0 decimal places, "" for null/undefined */
 export const fmt0: Formatter = (value?: number | null) =>
 	value != null ? value.toLocaleString() : "";

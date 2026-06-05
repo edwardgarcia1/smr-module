@@ -21,12 +21,12 @@ let refreshPromise: Promise<void> | null = null;
 
 const refreshToken = async (): Promise<void> => {
 	if (!refreshPromise) {
-		refreshPromise = apiRequest("/auth/refresh", { method: "POST", isRefresh: true })
+		refreshPromise = (apiRequest("/auth/refresh", { method: "POST", isRefresh: true }) as Promise<void>)
 			.finally(() => {
 				refreshPromise = null;
 			});
 	}
-	return refreshPromise;
+	return refreshPromise ?? Promise.resolve();
 };
 
 const apiRequest = async <T>(

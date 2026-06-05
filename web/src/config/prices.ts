@@ -19,6 +19,8 @@ export interface PriceClassEntry {
 	unit: string;
 	price_class: string;
 	encoded_by: string;
+	valid_from: string | null;
+	valid_to: string | null;
 }
 
 export interface PriceRecord {

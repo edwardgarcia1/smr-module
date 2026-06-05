@@ -1,36 +1,22 @@
+/**
+ * AppSidebar — Navigation drawer with collapsed mode, mobile swipe, and
+ * CASL-guarded nav items.
+ *
+ * Drawer structure is handled here; nav items and user menu are delegated
+ * to sub-components.
+ */
 import React, { useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
 	Drawer,
-	List,
-	ListItemIcon,
-	ListItemText,
 	Box,
-	ListItemButton,
 	Typography,
 	Divider,
-	Popover,
-	Dialog,
-	DialogTitle,
-	DialogContent,
-	DialogContentText,
-	DialogActions,
-	Button,
 } from "@mui/material";
-import DashboardIcon from "@mui/icons-material/Dashboard";
-import SettingsIcon from "@mui/icons-material/Settings";
-import PeopleIcon from "@mui/icons-material/People";
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
-import LogoutIcon from "@mui/icons-material/Logout";
-import AssignmentIcon from "@mui/icons-material/Assignment";
-import InventoryIcon from "@mui/icons-material/Inventory";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
-import ShoppingBasketIcon from "@mui/icons-material/ShoppingBasket";
-import MoneyIcon from "@mui/icons-material/Money";
-import LowPriorityIcon from "@mui/icons-material/LowPriority";
-import { Can } from "@casl/react";
 import { useAbility } from "../config/AbilityProvider";
 import { useAuthStore } from "../store/useAuthStore";
+import SidebarNavList from "../components/sidebar/SidebarNavList";
+import SidebarUserMenu from "../components/sidebar/SidebarUserMenu";
 
 interface AppSidebarProps {
 	mobileOpen: boolean;
@@ -66,7 +52,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 		borderRadius: 1,
 		mx: collapsed ? 0 : 1,
 		display: "flex",
-		justifyContent: "center", // horizontal
+		justifyContent: "center",
 		alignItems: "center",
 		color: "var(--sidebar-text)",
 		"&.Mui-selected": {
@@ -78,7 +64,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 		},
 	});
 
-	// Swipe handling state
+	// Swipe handling
 	const touchStartX = useRef(0);
 	const touchEndX = useRef(0);
 	const MIN_SWIPE_THRESHOLD = 50;
@@ -94,60 +80,23 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 
 	const handleSwipe = () => {
 		const swipeDistance = touchEndX.current - touchStartX.current;
-
-		// Swipe right to open
-		if (swipeDistance > MIN_SWIPE_THRESHOLD && !mobileOpen) {
-			onToggle();
-		}
-		// Swipe left to close
-		if (swipeDistance < -MIN_SWIPE_THRESHOLD && mobileOpen) {
-			onToggle();
-		}
+		if (swipeDistance > MIN_SWIPE_THRESHOLD && !mobileOpen) onToggle();
+		if (swipeDistance < -MIN_SWIPE_THRESHOLD && mobileOpen) onToggle();
 	};
 
 	const handleNav = (path: string) => {
 		navigate(path);
-		if (mobileOpen) {
-			onToggle();
-		}
+		if (mobileOpen) onToggle();
 	};
 
-	const [logoutDialogOpen, setLogoutDialogOpen] = React.useState(false);
-	const [userMenuAnchor, setUserMenuAnchor] =
-		React.useState<HTMLElement | null>(null);
-	const userMenuOpen = Boolean(userMenuAnchor);
-	const userMenuTriggerRef = useRef<HTMLDivElement>(null);
-
-	const handleUserMenuClick = (e: React.MouseEvent<HTMLElement>) => {
-		setUserMenuAnchor(e.currentTarget);
-	};
-
-	const handleUserMenuClose = () => {
-		setUserMenuAnchor(null);
-	};
-
-	const handleLogoutClick = () => {
-		setUserMenuAnchor(null);
-		setLogoutDialogOpen(true);
-	};
-
-	const handleLogoutConfirm = () => {
-		setLogoutDialogOpen(false);
+	const handleLogout = () => {
 		logout();
 		navigate("/login");
-		if (mobileOpen) {
-			onToggle();
-		}
-	};
-
-	const handleLogoutCancel = () => {
-		setLogoutDialogOpen(false);
+		if (mobileOpen) onToggle();
 	};
 
 	const drawer = (
-		<Box
-			sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-		>
+		<Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
 			{/* Sticky header */}
 			<Box sx={{ flexShrink: 0, bgcolor: "var(--sidebar-bg)" }}>
 				<Box sx={{ p: 2, gap: 1 }}>
@@ -163,325 +112,24 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }}
 				/>
 			</Box>
-			{/* Scrollable nav list */}
-			<List sx={{ flexGrow: 1, overflowY: "auto", overflowX: "hidden" }}>
-				<ListItemButton
-					selected={isActive("/")}
-					onClick={() => handleNav("/")}
-					sx={getSidebarItemSx(collapsed)}
-				>
-					<ListItemIcon
-						sx={{
-							color: "var(--sidebar-icon)",
-							minWidth: collapsed ? "auto" : 36,
-						}}
-					>
-						<DashboardIcon sx={{ fontSize: 18 }} />
-					</ListItemIcon>
-					<ListItemText
-						primary="Dashboard"
-						sx={{
-							fontSize: 13,
-							display: collapsed ? "none" : "block",
-						}}
-					/>
-				</ListItemButton>
-				{/* Consolidated Requirements page with Purchasing/Bundling toggle */}
-				{ability.can("read", "Requirements") && (
-					<ListItemButton
-						selected={isActive("/purchasing-requirements")}
-						onClick={() => handleNav("/purchasing-requirements")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<AssignmentIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Requirements"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				)}
-				<Can I="read" a="Prices" ability={ability}>
-					<ListItemButton
-						selected={isActive("/prices")}
-						onClick={() => handleNav("/prices")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<MoneyIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Prices"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="MinStock" ability={ability}>
-					<ListItemButton
-						selected={isActive("/min-stock")}
-						onClick={() => handleNav("/min-stock")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<LowPriorityIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Min Stock"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="PurchaseOrders" ability={ability}>
-					<ListItemButton
-						selected={isActive("/purchase-orders")}
-						onClick={() => handleNav("/purchase-orders")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<ShoppingBasketIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Purchase Orders"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="InventoryItems" ability={ability}>
-					<ListItemButton
-						selected={isActive("/inventory-items")}
-						onClick={() => handleNav("/inventory-items")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<InventoryIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Inventory Items"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="Principals" ability={ability}>
-					<ListItemButton
-						selected={isActive("/principals")}
-						onClick={() => handleNav("/principals")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<LocalShippingIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Principals"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="Users" ability={ability}>
-					<ListItemButton
-						selected={isActive("/users")}
-						onClick={() => handleNav("/users")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<PeopleIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Users"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-				<Can I="read" a="Settings" ability={ability}>
-					<ListItemButton
-						selected={isActive("/settings")}
-						onClick={() => handleNav("/settings")}
-						sx={getSidebarItemSx(collapsed)}
-					>
-						<ListItemIcon
-							sx={{
-								color: "var(--sidebar-icon)",
-								minWidth: collapsed ? "auto" : 36,
-							}}
-						>
-							<SettingsIcon sx={{ fontSize: 18 }} />
-						</ListItemIcon>
-						<ListItemText
-							primary="Settings"
-							sx={{
-								fontSize: 13,
-								display: collapsed ? "none" : "block",
-							}}
-						/>
-					</ListItemButton>
-				</Can>
-			</List>
-			{/* Sticky footer */}
-			<Box sx={{ flexShrink: 0, bgcolor: "var(--sidebar-bg)" }}>
-				<Divider
-					sx={{ borderColor: "var(--sidebar-text)", opacity: 0.2 }}
-				/>
-				<Box ref={userMenuTriggerRef}>
-				<ListItemButton
-					onClick={handleUserMenuClick}
-					sx={{
-						...getSidebarItemSx(collapsed),
-						mx: 0,
-						borderRadius: 0,
-						px: 2,
-						justifyContent: "flex-start",
-						py: collapsed ? 1.5 : 1,
-					}}
-				>
-					<ListItemIcon
-						sx={{
-							color: "var(--sidebar-icon)",
-							minWidth: collapsed ? "auto" : 28,
-						}}
-					>
-						<AccountCircleIcon sx={{ fontSize: 18 }} />
-					</ListItemIcon>
-					<Box
-						sx={{ overflow: "hidden", display: collapsed ? "none" : "block" }}
-					>
-						<Typography
-							variant="body2"
-							sx={{
-								fontWeight: "bold",
-								fontSize: 12,
-								color: "var(--sidebar-text)",
-							}}
-						>
-							{user?.name || user?.username || "User"}
-						</Typography>
-						{user?.username && (
-							<Typography
-								variant="caption"
-								sx={{
-									fontSize: 10,
-									color: "var(--sidebar-text)",
-								}}
-							>
-								@{user.username}
-							</Typography>
-						)}
-					</Box>
-				</ListItemButton>
-				<Popover
-					open={userMenuOpen}
-					anchorEl={userMenuAnchor}
-					onClose={handleUserMenuClose}
-					anchorOrigin={{
-						vertical: "top",
-						horizontal: "right",
-					}}
-					transformOrigin={{
-						vertical: "top",
-						horizontal: "left",
-					}}
-					slotProps={{
-						paper: {
-							sx: {
-								bgcolor: "var(--sidebar-bg)",
-								color: "var(--sidebar-text)",
-								minWidth: 180,
-								mt: 0.5,
-							},
-						},
-					}}
-				>
-					<List disablePadding>
-						<ListItemButton
-							onClick={() => {
-								handleUserMenuClose();
-								handleNav("/profile");
-							}}
-							sx={getSidebarItemSx(false)}
-						>
-							<ListItemIcon
-								sx={{
-									color: "var(--sidebar-icon)",
-									minWidth: 36,
-								}}
-							>
-								<AccountCircleIcon sx={{ fontSize: 18 }} />
-							</ListItemIcon>
-							<ListItemText primary="Profile" sx={{ fontSize: 13 }} />
-						</ListItemButton>
-						<ListItemButton
-							onClick={handleLogoutClick}
-							sx={getSidebarItemSx(false)}
-						>
-							<ListItemIcon
-								sx={{
-									color: "var(--sidebar-icon)",
-									minWidth: 36,
-								}}
-							>
-								<LogoutIcon sx={{ fontSize: 18 }} />
-							</ListItemIcon>
-							<ListItemText primary="Logout" sx={{ fontSize: 13 }} />
-						</ListItemButton>
-					</List>
-				</Popover>
-				</Box>
-			</Box>
+
+			{/* Navigation items */}
+			<SidebarNavList
+				collapsed={collapsed}
+				isActive={isActive}
+				onNav={handleNav}
+				getSx={getSidebarItemSx}
+				ability={ability}
+			/>
+
+			{/* User menu footer */}
+			<SidebarUserMenu
+				collapsed={collapsed}
+				user={user}
+				getSx={getSidebarItemSx}
+				onNav={handleNav}
+				onLogout={handleLogout}
+			/>
 		</Box>
 	);
 
@@ -503,7 +151,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 					top: 0,
 					width: 20,
 					height: "100vh",
-					zIndex: 1300, // Above drawer
+					zIndex: 1300,
 					cursor: "pointer",
 				}}
 				onTouchStart={handleTouchStart}
@@ -513,9 +161,7 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 				variant="temporary"
 				open={mobileOpen}
 				onClose={onToggle}
-				ModalProps={{
-					keepMounted: true,
-				}}
+				ModalProps={{ keepMounted: true }}
 				sx={{
 					display: { xs: "block", md: "none" },
 					"& .MuiDrawer-paper": {
@@ -545,25 +191,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({
 			>
 				{drawer}
 			</Drawer>
-			<Dialog
-				open={logoutDialogOpen}
-				onClose={handleLogoutCancel}
-				aria-labelledby="logout-dialog-title"
-				aria-describedby="logout-dialog-description"
-			>
-				<DialogTitle id="logout-dialog-title">Confirm Logout</DialogTitle>
-				<DialogContent>
-					<DialogContentText id="logout-dialog-description">
-						Are you sure you want to logout?
-					</DialogContentText>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={handleLogoutCancel}>Cancel</Button>
-					<Button onClick={handleLogoutConfirm} color="error" autoFocus>
-						Logout
-					</Button>
-				</DialogActions>
-			</Dialog>
 		</Box>
 	);
 };

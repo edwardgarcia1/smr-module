@@ -13,7 +13,6 @@ export type DemandMode = "average" | "highest";
 export type DemandSource = "shipped" | "ordered";
 
 export const DEMAND_MODES: DemandMode[] = ["average", "highest"];
-const DEMAND_SOURCES: DemandSource[] = ["shipped", "ordered"];
 export const FREQUENCIES: Frequency[] = ["weekly", "monthly"];
 
 // ─── Data Types ───────────────────────────────────────────────────────────────
@@ -366,38 +365,6 @@ export function buildGroupColors(darkMode: boolean): GroupColors {
 	};
 }
 
-// ─── Row CSS Class Names (DataGrid getRowClassName) ───────────────────────────
 
-/**
- * Build the dark-mode-aware row class color definitions for DataGrid sx.
- * Shared by purchasing and bundling grids to eliminate duplication.
- */
-interface RowClassStyles {
-	className: string;
-	darkBg: string;
-	lightBg: string;
-	borderColor: string;
-}
 
-const ROW_CLASS_STYLES: RowClassStyles[] = [
-	{ className: "row-immediate", darkBg: "rgba(211, 47, 47, 0.35)", lightBg: "#ffcdd2", borderColor: "#d32f2f" },
-	{ className: "row-secondary", darkBg: "rgba(255, 193, 7, 0.30)", lightBg: "#fff9c4", borderColor: "#f9a825" },
-	{ className: "row-monitoring", darkBg: "rgba(33, 150, 243, 0.27)", lightBg: "#bbdefb", borderColor: "#1976d2" },
-	{ className: "row-overstocked", darkBg: "rgba(76, 175, 80, 0.27)", lightBg: "#c8e6c9", borderColor: "#388e3c" },
-	{ className: "row-ordered", darkBg: "rgba(156, 39, 176, 0.25)", lightBg: "#e1bee7", borderColor: "#7b1fa2" },
-	{ className: "row-no-record", darkBg: "rgba(158, 158, 158, 0.25)", lightBg: "#eceff1", borderColor: "#616161" },
-];
 
-/**
- * Generate row class CSS rules for a DataGrid sx prop.
- */
-function buildRowClassSx(darkMode: boolean): Record<string, object> {
-	const rules: Record<string, object> = {};
-	for (const r of ROW_CLASS_STYLES) {
-		rules[`& .${r.className}`] = {
-			backgroundColor: darkMode ? r.darkBg : r.lightBg,
-			borderLeft: `5px solid ${r.borderColor}`,
-		};
-	}
-	return rules;
-}

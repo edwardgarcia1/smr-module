@@ -18,7 +18,7 @@ const Settings: React.FC = () => {
 		const savedSettings = localStorage.getItem("userSettings");
 		if (savedSettings) {
 			try {
-				const settings = JSON.parse(savedSettings);
+				JSON.parse(savedSettings);
 				// darkMode is handled by AppProvider
 			} catch (error) {
 				console.error("Failed to parse user settings:", error);

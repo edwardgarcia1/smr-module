@@ -70,7 +70,7 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 	const [poReference, setPoReference] = useState(initialValues?.poReference ?? "");
 	const [attn, setAttn] = useState(initialValues?.attn ?? "");
 	const currentUserName = useAuthStore.getState().user?.name ?? "";
-	const [preparedBy, setPreparedBy] = useState(
+	const [preparedBy] = useState(
 		initialValues?.preparedBy ?? currentUserName,
 	);
 	const [endorsedBy, setEndorsedBy] = useState(initialValues?.endorsedBy ?? "");
@@ -116,9 +116,7 @@ const PoPdfExportDialog: React.FC<PoPdfExportDialogProps> = ({
 			onClose={onClose}
 			maxWidth="sm"
 			fullWidth
-			PaperProps={{
-				sx: { borderRadius: 2 },
-			}}
+			slotProps={{ paper: { sx: { borderRadius: 2 } } }}
 		>
 			<DialogTitle
 				sx={{

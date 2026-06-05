@@ -65,7 +65,7 @@ export const PoStatusSelect: React.FC<PoStatusSelectProps> = ({
 			borderRadius: 2,
 			"& .MuiOutlinedInput-notchedOutline": { borderColor: "divider" },
 		}}
-		renderValue={(val) => <PoStatusChip status={val} />}
+		renderValue={(val) => <PoStatusChip status={val as PoStatus} />}
 		{...selectProps}
 	>
 		{allowedTransitions.map((s) => (

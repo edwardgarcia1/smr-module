@@ -137,7 +137,7 @@ const Profile: React.FC = () => {
 			actions.has(a),
 		);
 		return (
-			<Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+			<Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
 				{sorted.map((action) => (
 					<Chip
 						key={action}
@@ -304,7 +304,7 @@ const Profile: React.FC = () => {
 										<ListItemText
 											primary={module}
 											secondary={renderActions(module, actions)}
-											secondaryTypographyProps={{ component: "div" }}
+											slotProps={{ secondary: { component: "div" } }}
 											sx={{
 												"& .MuiListItemText-secondary": {
 													pt: 0.5,

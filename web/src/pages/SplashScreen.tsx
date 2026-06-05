@@ -23,7 +23,7 @@ const SplashScreen: React.FC = () => {
 					color: "primary.main",
 				}}
 			/>
-			<Typography variant="h5" fontWeight={600} color="text.primary">
+			<Typography variant="h5" sx={{ fontWeight: 600 }} color="text.primary">
 				{appName}
 			</Typography>
 			<Typography variant="body2" color="text.secondary">

@@ -40,7 +40,6 @@ import {
 	UNIT_OPTIONS,
 	type PriceRecord,
 	type PriceClassEntry,
-	type PriceHistoryEntry,
 	type ImportRow,
 	type Principal,
 	type PaginatedResponse,
@@ -191,14 +190,12 @@ interface RowProps {
 	row: PriceRecord;
 	priceClassOptions: string[];
 	onRefresh: () => Promise<void>;
-	setGlobalError: (msg: string | null) => void;
 }
 
 const RowComponent: React.FC<RowProps> = ({
 	row,
 	priceClassOptions,
 	onRefresh,
-	setGlobalError,
 }) => {
 	const [expanded, setExpanded] = useState(false);
 	const [historyOpen, setHistoryOpen] = useState(false);
@@ -386,9 +383,6 @@ const Prices: React.FC = () => {
 
 	// Price class filter state
 	const [priceClassOptions, setPriceClassOptions] = useState<string[]>([]);
-	const [selectedPriceClass, setSelectedPriceClass] = useState<string | null>(
-		null,
-	);
 
 	// Principal filter state
 	const [principals, setPrincipals] = useState<Principal[]>([]);
@@ -656,13 +650,12 @@ const Prices: React.FC = () => {
 										</TableRow>
 									) : (
 										rows.map((row) => (
-											<RowComponent
-												key={row.inventory_id}
-												row={row}
-												priceClassOptions={priceClassOptions}
-												onRefresh={fetchData}
-												setGlobalError={setError}
-											/>
+										<RowComponent
+											key={row.inventory_id}
+											row={row}
+											priceClassOptions={priceClassOptions}
+											onRefresh={fetchData}
+										/>
 										))
 									)}
 								</TableBody>

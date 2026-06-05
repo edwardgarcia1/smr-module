@@ -18,8 +18,6 @@ export const ALL_MODULES = [
 	'Settings',
 ] as const;
 
-type Subject = (typeof ALL_MODULES)[number];
-
 /** Shape of a permission row returned by GET /users/:id/permissions */
 export interface PermissionRow {
 	id: number;

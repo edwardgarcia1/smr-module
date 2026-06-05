@@ -14,11 +14,9 @@ import {
 	TableHead,
 	TableRow,
 	Checkbox,
-	Chip,
 	Alert,
 	CircularProgress,
 	Paper,
-	Divider,
 } from "@mui/material";
 import { api } from "../../services/api";
 import { useAbility } from "../../config/AbilityProvider";
@@ -39,7 +37,6 @@ const ALL_SUBJECTS = [
 	"Settings",
 ] as const;
 
-type Subject = (typeof ALL_SUBJECTS)[number];
 type Action = "create" | "read" | "update" | "delete" | "manage";
 
 // Ordered list of display actions
@@ -259,15 +256,13 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
 
 											return (
 												<TableCell key={action} align="center">
-													<Checkbox
-														checked={checked}
-														disabled={isDisabled}
-														onChange={() => handleToggle(subject, action)}
-														size="small"
-														inputProps={{
-															"aria-label": `${subject} ${action}`,
-														}}
-													/>
+												<Checkbox
+													checked={checked}
+													disabled={isDisabled}
+													onChange={() => handleToggle(subject, action)}
+													size="small"
+													slotProps={{ input: { "aria-label": `${subject} ${action}` } }}
+												/>
 												</TableCell>
 											);
 										})}
