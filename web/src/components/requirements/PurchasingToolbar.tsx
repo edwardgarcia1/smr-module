@@ -1,26 +1,16 @@
 import React from "react";
 import {
 	Box,
-	Typography,
 	TextField,
 	Button,
 	Autocomplete,
 	Tooltip,
-	useTheme,
 } from "@mui/material";
-import ViewColumnIcon from "@mui/icons-material/ViewColumn";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import TableChartIcon from "@mui/icons-material/TableChart";
 import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import { ColumnsPanelTrigger, FilterPanelTrigger } from "@mui/x-data-grid";
 import type { GridColDef } from "@mui/x-data-grid";
-import CategoryFilter from "./CategoryFilter";
-import {
-	getCategoryColors,
-	type CategoryColorScheme,
-} from "../../config/requirements";
+import RequirementsToolbarBase from "./RequirementsToolbarBase";
 
 interface PurchasingToolbarProps {
 	apiRef: { current: { setColumnVisibilityModel: (model: Record<string, boolean>) => void } | null };
@@ -60,117 +50,36 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 	purchasingColumns,
 	userColumnVisibilityModelRef,
 	onOpenSaveDialog,
-}) => {
-	const theme = useTheme();
-	const labelSx = { display: { xs: "none", md: "inline" } };
-	const iconBtnSx = {
-		minWidth: "auto",
-		textTransform: "none",
-		fontSize: "0.8125rem",
-		fontWeight: 500,
-		paddingLeft: 0.75,
-		paddingRight: 0.75,
-		color: theme.palette.primary.main,
-	};
-
-	const categoryColors = React.useMemo(() => getCategoryColors(darkMode), [darkMode]);
-	const getCategoryColor = (cat: string): CategoryColorScheme =>
-		categoryColors[cat] ?? {
-			bg: "transparent",
-			chipBg: theme.palette.action.selected,
-			chipText: theme.palette.text.primary,
-		};
-
-	return (
-		<Box
-			sx={{
-				display: "flex",
-				flexDirection: "column",
-				borderBottom: "1px solid",
-				borderColor: "divider",
-			}}
-		>
-			<Box
-				sx={{
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					px: 2,
-					py: 1,
-				}}
-			>
-				<Typography variant="h6" sx={{ fontWeight: 600, fontSize: "1rem" }}>
-					Filtered Products
-				</Typography>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-					<ColumnsPanelTrigger
-						size="small"
-						startIcon={<ViewColumnIcon />}
-						style={iconBtnSx}
-					>
-						<Box component="span" sx={labelSx}>
-							Columns
-						</Box>
-					</ColumnsPanelTrigger>
-					<FilterPanelTrigger
-						size="small"
-						startIcon={<FilterListIcon />}
-						style={iconBtnSx}
-					>
-						<Box component="span" sx={labelSx}>
-							Filters
-						</Box>
-					</FilterPanelTrigger>
-					<Tooltip title="Export to Excel">
-						<Button
-							size="small"
-							color="primary"
-							startIcon={<TableChartIcon />}
-							onClick={handleExcelExport}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-							}}
-						>
-							<Box component="span" sx={labelSx}>
-								Excel
-							</Box>
-						</Button>
-					</Tooltip>
-					<Tooltip title="Save Purchase Order">
-						<Button
-							size="small"
-							color="primary"
-							startIcon={<SaveAltIcon />}
-							onClick={onOpenSaveDialog}
-							sx={{
-								minWidth: "auto",
-								textTransform: "none",
-								fontSize: "0.8125rem",
-								fontWeight: 500,
-								px: 0.75,
-							}}
-						>
-							<Box component="span" sx={labelSx}>
-								Save
-							</Box>
-						</Button>
-					</Tooltip>
-				</Box>
-			</Box>
-			<Box
-				sx={{
-					display: "flex",
-					flexWrap: "wrap",
-					gap: 2,
-					px: 2,
-					pb: 1.5,
-					alignItems: "center",
-				}}
-			>
+}) => (
+	<RequirementsToolbarBase
+		title="Filtered Products"
+		handleExcelExport={handleExcelExport}
+		darkMode={darkMode}
+		selectedCategories={selectedCategories}
+		setSelectedCategories={setSelectedCategories}
+		topActions={
+			<Tooltip title="Save Purchase Order">
+				<Button
+					size="small"
+					color="primary"
+					startIcon={<SaveAltIcon />}
+					onClick={onOpenSaveDialog}
+					sx={{
+						minWidth: "auto",
+						textTransform: "none",
+						fontSize: "0.8125rem",
+						fontWeight: 500,
+						px: 0.75,
+					}}
+				>
+					<Box component="span" sx={{ display: { xs: "none", md: "inline" } }}>
+						Save
+					</Box>
+				</Button>
+			</Tooltip>
+		}
+		bottomControls={
+			<>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 					<TextField
 						size="small"
@@ -210,11 +119,6 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 						/>
 					)}
 				/>
-				<CategoryFilter
-					selectedCategories={selectedCategories}
-					onChange={setSelectedCategories}
-					getCategoryColor={getCategoryColor}
-				/>
 				<Button
 					size="small"
 					variant="outlined"
@@ -242,9 +146,9 @@ const PurchasingToolbar: React.FC<PurchasingToolbarProps> = ({
 				>
 					{showDemandColumns ? "Hide" : "Show"} {frequency === "monthly" ? "Monthly" : "Weekly"} Demand
 				</Button>
-			</Box>
-		</Box>
-	);
-};
+			</>
+		}
+	/>
+);
 
 export default PurchasingToolbar;
