@@ -21,10 +21,7 @@ export interface BundlingQuery {
 	demandSource?: "shipped" | "ordered";
 }
 
-export interface DateRange {
-	start: string; // YYYY-MM-DD
-	end: string;   // YYYY-MM-DD
-}
+export type { DateRange } from "../../shared/date-utils";
 
 /** Stock data for a single component of a promo kit */
 export interface ComponentStock {

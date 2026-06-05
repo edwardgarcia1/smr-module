@@ -130,6 +130,38 @@ export interface UseRequirementsReturn {
 	closeExistingPoWarning: () => void;
 }
 
+// ─── Shared column helpers ──────────────────────────────────────────────────
+
+/**
+ * Push standard inventory columns (alloc, onPO, onHand, avail) into a column array.
+ */
+function pushInventoryColumns(cols: GridColDef[]): void {
+	const inventoryHeader = { headerClassName: "group-inventory" };
+	for (const { field, label } of [
+		{ field: "qtyAlloc", label: "Unreleased" },
+		{ field: "qtyOnPO", label: "Incoming" },
+		{ field: "qtyOnHand", label: "On Hand" },
+		{ field: "qtyAvail", label: "Available" },
+	]) {
+		cols.push({ field, headerName: label, width: 110, type: "number", ...inventoryHeader, valueFormatter: fmt2 });
+	}
+}
+
+/**
+ * Push period-demand columns into a column array.
+ */
+function pushDemandColumns(cols: GridColDef[], periodKeys: string[]): void {
+	periodKeys.forEach((key) => {
+		const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
+		cols.push({
+			field: fieldKey, headerName: key, width: 110, type: "number",
+			headerClassName: "group-demand",
+			valueGetter: (_v, row) => (row as RequirementRow | BundlingRow).periodDemand[key] ?? 0,
+			valueFormatter: fmt2,
+		});
+	});
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useRequirements(): UseRequirementsReturn {
@@ -342,26 +374,10 @@ export function useRequirements(): UseRequirementsReturn {
 			});
 
 			// Inventory columns
-			const inventoryHeader = { headerClassName: "group-inventory" };
-			for (const { field, label } of [
-				{ field: "qtyAlloc", label: "Unreleased" },
-				{ field: "qtyOnPO", label: "Incoming" },
-				{ field: "qtyOnHand", label: "On Hand" },
-				{ field: "qtyAvail", label: "Available" },
-			]) {
-				cols.push({ field, headerName: label, width: 110, type: "number", ...inventoryHeader, valueFormatter: fmt2 });
-			}
+			pushInventoryColumns(cols);
 
 			// Demand columns
-			periodKeys.forEach((key) => {
-				const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
-				cols.push({
-					field: fieldKey, headerName: key, width: 110, type: "number",
-					headerClassName: "group-demand",
-					valueGetter: (_v, row) => (row as RequirementRow).periodDemand[key] ?? 0,
-					valueFormatter: fmt2,
-				});
-			});
+			pushDemandColumns(cols, periodKeys);
 
 			// Computation columns
 			const compHeader = { headerClassName: "group-computation" };
@@ -538,26 +554,10 @@ export function useRequirements(): UseRequirementsReturn {
 			});
 
 			// Inventory columns
-			const inventoryHeader = { headerClassName: "group-inventory" };
-			for (const { field, label } of [
-				{ field: "qtyAlloc", label: "Unreleased" },
-				{ field: "qtyOnPO", label: "Incoming" },
-				{ field: "qtyOnHand", label: "On Hand" },
-				{ field: "qtyAvail", label: "Available" },
-			]) {
-				cols.push({ field, headerName: label, width: 110, type: "number", ...inventoryHeader, valueFormatter: fmt2 });
-			}
+			pushInventoryColumns(cols);
 
 			// Demand columns
-			periodKeys.forEach((key) => {
-				const fieldKey = `pd_${key.replace(/[\s]/g, "_")}`;
-				cols.push({
-					field: fieldKey, headerName: key, width: 110, type: "number",
-					headerClassName: "group-demand",
-					valueGetter: (_v, row) => (row as BundlingRow).periodDemand[key] ?? 0,
-					valueFormatter: fmt2,
-				});
-			});
+			pushDemandColumns(cols, periodKeys);
 
 			// Computation columns
 			const compHeader = { headerClassName: "group-computation" };
@@ -931,16 +931,20 @@ export function useRequirements(): UseRequirementsReturn {
 		}
 	}, [mode, purchasingRows, selectedStorage, dateRange, demandMode, frequency]);
 
+	// ─── Shared column group fragments ─────────────────────────────
+	const demandGroupLabel = `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`;
+	const computationGroupLabel = `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`;
+
 	// ─── Column Grouping Models ──────────────────────────────────────
 	const purchasingColumnGroupModel = useMemo<GridColumnGroupingModel>(() => {
 		const groups: GridColumnGroupingModel = [
 			{
-				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+				groupId: demandGroupLabel,
 				headerClassName: "group-demand",
 				children: periodKeys.map((key) => ({ field: `pd_${key.replace(/[\s]/g, "_")}` })),
 			},
 			{
-				groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
+				groupId: computationGroupLabel,
 				headerClassName: "group-computation",
 				children: [
 					{ field: "totalDemand" }, { field: "totalDemandCS" },
@@ -972,12 +976,12 @@ export function useRequirements(): UseRequirementsReturn {
 
 	const bundlingColumnGroupModel = useMemo<GridColumnGroupingModel>(() => [
 		{
-			groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Demand`,
+			groupId: demandGroupLabel,
 			headerClassName: "group-demand",
 			children: periodKeys.map((key) => ({ field: `pd_${key.replace(/[\s]/g, "_")}` })),
 		},
 		{
-			groupId: `${frequency === "monthly" ? "Monthly" : "Weekly"} Computation`,
+			groupId: computationGroupLabel,
 			headerClassName: "group-computation",
 			children: [{ field: "avgDemand" }, { field: "stockCoverCount" }],
 		},

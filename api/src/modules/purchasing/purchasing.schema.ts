@@ -26,10 +26,7 @@ export interface RequirementsQuery {
 	demandMode?: "average" | "highest";
 }
 
-export interface DateRange {
-	start: string; // YYYY-MM-DD
-	end: string; // YYYY-MM-DD
-}
+export type { DateRange } from "../../shared/date-utils";
 
 /** A single requirement item row returned by the API */
 export interface RequirementItem {

@@ -7,24 +7,7 @@ import {
 	UnauthorizedError,
 	InternalServerError,
 } from "../../middlewares/error";
-import type { DateRange } from "./purchasing.schema";
-
-/**
- * Parse a single ?dateRange=start,end query param into a DateRange.
- */
-function parseDateRange(raw: unknown): DateRange | null {
-	if (typeof raw !== "string") return null;
-	const parts = raw.split(",");
-	if (parts.length !== 2) return null;
-	const start = (parts[0] ?? "").trim();
-	const end = (parts[1] ?? "").trim();
-	if (!start || !end) return null;
-
-	const dateRe = /^\d{4}-\d{2}-\d{2}$/;
-	if (!dateRe.test(start) || !dateRe.test(end)) return null;
-
-	return { start, end } as DateRange;
-}
+import { parseDateRange } from "../../shared/date-utils";
 
 export const purchasingRoutes = new Elysia({ prefix: "/purchasing" })
 	.use(authGuard)

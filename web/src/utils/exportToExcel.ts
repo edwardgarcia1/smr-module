@@ -5,6 +5,27 @@ import type {
 } from "@mui/x-data-grid";
 import { downloadBlob } from "./download";
 
+/**
+ * Collect leaf-column indices for a column group.
+ * Reused for both header rendering and merge-cells.
+ */
+function groupColumnIndices(
+	group: GridColumnGroupingModel[number],
+	columns: GridColDef[],
+): number[] {
+	const indices: number[] = [];
+	for (const child of group.children) {
+		// Only leaf nodes have a field; group nodes are skipped.
+		if (!("children" in child)) {
+			const idx = columns.findIndex(
+				(c) => c.field === (child as { field: string }).field,
+			);
+			if (idx >= 0) indices.push(idx);
+		}
+	}
+	return indices;
+}
+
 export interface ExcelExportOptions {
 	/** First row — bold centered title spanning all columns */
 	title?: string;
@@ -99,16 +120,7 @@ export async function exportDataGridToExcel(
 		groupHeaderRow = rowNum;
 		const row: unknown[] = new Array(numCols).fill(null);
 		for (const group of columnGroupingModel!) {
-			const indices: number[] = [];
-			for (const child of group.children) {
-				// Only leaf nodes have a field; group nodes are skipped.
-				if (!("children" in child)) {
-					const idx = columns.findIndex(
-						(c) => c.field === (child as { field: string }).field,
-					);
-					if (idx >= 0) indices.push(idx);
-				}
-			}
+			const indices = groupColumnIndices(group, columns);
 			if (indices.length > 0) {
 				row[Math.min(...indices)] = group.groupId;
 			}
@@ -146,15 +158,7 @@ export async function exportDataGridToExcel(
 	}
 	if (hasGroups && groupHeaderRow >= 1) {
 		for (const group of columnGroupingModel!) {
-			const indices: number[] = [];
-			for (const child of group.children) {
-				if (!("children" in child)) {
-					const idx = columns.findIndex(
-						(c) => c.field === (child as { field: string }).field,
-					);
-					if (idx >= 0) indices.push(idx);
-				}
-			}
+			const indices = groupColumnIndices(group, columns);
 			if (indices.length > 1) {
 				sheet.mergeCells({
 					top: groupHeaderRow,

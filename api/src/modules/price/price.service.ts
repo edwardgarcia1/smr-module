@@ -75,6 +75,75 @@ async function normalizeToCsUnit(
 const MAX_LIMIT = 10_000;
 const DEFAULT_LIMIT = 500;
 
+/**
+ * Expire the current active price for a (inventory_id, price_class) pair,
+ * then insert a new price row.
+ *
+ * When `returnInserted` is true, returns the row from the INSERT OUTPUT
+ * (needed by createItemPrice). Otherwise returns a boolean indicating
+ * whether an existing price was expired (for bulk import counters).
+ */
+async function expireAndInsertPrice(
+	pool: import("mssql").Request,
+	inventory_id: string,
+	price_class: string,
+	validFrom: string,
+	price: Big | number,
+	unit: string,
+	encodedBy: string,
+	validTo: string | null,
+	returnInserted = false,
+): Promise<Record<string, unknown> | undefined | boolean> {
+	const selectCols = returnInserted
+		? "id, price, unit, price_class, valid_from, valid_to"
+		: "id";
+
+	// Expire existing active price for this inventory_id + price_class combo
+	const current = await pool
+		.request()
+		.input("invId", inventory_id)
+		.input("priceClass", price_class)
+		.query(`
+			SELECT ${selectCols}
+			FROM SMR_ItemPrice
+			WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
+		`);
+
+	let expired = false;
+	if (current.recordset.length > 0) {
+		const oldValidTo = oneSecondBefore(validFrom);
+		await pool
+			.request()
+			.input("id", current.recordset[0].id)
+			.input("valid_to", oldValidTo)
+			.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
+		expired = true;
+	}
+
+	const outputClause = returnInserted
+		? "OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to, INSERTED.encoded_by"
+		: "";
+
+	// Insert new price
+	const result = await pool
+		.request()
+		.input("inventory_id", inventory_id)
+		.input("price", bigToNumber(price))
+		.input("unit", unit)
+		.input("price_class", price_class)
+		.input("valid_from", validFrom)
+		.input("valid_to", validTo ?? null)
+		.input("encoded_by", encodedBy)
+		.query(`
+			INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by)
+			${outputClause}
+			VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to, @encoded_by)
+		`);
+
+	if (returnInserted) return result.recordset[0];
+	return expired;
+}
+
 // ─── SMR_ItemPrice CRUD (renamed from SMR_ItemCost) ───────────────────
 
 export const createItemPrice = async (item: NewItemPrice, tenantKey = "default"): Promise<ItemPrice> => {
@@ -84,41 +153,17 @@ export const createItemPrice = async (item: NewItemPrice, tenantKey = "default")
 	const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit, tenantKey);
 
 	return withTenantDb(tenantKey, async (pool) => {
-		// Expire any existing active price for this inventory_id + price_class combo
-		const current = await pool
-			.request()
-			.input("invId", item.inventory_id)
-			.input("priceClass", item.price_class)
-			.query(`
-				SELECT id FROM SMR_ItemPrice
-				WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
-			`);
-
-		if (current.recordset.length > 0) {
-			const oldValidTo = oneSecondBefore(validFrom);
-			await pool
-				.request()
-				.input("id", current.recordset[0].id)
-				.input("valid_to", oldValidTo)
-				.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
-		}
-
-		const result = await pool
-			.request()
-			.input("inventory_id", item.inventory_id)
-			.input("price", bigToNumber(normalized.price))
-			.input("unit", normalized.unit)
-			.input("price_class", item.price_class)
-			.input("valid_from", validFrom)
-			.input("valid_to", item.valid_to ?? null)
-			.input("encoded_by", item.encoded_by)
-			.query(`
-				INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by)
-				OUTPUT INSERTED.id, INSERTED.inventory_id, INSERTED.price, INSERTED.unit, INSERTED.price_class, INSERTED.valid_from, INSERTED.valid_to, INSERTED.encoded_by
-				VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to, @encoded_by)
-			`);
-
-		const created = result.recordset[0];
+		const created = await expireAndInsertPrice(
+			pool.request(),
+			item.inventory_id,
+			item.price_class,
+			validFrom,
+			normalized.price,
+			normalized.unit,
+			item.encoded_by,
+			item.valid_to ?? null,
+			true, // returnInserted — need OUTPUT for the return value
+		);
 		if (!created) throw new Error("Failed to create ItemPrice");
 		return {
 			...trimStrings(created as Record<string, unknown>),
@@ -757,41 +802,17 @@ export const importItemPrices = async (
 				// Normalize unit to CS if possible
 				const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit, tenantKey);
 
-				// Find current price for this inventory item + price_class combo
-				const current = await pool
-					.request()
-					.input("invId", item.inventory_id)
-					.input("priceClass", item.price_class)
-					.query(`
-						SELECT id, price, unit, price_class, valid_from, valid_to
-						FROM SMR_ItemPrice
-						WHERE inventory_id = @invId AND price_class = @priceClass AND valid_to IS NULL
-					`);
-
-				if (current.recordset.length > 0) {
-					const oldValidTo = oneSecondBefore(validFrom);
-					await pool
-						.request()
-						.input("id", current.recordset[0].id)
-						.input("valid_to", oldValidTo)
-						.query("UPDATE SMR_ItemPrice SET valid_to = @valid_to WHERE id = @id");
-					updated++;
-				}
-
-				// Insert new price
-				await pool
-					.request()
-					.input("inventory_id", item.inventory_id)
-					.input("price", bigToNumber(normalized.price))
-					.input("unit", normalized.unit)
-					.input("price_class", item.price_class)
-					.input("valid_from", validFrom)
-					.input("valid_to", item.valid_to ?? null)
-					.input("encoded_by", encodedBy)
-					.query(`
-						INSERT INTO SMR_ItemPrice (inventory_id, price, unit, price_class, valid_from, valid_to, encoded_by)
-						VALUES (@inventory_id, @price, @unit, @price_class, @valid_from, @valid_to, @encoded_by)
-					`);
+				const hadActive = await expireAndInsertPrice(
+					pool.request(),
+					item.inventory_id,
+					item.price_class,
+					validFrom,
+					normalized.price,
+					normalized.unit,
+					encodedBy,
+					item.valid_to ?? null,
+				);
+				if (hadActive) updated++;
 				inserted++;
 			});
 		} catch (err) {

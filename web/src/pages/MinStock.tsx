@@ -84,6 +84,86 @@ interface CategoryRow {
 	threshold: number | null;
 }
 
+// ─── Shared inline edit cell ────────────────────────────────────────
+// Used by CategoriesCard and PrincipalsTab for inline threshold editing.
+
+interface InlineEditCellProps {
+	editing: boolean;
+	editValue: string;
+	onEditChange: (value: string) => void;
+	onSave: () => void;
+	onCancel: () => void;
+	saving: boolean;
+	displayValue: string;
+	step?: string;
+	inputWidth?: number;
+}
+
+const InlineEditCell: React.FC<InlineEditCellProps> = ({
+	editing,
+	editValue,
+	onEditChange,
+	onSave,
+	onCancel,
+	saving,
+	displayValue,
+	step = "0.01",
+	inputWidth = 70,
+}) => {
+	if (editing) {
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					gap: 0.5,
+					alignItems: "center",
+					justifyContent: "flex-end",
+				}}
+			>
+				<TextField
+					size="small"
+					type="number"
+					value={editValue}
+					onChange={(e) => onEditChange(e.target.value)}
+					slotProps={{
+						htmlInput: {
+							step,
+							min: 0,
+							style: { textAlign: "right", width: inputWidth },
+						},
+					}}
+					sx={{ width: inputWidth + 20 }}
+					disabled={saving}
+					autoFocus
+				/>
+				<IconButton
+					size="small"
+					color="primary"
+					onClick={onSave}
+					disabled={saving}
+				>
+					<SaveIcon fontSize="small" />
+				</IconButton>
+				<IconButton
+					size="small"
+					onClick={onCancel}
+					disabled={saving}
+				>
+					<CancelIcon fontSize="small" />
+				</IconButton>
+			</Box>
+		);
+	}
+	return (
+		<Typography
+			variant="body2"
+			sx={{ fontVariantNumeric: "tabular-nums" }}
+		>
+			{displayValue}
+		</Typography>
+	);
+};
+
 // ─── Categories Threshold Card ─────────────────────────────────────
 
 const CategoriesCard: React.FC = () => {
@@ -226,60 +306,24 @@ const CategoriesCard: React.FC = () => {
 											{description}
 										</TableCell>
 										<TableCell align="right">
-											{editingId === row.id ? (
-												<Box
-													sx={{
-														display: "flex",
-														gap: 0.5,
-														alignItems: "center",
-														justifyContent: "flex-end",
-													}}
-												>
-													<TextField
-														size="small"
-														type="number"
-														value={editValue}
-														onChange={(e) => setEditValue(e.target.value)}
-														slotProps={{
-															htmlInput: {
-																step: "0.01",
-																min: 0,
-																style: { textAlign: "right", width: 70 },
-															},
-														}}
-														sx={{ width: 90 }}
-														disabled={saving}
-														autoFocus
-													/>
-													<IconButton
-														size="small"
-														color="primary"
-														onClick={handleEditSave}
-														disabled={saving}
-													>
-														<SaveIcon fontSize="small" />
-													</IconButton>
-													<IconButton
-														size="small"
-														onClick={handleEditCancel}
-														disabled={saving}
-													>
-														<CancelIcon fontSize="small" />
-													</IconButton>
-												</Box>
-											) : (
-												<Typography
-													variant="body2"
-													sx={{ fontVariantNumeric: "tabular-nums" }}
-												>
-													{row.threshold !== null
+											<InlineEditCell
+												editing={editingId === row.id}
+												editValue={editValue}
+												onEditChange={setEditValue}
+												onSave={handleEditSave}
+												onCancel={handleEditCancel}
+												saving={saving}
+												displayValue={
+													row.threshold !== null
 														? row.threshold.toLocaleString(undefined, {
 																minimumFractionDigits: 2,
 																maximumFractionDigits: 2,
 														  })
-														: "—"}
-												</Typography>
-											)}
+														: "—"
+												}
+												step="0.01"
+												inputWidth={70}
+											/>
 										</TableCell>
 										<TableCell align="right">
 											{row.category_name === "Overstocked" ? (
@@ -537,58 +581,20 @@ const PrincipalsTab: React.FC = () => {
 									</TableCell>
 									<TableCell>{row.VendId}</TableCell>
 									<TableCell align="right">
-										{editingId === row.ClassID ? (
-											<Box
-												sx={{
-													display: "flex",
-													gap: 0.5,
-													alignItems: "center",
-													justifyContent: "flex-end",
-												}}
-											>
-												<TextField
-													size="small"
-													type="number"
-													value={editValue}
-													onChange={(e) => setEditValue(e.target.value)}
-													slotProps={{
-														htmlInput: {
-															step: "0.1",
-															min: 0,
-															style: { textAlign: "right", width: 80 },
-														},
-													}}
-													sx={{ width: 100 }}
-													disabled={saving}
-													autoFocus
-												/>
-												<IconButton
-													size="small"
-													color="primary"
-													onClick={handleEditSave}
-													disabled={saving}
-												>
-													<SaveIcon fontSize="small" />
-												</IconButton>
-												<IconButton
-													size="small"
-													onClick={handleEditCancel}
-													disabled={saving}
-												>
-													<CancelIcon fontSize="small" />
-												</IconButton>
-											</Box>
-										) : (
-											<Typography
-												variant="body2"
-												sx={{ fontVariantNumeric: "tabular-nums" }}
-											>
-												{row.minStock.toLocaleString(undefined, {
-													minimumFractionDigits: 2,
-													maximumFractionDigits: 4,
-												})}
-											</Typography>
-										)}
+										<InlineEditCell
+											editing={editingId === row.ClassID}
+											editValue={editValue}
+											onEditChange={setEditValue}
+											onSave={handleEditSave}
+											onCancel={handleEditCancel}
+											saving={saving}
+											displayValue={row.minStock.toLocaleString(undefined, {
+												minimumFractionDigits: 2,
+												maximumFractionDigits: 4,
+											})}
+											step="0.1"
+											inputWidth={80}
+										/>
 									</TableCell>
 									<TableCell align="right">
 										<IconButton
