@@ -27,9 +27,13 @@ const PO_COLUMNS_INSERTED = `
 
 // ─── Constants ────────────────────────────────────────────────────────
 
-const PO_FILES_DIR =
+const PO_BASE_DIR =
 	process.env.PO_STORAGE_PATH ||
-	join(process.cwd(), "data", "po");
+	join(process.cwd(), "data");
+
+function getPoDir(tenantKey: string): string {
+	return join(PO_BASE_DIR, sanitizeFilename(tenantKey));
+}
 
 // ─── CSV helpers ──────────────────────────────────────────────────────
 
@@ -139,9 +143,10 @@ function sanitizeFilename(input: string): string {
 		.replace(/^_|_$/g, "");
 }
 
-function ensurePoDir(): void {
-	if (!existsSync(PO_FILES_DIR)) {
-		mkdirSync(PO_FILES_DIR, { recursive: true });
+function ensurePoDir(tenantKey: string): void {
+	const dir = getPoDir(tenantKey);
+	if (!existsSync(dir)) {
+		mkdirSync(dir, { recursive: true });
 	}
 }
 
@@ -178,7 +183,7 @@ export async function getPurchaseOrderById(
 
 	// Parse CSV file if it exists
 	if (meta.csv_filename) {
-		const filePath = join(PO_FILES_DIR, meta.csv_filename);
+		const filePath = join(getPoDir(tenantKey), meta.csv_filename);
 		try {
 			const csvContent = await readFile(filePath, "utf-8");
 			const csvData = csvToRows(csvContent);
@@ -234,8 +239,8 @@ export async function createPurchaseOrder(
 		// 2. Write CSV file
 		const csvFilename = `po_${sanitizeFilename(created.ref_num)}.csv`;
 		const csvContent = rowsToCsv(rows);
-		ensurePoDir();
-		await writeFile(join(PO_FILES_DIR, csvFilename), csvContent, "utf-8");
+		ensurePoDir(tenantKey);
+		await writeFile(join(getPoDir(tenantKey), csvFilename), csvContent, "utf-8");
 
 		// 3. Update record with csv_filename
 		const updateResult = await pool
@@ -270,8 +275,8 @@ export async function updatePurchaseOrderCsv(
 
 	// Rewrite CSV file
 	const csvContent = rowsToCsv(rows);
-	ensurePoDir();
-	await writeFile(join(PO_FILES_DIR, csvFilename), csvContent, "utf-8");
+	ensurePoDir(tenantKey);
+	await writeFile(join(getPoDir(tenantKey), csvFilename), csvContent, "utf-8");
 
 	// Update last_update_at / last_update_by
 	return withTenantDb(tenantKey, async (pool) => {
@@ -370,7 +375,7 @@ export async function deletePurchaseOrder(id: number, tenantKey = "default"): Pr
 
 	// Delete CSV file if exists
 	if (row.csv_filename) {
-		const filePath = join(PO_FILES_DIR, row.csv_filename);
+		const filePath = join(getPoDir(tenantKey), row.csv_filename);
 		try {
 			await unlink(filePath);
 		} catch {
