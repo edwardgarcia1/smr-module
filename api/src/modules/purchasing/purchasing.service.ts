@@ -2,21 +2,15 @@ import { withTenantDb } from "../../config/with-tenant-db";
 import { trimStrings } from "../../utils/trimStrings";
 import { BadRequestError } from "../../middlewares/error";
 import {
-	buildConversionCache,
 	normaliseQtyCached,
 	getConversionFactor,
 } from "../../utils/unitConversion";
-import { generatePeriodKeys } from "../../utils/periodHelpers";
 import {
-	ALLOWED_SITE_IDS,
-	executeSalesQuery,
-	fetchStockLevels,
-	validateConversions,
-	resolveCoverageThresholds,
-	buildDemandMap,
+	runSalesPipeline,
 	computeAvgDemand,
 	computeStockCoverCount,
-	computeMonthToWeekFactor,
+	computeCoverageAndOrder,
+	EMPTY_STOCK,
 	round2,
 } from "../../shared/sales-service";
 import type { RequirementsQuery, RequirementItem } from "./purchasing.schema";
@@ -32,45 +26,6 @@ export async function getRequirements(
 
 	return withTenantDb(tenantKey, async (pool) => {
 
-	// ── Step 1: Aggregated sales query (exclude promo/kit items) ──
-	const { groups, siteFilter } = await executeSalesQuery(
-		{
-			classID,
-			siteID,
-			dateRange,
-			frequency,
-			demandSource,
-			itemFilterSQL:
-				"AND NOT EXISTS (SELECT 1 FROM dbo.Component c WHERE c.KitID = i.InvtID)",
-		},
-		pool,
-	);
-
-	if (groups.length === 0) return [];
-
-	// ── Step 2: Collect distinct InvtIDs ──────────────────────────
-	const invtIDs = [...new Set(groups.map((g) => g.InvtID as string))];
-
-	// ── Step 3: Fetch ItemSite stock levels ───────────────────────
-	const siteIDsForStock = siteFilter.length > 0 ? siteFilter : ALLOWED_SITE_IDS;
-	const stockMap = await fetchStockLevels(invtIDs, siteIDsForStock, pool);
-
-	// ── Step 4: Bulk INUnit conversion cache ──────────────────────
-	const convCache = await buildConversionCache(invtIDs, tenantKey);
-
-	// ── Step 5: Resolve min stock (coverage threshold) per item ──
-	const coverageMap = await resolveCoverageThresholds(groups, invtIDs, tenantKey);
-
-	// ── Step 6: Validate all unit conversions ─────────────────────
-	validateConversions(groups, convCache);
-
-	// ── Step 7: Assemble period demand per item ───────────────────
-	const periodKeys = generatePeriodKeys([dateRange], frequency);
-	const demandMap = buildDemandMap(groups, periodKeys, frequency, convCache);
-
-	// ── Step 8: Build response ────────────────────────────────────
-	const nPeriods = periodKeys.length || 1;
-
 	// Weekly mode requires validDays (sum of per-month working days).
 	// Frontend always sends monthlyValidDays (→ validDays) from user inputs.
 	// Without working days, the month-to-week conversion and avgDemand cannot
@@ -82,23 +37,33 @@ export async function getRequirements(
 		);
 	}
 
-	const monthToWeekFactor = computeMonthToWeekFactor(
-		frequency, periodKeys, validDays,
+	// ── Step 1: Run shared pipeline (sales query, stock, coverage, demand) ─
+	const pipeline = await runSalesPipeline(
+		{
+			classID,
+			siteID,
+			dateRange,
+			frequency,
+			demandSource,
+			validDays,
+			itemFilterSQL:
+				"AND NOT EXISTS (SELECT 1 FROM dbo.Component c WHERE c.KitID = i.InvtID)",
+		},
+		pool,
+		tenantKey,
 	);
 
+	if (pipeline.groups.length === 0) return [];
+
+	// ── Step 2: Build response ────────────────────────────────────
 	const results: RequirementItem[] = [];
 
-	for (const [id, entry] of demandMap) {
-		const stock = stockMap.get(id) ?? {
-			qtyOnHand: 0,
-			qtyAvail: 0,
-			qtyOnPO: 0,
-			qtyAlloc: 0,
-		};
+	for (const [id, entry] of pipeline.demandMap) {
+		const stock = pipeline.stockMap.get(id) ?? EMPTY_STOCK;
 
 		const avgDemand = computeAvgDemand(
 			entry.totalNormalised,
-			nPeriods,
+			pipeline.nPeriods,
 			frequency,
 			validDays,
 			demandMode,
@@ -112,28 +77,27 @@ export async function getRequirements(
 			periodDemandObj[k] = round2(v);
 		}
 
-		const coverageThreshold = coverageMap.get(id) ?? 1;
-		const effectiveThreshold = coverageThreshold * monthToWeekFactor;
-		// Stock-aware: how much to bring stock up to (threshold × projected need)
-		const targetStock = effectiveThreshold * avgDemand;
-		const suggestedOrder = Math.max(
-			0,
-			round2(targetStock - stock.qtyAvail - stock.qtyOnPO),
+		const { coverageThreshold, suggestedOrder } = computeCoverageAndOrder(
+			id,
+			pipeline.coverageMap,
+			pipeline.monthToWeekFactor,
+			avgDemand,
+			stock,
 		);
 
 		// Convert to CS (cases) using INUnit cache
 		const TARGET_CS = "CS";
 		// Qty/CS = stock units per 1 CS (e.g. 24 PCS per CS).
 		// INUnit stores CS→PCS = 24, so we ask "CS → StkUnit" to get the factor directly.
-		const qtyPerCS = getConversionFactor(convCache, id, TARGET_CS, entry.stkUnit);
+		const qtyPerCS = getConversionFactor(pipeline.convCache, id, TARGET_CS, entry.stkUnit);
 		const avgDemandCS = round2(
-			normaliseQtyCached(convCache, id, avgDemand, entry.stkUnit, TARGET_CS),
+			normaliseQtyCached(pipeline.convCache, id, avgDemand, entry.stkUnit, TARGET_CS),
 		);
 		const totalDemandCS = round2(
-			normaliseQtyCached(convCache, id, entry.totalNormalised, entry.stkUnit, TARGET_CS),
+			normaliseQtyCached(pipeline.convCache, id, entry.totalNormalised, entry.stkUnit, TARGET_CS),
 		);
 		const suggestedOrderCS = round2(
-			normaliseQtyCached(convCache, id, suggestedOrder, entry.stkUnit, TARGET_CS),
+			normaliseQtyCached(pipeline.convCache, id, suggestedOrder, entry.stkUnit, TARGET_CS),
 		);
 
 		results.push({
@@ -159,7 +123,7 @@ export async function getRequirements(
 		});
 	}
 
-	// ── Step 9: Enrich with price data for the selected priceClass ──
+	// ── Step 3: Enrich with price data for the selected priceClass ──
 	if (results.length > 0) {
 		const priceInvtIDs = results.map((r) => r.invtID);
 		const pricePH = priceInvtIDs.map((_, i) => `@pInvtID${i}`);
@@ -207,7 +171,7 @@ export async function getRequirements(
 			item.price_perCS =
 				round2(
 					normaliseQtyCached(
-						convCache,
+						pipeline.convCache,
 						item.invtID,
 						priceEntry.price,
 						"CS",
@@ -222,7 +186,7 @@ export async function getRequirements(
 				item.price_perStkUnit =
 					round2(
 						normaliseQtyCached(
-							convCache,
+							pipeline.convCache,
 							item.invtID,
 							priceEntry.price,
 							item.stkUnit,

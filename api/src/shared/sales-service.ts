@@ -16,6 +16,14 @@ import { resolveManyMinStock } from "../modules/min-stock/min-stock.service";
 export const ALLOWED_SITE_IDS = ["MAIN", "CAB", "3MPMT", "3MPGT"];
 export const MAX_SALES_ROWS = 100_000;
 
+/** Default zero-stock fallback used throughout the pipeline. */
+export const EMPTY_STOCK: StockLevels = {
+	qtyOnHand: 0,
+	qtyAvail: 0,
+	qtyOnPO: 0,
+	qtyAlloc: 0,
+};
+
 // ─── Re-exports from other modules ───────────────────────────────────
 // These are re-exported so callers have a single import point for
 // the most common sales-service dependencies.
@@ -380,6 +388,7 @@ export function computeMonthToWeekFactor(
 	frequency: "weekly" | "monthly",
 	periodKeys: string[],
 	validDays?: number,
+	nPeriods?: number,
 ): number {
 	if (frequency !== "weekly" || periodKeys.length === 0) return 1.0;
 	const uniqueMonths = new Set(
@@ -390,7 +399,11 @@ export function computeMonthToWeekFactor(
 	);
 	const nMonths = uniqueMonths.size;
 	if (nMonths === 0) return 1.0;
-	return (validDays! / 6) / nMonths;
+	if (validDays != null && validDays > 0) {
+		return (validDays / 6) / nMonths;
+	}
+	// Fallback: system weeks per month (W1–W5) when working days are unknown
+	return (nPeriods ?? 1) / nMonths;
 }
 
 export function computeStockCoverCount(avgDemand: number, qtyAvail: number): number {
@@ -401,4 +414,139 @@ export function computeStockCoverCount(avgDemand: number, qtyAvail: number): num
 
 export function round2(n: number): number {
 	return Math.round(n * 100) / 100;
+}
+
+// ─── Pipeline Types ───────────────────────────────────────────────────
+
+export interface SalesPipelineParams extends SalesQueryParams {
+	validDays?: number;
+}
+
+export interface SalesPipelineResult {
+	groups: SalesGroup[];
+	siteFilter: string[];
+	invtIDs: string[];
+	siteIDsForStock: string[];
+	stockMap: Map<string, StockLevels>;
+	convCache: Map<string, number>;
+	coverageMap: Map<string, number>;
+	periodKeys: string[];
+	demandMap: Map<string, DemandEntry>;
+	nPeriods: number;
+	monthToWeekFactor: number;
+}
+
+// ─── Pipeline Orchestration ──────────────────────────────────────────
+
+/**
+ * Runs the common sales-analysis pipeline shared by purchasing and bundling:
+ *   1. executeSalesQuery        → groups, siteFilter
+ *   2. collect distinct InvtIDs
+ *   3. fetchStockLevels          → stockMap
+ *   4. buildConversionCache      → convCache
+ *   5. resolveCoverageThresholds → coverageMap
+ *   6. validateConversions
+ *   7. generatePeriodKeys + buildDemandMap → periodKeys, demandMap
+ *   8. computeMonthToWeekFactor
+ */
+export async function runSalesPipeline(
+	params: SalesPipelineParams,
+	pool: sql.ConnectionPool,
+	tenantKey: string,
+): Promise<SalesPipelineResult> {
+	const { groups, siteFilter } = await executeSalesQuery(params, pool);
+
+	if (groups.length === 0) {
+		return {
+			groups: [],
+			siteFilter: [],
+			invtIDs: [],
+			siteIDsForStock: [],
+			stockMap: new Map(),
+			convCache: new Map(),
+			coverageMap: new Map(),
+			periodKeys: [],
+			demandMap: new Map(),
+			nPeriods: 1,
+			monthToWeekFactor: 1,
+		};
+	}
+
+	const invtIDs = [...new Set(groups.map((g) => g.InvtID as string))];
+	const siteIDsForStock =
+		siteFilter.length > 0 ? siteFilter : ALLOWED_SITE_IDS;
+	const stockMap = await fetchStockLevels(invtIDs, siteIDsForStock, pool);
+	const convCache = await buildConversionCache(invtIDs, tenantKey);
+	const coverageMap = await resolveCoverageThresholds(groups, invtIDs, tenantKey);
+
+	validateConversions(groups, convCache);
+
+	const periodKeys = generatePeriodKeys([params.dateRange], params.frequency);
+	const demandMap = buildDemandMap(groups, periodKeys, params.frequency, convCache);
+	const nPeriods = periodKeys.length || 1;
+	const monthToWeekFactor = computeMonthToWeekFactor(
+		params.frequency,
+		periodKeys,
+		params.validDays,
+		nPeriods,
+	);
+
+	return {
+		groups,
+		siteFilter,
+		invtIDs,
+		siteIDsForStock,
+		stockMap,
+		convCache,
+		coverageMap,
+		periodKeys,
+		demandMap,
+		nPeriods,
+		monthToWeekFactor,
+	};
+}
+
+// ─── Conversion Cache Extender ───────────────────────────────────────
+
+/**
+ * Extends an existing conversion cache with additional inventory IDs.
+ * Used by bundling to add component IDs after the main pipeline runs.
+ */
+export async function extendConvCache(
+	convCache: Map<string, number>,
+	extraIDs: string[],
+	tenantKey: string,
+): Promise<Map<string, number>> {
+	if (extraIDs.length === 0) return convCache;
+	const extra = await buildConversionCache(extraIDs, tenantKey);
+	for (const [k, v] of extra) convCache.set(k, v);
+	return convCache;
+}
+
+// ─── Coverage / Suggested Order Helper ───────────────────────────────
+
+/**
+ * Computes coverage threshold, effective threshold, target stock,
+ * and suggested order quantity for a single inventory item.
+ */
+export function computeCoverageAndOrder(
+	invtID: string,
+	coverageMap: Map<string, number>,
+	monthToWeekFactor: number,
+	avgDemand: number,
+	stock: StockLevels,
+): {
+	coverageThreshold: number;
+	effectiveThreshold: number;
+	targetStock: number;
+	suggestedOrder: number;
+} {
+	const coverageThreshold = coverageMap.get(invtID) ?? 1;
+	const effectiveThreshold = coverageThreshold * monthToWeekFactor;
+	const targetStock = effectiveThreshold * avgDemand;
+	const suggestedOrder = Math.max(
+		0,
+		round2(targetStock - stock.qtyAvail - stock.qtyOnPO),
+	);
+	return { coverageThreshold, effectiveThreshold, targetStock, suggestedOrder };
 }
