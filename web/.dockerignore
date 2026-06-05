@@ -1,0 +1,37 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies (fresh install in Docker)
+node_modules
+
+# Build output (rebuilt in Docker)
+dist
+dist-ssr
+
+# Environment files (injected at deploy time)
+.env
+.env.*
+!.env.example
+
+# Project docs & AI config
+*.md
+AGENTS.md
+CONTEXT.md
+plans/
+.kilo/
+.kilocode/
+
+# Tooling cache
+.fallow/
+.fallowrc.json
+.eslintcache
+*.tsbuildinfo
+.cache
+
+# Editor & OS artifacts
+.vscode/
+.idea
+.DS_Store
+Thumbs.db
+*.sw?
