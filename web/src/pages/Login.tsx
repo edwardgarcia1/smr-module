@@ -8,7 +8,6 @@ import {
 	Typography,
 	Paper,
 	Alert,
-	Link,
 	IconButton,
 	InputAdornment,
 	FormControl,
@@ -209,15 +208,13 @@ const Login: React.FC = () => {
 						>
 							{loading ? "Signing In…" : "Sign In"}
 						</Button>
-						<Box sx={{ textAlign: "center", mt: 2 }}>
-							<Link
-								href="/register"
-								variant="body2"
-								sx={{ color: "var(--text)" }}
-							>
-								{"Don't have an account? Sign Up"}
-							</Link>
-						</Box>
+						<Typography
+							variant="caption"
+							align="center"
+							sx={{ display: "block", color: "var(--text)", mt: 1 }}
+						>
+							Need an account or help logging in? Contact the IT department.
+						</Typography>
 					</Box>
 				</Paper>
 			</Container>

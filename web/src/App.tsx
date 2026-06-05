@@ -17,7 +17,6 @@ import { LinearProgress, Box } from "@mui/material";
 
 // 1. Lazy Load Pages for better performance (Code Splitting)
 	const Login = lazy(() => import("./pages/Login"));
-	const Register = lazy(() => import("./pages/Register"));
 	const Users = lazy(() => import("./pages/Users"));
 	const InventoryItems = lazy(() => import("./pages/InventoryItems"));
 	const Principals = lazy(() => import("./pages/Principals"));
@@ -111,7 +110,7 @@ const ProtectedRoute: React.FC = () => {
 };
 
 // 4. Reusable Guest Route Component
-// Redirects authenticated users away from Login/Register
+// Redirects authenticated users away from Login
 const GuestRoute: React.FC = () => {
 	const { user, isLoading } = useAuthStore();
 
@@ -155,14 +154,6 @@ const AppRoutes: React.FC = () => {
 					element={
 						<GuestSuspense>
 							<Login />
-						</GuestSuspense>
-					}
-				/>
-				<Route
-					path="/register"
-					element={
-						<GuestSuspense>
-							<Register />
 						</GuestSuspense>
 					}
 				/>
