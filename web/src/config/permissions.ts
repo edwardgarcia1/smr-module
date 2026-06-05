@@ -19,8 +19,6 @@ export const ALL_SUBJECTS = [
 	"InventoryItems",
 	"inventory-items",
 	"Principals",
-	"Suppliers",
-	"suppliers",
 	"Users",
 	"Settings",
 ] as const;
@@ -54,11 +52,10 @@ function buildAliases(): void {
 buildAliases();
 
 // Manual aliases for subjects with different normalized forms that
-// should be treated as equivalent (e.g. "Principals" ↔ "suppliers").
+// should be treated as equivalent.
 (function addManualAliases(): void {
 	const all = ALL_SUBJECTS as readonly string[];
 	const pairs: [string, string][] = [
-		["Principals", "suppliers"],
 		["Requirements", "purchasing-requirements"],
 	];
 	for (const [a, b] of pairs) {

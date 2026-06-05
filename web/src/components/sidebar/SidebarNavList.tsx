@@ -13,7 +13,7 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PeopleIcon from "@mui/icons-material/People";
 import SettingsIcon from "@mui/icons-material/Settings";
-import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
+
 import { Can } from "@casl/react";
 import SidebarNavItem from "./SidebarNavItem";
 
@@ -72,13 +72,7 @@ const NAV_ITEMS: NavItemDef[] = [
 		label: "Principals",
 		path: "/principals",
 		icon: <LocalShippingIcon sx={{ fontSize: 18 }} />,
-		subjects: ["Principals", "suppliers"],
-	},
-	{
-		label: "Suppliers",
-		path: "/principals",
-		icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
-		subjects: ["Suppliers", "suppliers"],
+		subject: "Principals",
 	},
 	{
 		label: "Users",
