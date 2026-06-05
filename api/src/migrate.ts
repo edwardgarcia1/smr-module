@@ -119,9 +119,16 @@ async function seedSuperadmin(
 
 		const createdUserId = result.recordset[0]?.id;
 
-		// Seed manage permissions for all canonical subjects
+		// Seed manage permissions for all canonical subjects.
+		// Deduplicate by normalized form because SQL Server's default
+		// collation is case-insensitive — "Prices" and "prices" would
+		// collide on the UNIQUE constraint.
 		if (createdUserId) {
+			const seen = new Set<string>();
 			for (const subject of ALL_SUBJECTS) {
+				const norm = subject.toLowerCase().replace(/[^a-z0-9]/g, "");
+				if (seen.has(norm)) continue;
+				seen.add(norm);
 				await pool
 					.request()
 					.input("userId", createdUserId)
