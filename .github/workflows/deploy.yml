@@ -62,7 +62,7 @@ jobs:
   # ── Deploy via self-hosted runner on the server ────────────
   deploy:
     needs: build
-    runs-on: [self-hosted, linux, smr]
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read
@@ -78,8 +78,8 @@ jobs:
               image: ${{ env.REGISTRY }}/${{ env.IMAGE_NS }}/smr-module-api:latest
               container_name: smr-api
               restart: unless-stopped
-              ports:
-                - "3000:3000"
+              # No external ports — API is only reachable through nginx
+              # reverse proxy at /api/ on the web container.
               volumes:
                 - smr_data:/app/data
               env_file: .env

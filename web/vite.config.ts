@@ -6,6 +6,8 @@ import babel from "@rolldown/plugin-babel";
 export default defineConfig({
 	plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
 	server: {
-		allowedHosts: ["test.edwardgarcia.site"],
+		allowedHosts: process.env.ALLOWED_HOSTS
+			? process.env.ALLOWED_HOSTS.split(",")
+			: [],
 	},
 });
