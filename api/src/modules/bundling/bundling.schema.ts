@@ -4,6 +4,8 @@
 // The bundling check determines whether demand can be fulfilled
 // by bundling existing component stock rather than purchasing the promo item itself.
 
+import type { DateRange } from "../../shared/date-utils";
+
 export interface BundlingQuery {
 	classID: string;
 	siteID?: string[];

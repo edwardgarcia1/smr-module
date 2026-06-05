@@ -84,7 +84,7 @@ const DEFAULT_LIMIT = 500;
  * whether an existing price was expired (for bulk import counters).
  */
 async function expireAndInsertPrice(
-	pool: import("mssql").Request,
+	pool: import("mssql").ConnectionPool,
 	inventory_id: string,
 	price_class: string,
 	validFrom: string,
@@ -128,7 +128,7 @@ async function expireAndInsertPrice(
 	const result = await pool
 		.request()
 		.input("inventory_id", inventory_id)
-		.input("price", bigToNumber(price))
+		.input("price", bigToNumber(toBig(price)))
 		.input("unit", unit)
 		.input("price_class", price_class)
 		.input("valid_from", validFrom)
@@ -154,7 +154,7 @@ export const createItemPrice = async (item: NewItemPrice, tenantKey = "default")
 
 	return withTenantDb(tenantKey, async (pool) => {
 		const created = await expireAndInsertPrice(
-			pool.request(),
+			pool,
 			item.inventory_id,
 			item.price_class,
 			validFrom,
@@ -803,7 +803,7 @@ export const importItemPrices = async (
 				const normalized = await normalizeToCsUnit(item.inventory_id, item.price, item.unit, tenantKey);
 
 				const hadActive = await expireAndInsertPrice(
-					pool.request(),
+					pool,
 					item.inventory_id,
 					item.price_class,
 					validFrom,

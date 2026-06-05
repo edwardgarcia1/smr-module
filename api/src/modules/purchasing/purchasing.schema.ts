@@ -1,6 +1,8 @@
 // Types for Purchase Requirements module
 // Combines sales, inventory, and unit conversion data
 
+import type { DateRange } from "../../shared/date-utils";
+
 export interface RequirementsQuery {
 	classID: string;
 	siteID?: string[];

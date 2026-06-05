@@ -4,6 +4,7 @@
 // unit conversion validation, min stock resolution, and period demand assembly.
 
 import type sql from "mssql";
+import type { DateRange } from "./date-utils";
 import { trimStrings } from "../utils/trimStrings";
 import { BadRequestError } from "../middlewares/error";
 import { generatePeriodKeys, periodKeyFromParts } from "../utils/periodHelpers";
@@ -151,7 +152,7 @@ export async function fetchStockLevels(
 export async function executeSalesQuery(
 	params: SalesQueryParams,
 	pool: sql.ConnectionPool,
-): Promise<SalesGroup[]> {
+): Promise<{ groups: SalesGroup[]; siteFilter: string[] }> {
 	const {
 		classID,
 		siteID,
@@ -161,7 +162,7 @@ export async function executeSalesQuery(
 		itemFilterSQL,
 	} = params;
 
-	const { clause: siteClause, params: siteParams } =
+	const { clause: siteClause, params: siteParams, filteredIDs: siteFilter } =
 		buildSiteClause(
 			siteID?.filter((s) => ALLOWED_SITE_IDS.includes(s)) ?? [],
 		);
@@ -213,7 +214,10 @@ export async function executeSalesQuery(
 	for (const [k, v] of Object.entries(dateParams)) salesReq.input(k, v);
 
 	const salesResult = await salesReq.query(salesSql);
-	return trimStrings(salesResult.recordset) as SalesGroup[];
+	return {
+		groups: trimStrings(salesResult.recordset) as SalesGroup[],
+		siteFilter,
+	};
 }
 
 // ─── Conversion Validation ───────────────────────────────────────────
