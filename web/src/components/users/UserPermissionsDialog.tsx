@@ -33,6 +33,7 @@ const ALL_SUBJECTS = [
 	"PurchaseOrders",
 	"InventoryItems",
 	"Principals",
+	"Suppliers",
 	"Users",
 	"Settings",
 ] as const;

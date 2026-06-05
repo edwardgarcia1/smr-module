@@ -13,6 +13,7 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PeopleIcon from "@mui/icons-material/People";
 import SettingsIcon from "@mui/icons-material/Settings";
+import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
 import { Can } from "@casl/react";
 import SidebarNavItem from "./SidebarNavItem";
 
@@ -22,6 +23,8 @@ interface NavItemDef {
 	icon: React.ReactNode;
 	/** CASL subject (defaults to label as identifier; use match string) */
 	subject?: string;
+	/** One or more CASL subjects — item visible when ANY grants read. */
+	subjects?: string[];
 	/** Use ability.can() instead of <Can> (for non-subject checks) */
 	useAbilityCheck?: boolean;
 }
@@ -37,13 +40,15 @@ const NAV_ITEMS: NavItemDef[] = [
 		label: "Requirements",
 		path: "/purchasing-requirements",
 		icon: <AssignmentIcon sx={{ fontSize: 18 }} />,
-		subject: "Requirements",
+		// Accepts either "Requirements" (PascalCase legacy) or
+		// "purchasing-requirements" (kebab-case user-facing name).
+		subjects: ["Requirements", "purchasing-requirements"],
 	},
 	{
 		label: "Prices",
 		path: "/prices",
 		icon: <MoneyIcon sx={{ fontSize: 18 }} />,
-		subject: "Prices",
+		subjects: ["Prices", "prices"],
 	},
 	{
 		label: "Min Stock",
@@ -55,19 +60,25 @@ const NAV_ITEMS: NavItemDef[] = [
 		label: "Purchase Orders",
 		path: "/purchase-orders",
 		icon: <ShoppingBasketIcon sx={{ fontSize: 18 }} />,
-		subject: "PurchaseOrders",
+		subjects: ["PurchaseOrders", "purchase-orders"],
 	},
 	{
 		label: "Inventory Items",
 		path: "/inventory-items",
 		icon: <InventoryIcon sx={{ fontSize: 18 }} />,
-		subject: "InventoryItems",
+		subjects: ["InventoryItems", "inventory-items"],
 	},
 	{
 		label: "Principals",
 		path: "/principals",
 		icon: <LocalShippingIcon sx={{ fontSize: 18 }} />,
-		subject: "Principals",
+		subjects: ["Principals", "suppliers"],
+	},
+	{
+		label: "Suppliers",
+		path: "/principals",
+		icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+		subjects: ["Suppliers", "suppliers"],
 	},
 	{
 		label: "Users",
@@ -113,6 +124,16 @@ function renderNavItem(
 	);
 }
 
+/** Check if the ability allows `read` on at least one of the given subjects. */
+function canReadAny(
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	ability: any,
+	subjects: string[] | undefined,
+): boolean {
+	if (!subjects || subjects.length === 0) return true;
+	return subjects.some((s) => ability.can("read", s));
+}
+
 const SidebarNavList: React.FC<SidebarNavListProps> = ({
 	collapsed,
 	isActive,
@@ -131,11 +152,21 @@ const SidebarNavList: React.FC<SidebarNavListProps> = ({
 					getSx,
 				);
 			}
+
+			// When multiple subjects are given, show the item if ANY grants read.
+			const subjects = item.subjects ?? (item.subject ? [item.subject] : []);
+			if (subjects.length > 1) {
+				return canReadAny(ability, subjects)
+					? renderNavItem(item, collapsed, isActive, onNav, getSx)
+					: null;
+			}
+
+			const singleSubject = subjects[0];
 			return (
 				<Can
 					key={item.path}
 					I="read"
-					a={item.subject}
+					a={singleSubject}
 					ability={ability}
 				>
 					{renderNavItem(
