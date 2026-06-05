@@ -5,7 +5,7 @@ import {
 	CREATE_PERMISSIONS_TABLE_SQL,
 	INSERT_PERMISSION_SQL,
 } from "./modules/users/permission.schema";
-import { ALL_SUBJECTS } from "./middlewares/casl";
+import { ALL_SUBJECTS } from "../../shared/permissions";
 import {
 	CREATE_ITEMPRICE_TABLE_SQL,
 	CREATE_PRICECLASS_TABLE_SQL,
